@@ -629,8 +629,10 @@
         async function loadBacktestData(botName = 'DivergeBot') {
             try {
                 // Try bot-specific file first, fall back to default
+                // Check content-type to avoid parsing HTML as JSON (Cloudflare Pages SPA fallback issue)
                 let response = await fetch(`./${botName.toLowerCase()}_backtest.json`);
-                if (!response.ok) {
+                const contentType = response.headers.get('content-type') || '';
+                if (!response.ok || !contentType.includes('application/json')) {
                     response = await fetch('./backtest_results.json');
                 }
                 if (!response.ok) {
