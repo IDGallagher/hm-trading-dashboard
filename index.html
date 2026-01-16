@@ -646,8 +646,6 @@
             // Main price chart
             const chartContainer = document.getElementById('chart-container');
             const chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
@@ -733,8 +731,6 @@
             // Equity curve chart
             const equityContainer = document.getElementById('equity-chart-container');
             const equityChart = LightweightCharts.createChart(equityContainer, {
-                width: equityContainer.clientWidth,
-                height: equityContainer.clientHeight,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
@@ -792,10 +788,21 @@
             equityChart.timeScale().fitContent();
 
             // Handle resize
-            window.addEventListener('resize', () => {
-                chart.applyOptions({ width: chartContainer.clientWidth });
-                equityChart.applyOptions({ width: equityContainer.clientWidth });
-            });
+            const handleResize = () => {
+                const chartWidth = chartContainer.clientWidth;
+                const equityWidth = equityContainer.clientWidth;
+                if (chartWidth > 0) {
+                    chart.applyOptions({ width: chartWidth });
+                }
+                if (equityWidth > 0) {
+                    equityChart.applyOptions({ width: equityWidth });
+                }
+            };
+
+            window.addEventListener('resize', handleResize);
+
+            // Initial resize after a small delay to ensure container is sized
+            setTimeout(handleResize, 100);
         }
 
         // Render trades table
