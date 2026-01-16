@@ -258,12 +258,12 @@
                         <span>BTC/USD Candles</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #7b2cbf;"></div>
-                        <span>Cumulative P&L ($)</span>
+                        <div class="legend-color" style="background: #00c853; border-radius: 50%;"></div>
+                        <span>Long Trades (Green ↑)</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #00d4ff; border-radius: 50%;"></div>
-                        <span>Trade Entry/Exit</span>
+                        <div class="legend-color" style="background: #ff5252; border-radius: 50%;"></div>
+                        <span>Short Trades (Red ↓)</span>
                     </div>
                 </div>
             </div>
@@ -676,9 +676,7 @@
             });
 
             // Add candlestick series
-            console.log('Candles data:', data.candles ? `${data.candles.length} candles` : 'NO CANDLES');
             if (data.candles && data.candles.length > 0) {
-                console.log('First candle:', data.candles[0]);
                 const candleSeries = chart.addCandlestickSeries({
                     upColor: '#26a69a',
                     downColor: '#ef5350',
@@ -686,16 +684,8 @@
                     borderUpColor: '#26a69a',
                     wickDownColor: '#ef5350',
                     wickUpColor: '#26a69a',
-                    priceScaleId: 'right',
                 });
-                console.log('Candlestick series created');
-                console.log('Setting candle data...');
                 candleSeries.setData(data.candles);
-                console.log('Candle data set successfully');
-
-                // Try to get visible range to verify data is there
-                const visibleRange = chart.timeScale().getVisibleRange();
-                console.log('Visible range:', visibleRange);
 
                 // Add trade markers
                 if (data.trades.length > 0) {
@@ -715,44 +705,11 @@
                 }
             }
 
-            // TEMPORARILY DISABLED P&L line to test if it's causing candlestick rendering issues
-            /*
-            const pnlSeries = chart.addLineSeries({
-                color: '#7b2cbf',
-                lineWidth: 2,
-                priceScaleId: 'pnl',
-                priceFormat: {
-                    type: 'custom',
-                    formatter: (price) => '$' + price.toFixed(0),
-                },
-            });
-
-            const pnlData = data.trades.map(t => ({
-                time: Math.floor(t.timestamp_unix),
-                value: t.cumulative_pnl
-            }));
-
-            if (pnlData.length > 0 && data.candles && data.candles.length > 0) {
-                pnlData.unshift({ time: data.candles[0].time, value: 0 });
-            }
-
-            if (pnlData.length > 0) {
-                pnlSeries.setData(pnlData);
-            }
-
-            chart.priceScale('pnl').applyOptions({
-                scaleMargins: { top: 0.6, bottom: 0 },
-            });
-
-            chart.priceScale('right').applyOptions({
-                scaleMargins: { top: 0, bottom: 0.4 },
-            });
-            */
+            // NOTE: Dual price scales were causing candlesticks not to render
+            // For now, showing candlesticks only. P&L data is visible in trade markers and table below
 
             // Fit content to show all data
-            console.log('Calling fitContent...');
             chart.timeScale().fitContent();
-            console.log('fitContent called');
 
             // Equity curve chart
             const equityContainer = document.getElementById('equity-chart-container');
