@@ -1029,7 +1029,7 @@
                 });
                 candleSeries.setData(data.candles);
 
-                // Add trade markers
+                // Add trade markers (no text labels to avoid overlap on clustered trades)
                 if (data.trades && data.trades.length > 0) {
                     const markers = data.trades.map(trade => {
                         const closestCandle = data.candles.reduce((prev, curr) => {
@@ -1040,7 +1040,7 @@
                             position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
                             color: trade.pnl >= 0 ? '#00c853' : '#ff5252',
                             shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
-                            text: (trade.pnl >= 0 ? '+' : '') + '$' + trade.pnl.toFixed(0),
+                            text: '', // Removed P&L labels to prevent overlap - see trade table for details
                         };
                     });
                     candleSeries.setMarkers(markers);
