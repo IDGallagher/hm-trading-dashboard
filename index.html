@@ -666,10 +666,17 @@
                 },
                 rightPriceScale: {
                     borderColor: 'rgba(255,255,255,0.1)',
+                    autoScale: true,
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.2,
+                    },
                 },
                 timeScale: {
                     borderColor: 'rgba(255,255,255,0.1)',
                     timeVisible: true,
+                    fixLeftEdge: false,
+                    fixRightEdge: false,
                 },
             });
 
@@ -688,6 +695,9 @@
                 console.log('Setting candle data...');
                 candleSeries.setData(data.candles);
                 console.log('Candle data set successfully');
+
+                // Ensure chart auto-scales to show all data
+                chart.timeScale().fitContent();
 
                 // Add trade markers
                 if (data.trades.length > 0) {
