@@ -741,14 +741,14 @@
                 pnlSeries.setData(pnlData);
             }
 
-            // Configure P&L price scale (bottom 50% of chart)
+            // Configure P&L price scale (bottom 40% of chart)
             chart.priceScale('pnl').applyOptions({
-                scaleMargins: { top: 0.5, bottom: 0 },
+                scaleMargins: { top: 0.6, bottom: 0 },
             });
 
-            // Configure main price scale (top 50% of chart) for candlesticks
+            // Configure main price scale (top 60% of chart) for candlesticks
             chart.priceScale('right').applyOptions({
-                scaleMargins: { top: 0, bottom: 0.5 },
+                scaleMargins: { top: 0, bottom: 0.4 },
             });
 
             // Fit content to show all data
