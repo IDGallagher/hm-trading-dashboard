@@ -397,12 +397,20 @@
                         <span>BTC/USD Candles</span>
                     </div>
                     <div class="legend-item">
+                        <div class="legend-color" style="background: #2196F3; clip-path: polygon(50% 0%, 0% 100%, 100% 100%);"></div>
+                        <span>Long Entry</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF9800; clip-path: polygon(0% 0%, 100% 0%, 50% 100%);"></div>
+                        <span>Short Entry</span>
+                    </div>
+                    <div class="legend-item">
                         <div class="legend-color" style="background: #00c853; border-radius: 50%;"></div>
-                        <span>Long Trades (Green)</span>
+                        <span>Exit (Profit)</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #ff5252; border-radius: 50%;"></div>
-                        <span>Short Trades (Red)</span>
+                        <span>Exit (Loss)</span>
                     </div>
                 </div>
             </div>
@@ -555,7 +563,7 @@
                 <!-- Recent Trades Table -->
                 <div class="card full-width">
                     <div class="card-header">
-                        <span class="card-title">Recent Trades</span>
+                        <span class="card-title">Trade Activity</span>
                         <span class="badge badge-info" id="trades-badge">0 trades</span>
                     </div>
                     <div class="table-wrapper">
@@ -563,9 +571,8 @@
                             <thead>
                                 <tr>
                                     <th>Time</th>
-                                    <th>Direction</th>
-                                    <th>Entry</th>
-                                    <th>Exit</th>
+                                    <th>Type</th>
+                                    <th>Price</th>
                                     <th>Qty</th>
                                     <th>P&L</th>
                                     <th>Cumulative</th>
@@ -751,23 +758,42 @@
             return value.toFixed(decimals) + '%';
         }
 
-        // Export trades to CSV
+        // Export trades to CSV (with entry/exit breakdown)
         function exportToCSV(data) {
             if (!data || !data.trades || data.trades.length === 0) {
                 alert('No trade data to export');
                 return;
             }
 
-            const headers = ['Timestamp', 'Side', 'Entry Price', 'Exit Price', 'Quantity', 'PnL', 'Cumulative PnL'];
-            const rows = data.trades.map(t => [
-                t.timestamp,
-                t.side,
-                t.price,
-                t.exit_price || '',
-                t.quantity,
-                t.pnl,
-                t.cumulative_pnl
-            ]);
+            const headers = ['Timestamp', 'Type', 'Side', 'Price', 'Quantity', 'PnL', 'Cumulative PnL'];
+            const rows = [];
+
+            data.trades.forEach(t => {
+                // Entry row
+                rows.push([
+                    t.timestamp,
+                    'Entry',
+                    t.side,
+                    t.price,
+                    t.quantity,
+                    '',
+                    ''
+                ]);
+
+                // Exit row (if exists)
+                if (t.exit_time_unix && t.exit_price) {
+                    const exitTimestamp = new Date(t.exit_time_unix * 1000).toISOString().replace('T', ' ').replace('Z', '');
+                    rows.push([
+                        exitTimestamp,
+                        'Exit',
+                        t.side,
+                        t.exit_price,
+                        t.quantity,
+                        t.pnl,
+                        t.cumulative_pnl
+                    ]);
+                }
+            });
 
             const csvContent = [
                 headers.join(','),
@@ -846,7 +872,8 @@
                 document.getElementById('bot-name-title').textContent =
                     `${data.metadata.bot_name} Configuration`;
                 document.getElementById('bot-badge').textContent = data.metadata.exchange.toUpperCase();
-                document.getElementById('trades-badge').textContent = data.trades.length + ' trades';
+                const exitCount = data.trades.filter(t => t.exit_time_unix && t.exit_price).length;
+                document.getElementById('trades-badge').textContent = `${data.trades.length} entries / ${exitCount} exits`;
 
                 // Update timestamp
                 document.getElementById('timestamp').textContent =
@@ -1031,20 +1058,43 @@
                 });
                 candleSeries.setData(data.candles);
 
-                // Add trade markers (no text labels to avoid overlap on clustered trades)
+                // Add trade markers - both entry AND exit markers
                 if (data.trades && data.trades.length > 0) {
-                    const markers = data.trades.map(trade => {
-                        const closestCandle = data.candles.reduce((prev, curr) => {
-                            return Math.abs(curr.time - trade.timestamp_unix) < Math.abs(prev.time - trade.timestamp_unix) ? curr : prev;
+                    const markers = [];
+
+                    // Helper to find closest candle to a timestamp
+                    const findClosestCandle = (timestamp) => {
+                        return data.candles.reduce((prev, curr) => {
+                            return Math.abs(curr.time - timestamp) < Math.abs(prev.time - timestamp) ? curr : prev;
                         });
-                        return {
-                            time: closestCandle.time,
+                    };
+
+                    data.trades.forEach(trade => {
+                        // ENTRY marker - arrow shape
+                        const entryCandle = findClosestCandle(trade.timestamp_unix);
+                        markers.push({
+                            time: entryCandle.time,
                             position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
-                            color: trade.pnl >= 0 ? '#00c853' : '#ff5252',
+                            color: trade.side === 'long' ? '#2196F3' : '#FF9800', // Blue for long entry, orange for short entry
                             shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
-                            text: '', // Removed P&L labels to prevent overlap - see trade table for details
-                        };
+                            text: '', // No text to prevent overlap on clustered trades
+                        });
+
+                        // EXIT marker - circle shape (if exit data exists)
+                        if (trade.exit_time_unix && trade.exit_price) {
+                            const exitCandle = findClosestCandle(trade.exit_time_unix);
+                            markers.push({
+                                time: exitCandle.time,
+                                position: trade.side === 'long' ? 'aboveBar' : 'belowBar', // Opposite of entry
+                                color: trade.pnl >= 0 ? '#00c853' : '#ff5252', // Green for profit, red for loss
+                                shape: 'circle',
+                                text: '', // No text to prevent overlap
+                            });
+                        }
                     });
+
+                    // Sort markers by time (required by Lightweight Charts)
+                    markers.sort((a, b) => a.time - b.time);
                     candleSeries.setMarkers(markers);
                 }
             }
@@ -1141,35 +1191,71 @@
             setTimeout(handleResize, 250);
         }
 
-        // Render trades table
+        // Render trades table with entry and exit rows
         function renderTrades(trades) {
             const tbody = document.getElementById('trades-table').querySelector('tbody');
 
             if (!trades || trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #8892b0;">No trades in selected period</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #8892b0;">No trades in selected period</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = trades.map(trade => {
-                const time = new Date(trade.timestamp_unix * 1000).toLocaleString('en-US', {
+            // Create rows for both entries and exits
+            const rows = [];
+            trades.forEach((trade, index) => {
+                // Entry row
+                const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                 });
-                const profitClass = trade.pnl >= 0 ? 'positive' : 'negative';
-                const profitSign = trade.pnl >= 0 ? '+' : '';
-                const exitPrice = trade.exit_price || '-';
+                const entryType = trade.side === 'long' ? 'Long Entry' : 'Short Entry';
+                const entryColor = trade.side === 'long' ? '#2196F3' : '#FF9800';
 
-                return `
-                    <tr>
-                        <td>${time}</td>
-                        <td style="color: ${trade.side === 'long' ? '#00c853' : '#ff5252'}">${trade.side.toUpperCase()}</td>
-                        <td>$${trade.price.toFixed(1)}</td>
-                        <td>${typeof exitPrice === 'number' ? '$' + exitPrice.toFixed(1) : exitPrice}</td>
-                        <td>${trade.quantity}</td>
-                        <td class="${profitClass}">${profitSign}$${trade.pnl.toFixed(2)}</td>
-                        <td class="${trade.cumulative_pnl >= 0 ? 'positive' : 'negative'}">${trade.cumulative_pnl >= 0 ? '+' : ''}$${trade.cumulative_pnl.toFixed(2)}</td>
-                    </tr>
-                `;
-            }).join('');
+                rows.push({
+                    timestamp: trade.timestamp_unix,
+                    html: `
+                        <tr style="border-left: 3px solid ${entryColor};">
+                            <td>${entryTime}</td>
+                            <td style="color: ${entryColor}; font-weight: 500;">
+                                ${trade.side === 'long' ? '&#x25B2;' : '&#x25BC;'} ${entryType}
+                            </td>
+                            <td>$${trade.price.toFixed(1)}</td>
+                            <td>${trade.quantity}</td>
+                            <td style="color: #8892b0;">-</td>
+                            <td style="color: #8892b0;">-</td>
+                        </tr>
+                    `
+                });
+
+                // Exit row (if exit data exists)
+                if (trade.exit_time_unix && trade.exit_price) {
+                    const exitTime = new Date(trade.exit_time_unix * 1000).toLocaleString('en-US', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                    const exitType = trade.side === 'long' ? 'Close Long' : 'Close Short';
+                    const exitColor = trade.pnl >= 0 ? '#00c853' : '#ff5252';
+                    const profitSign = trade.pnl >= 0 ? '+' : '';
+
+                    rows.push({
+                        timestamp: trade.exit_time_unix,
+                        html: `
+                            <tr style="border-left: 3px solid ${exitColor};">
+                                <td>${exitTime}</td>
+                                <td style="color: ${exitColor}; font-weight: 500;">
+                                    &#x25CF; ${exitType}
+                                </td>
+                                <td>$${trade.exit_price.toFixed(1)}</td>
+                                <td>${trade.quantity}</td>
+                                <td class="${trade.pnl >= 0 ? 'positive' : 'negative'}">${profitSign}$${trade.pnl.toFixed(2)}</td>
+                                <td class="${trade.cumulative_pnl >= 0 ? 'positive' : 'negative'}">${trade.cumulative_pnl >= 0 ? '+' : ''}$${trade.cumulative_pnl.toFixed(2)}</td>
+                            </tr>
+                        `
+                    });
+                }
+            });
+
+            // Sort rows by timestamp
+            rows.sort((a, b) => a.timestamp - b.timestamp);
+            tbody.innerHTML = rows.map(r => r.html).join('');
         }
 
         // Animate cards on load
