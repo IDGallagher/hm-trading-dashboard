@@ -29,7 +29,7 @@
             margin-bottom: 10px;
         }
         .subtitle { color: #8892b0; font-size: 1.1rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .card {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.1);
@@ -206,9 +206,26 @@
         .config-label { color: #8892b0; font-size: 0.75rem; }
         .config-value { color: #fff; font-size: 0.9rem; margin-top: 3px; }
         @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            .subtitle { font-size: 1rem; }
             .grid { grid-template-columns: 1fr; }
             .stat-grid { grid-template-columns: 1fr; }
             .stat-grid-3, .stat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+            #chart-container { height: 350px; }
+            #equity-chart-container { height: 220px; }
+            .card { padding: 18px; }
+            .card-title { font-size: 1.1rem; }
+            .trade-table { font-size: 0.85rem; }
+            .trade-table th, .trade-table td { padding: 8px 5px; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            h1 { font-size: 1.6rem; }
+            header { padding: 20px 0; }
+            #chart-container { height: 300px; }
+            #equity-chart-container { height: 200px; }
+            .stat-grid-3, .stat-grid-4 { grid-template-columns: 1fr; }
+            .config-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -217,6 +234,9 @@
         <header>
             <h1>HM Trading Dashboard</h1>
             <p class="subtitle">C++ Cryptocurrency Trading System - Live Backtest Results</p>
+            <div style="margin-top: 15px;">
+                <span class="badge badge-real" style="font-size: 0.9rem; padding: 6px 16px;">✓ Real C++ Backtest Data</span>
+            </div>
         </header>
 
         <!-- Loading/Error State -->
@@ -626,6 +646,8 @@
             // Main price chart
             const chartContainer = document.getElementById('chart-container');
             const chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
@@ -711,6 +733,8 @@
             // Equity curve chart
             const equityContainer = document.getElementById('equity-chart-container');
             const equityChart = LightweightCharts.createChart(equityContainer, {
+                width: equityContainer.clientWidth,
+                height: equityContainer.clientHeight,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
