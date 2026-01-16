@@ -715,7 +715,8 @@
                 }
             }
 
-            // Add P&L line
+            // TEMPORARILY DISABLED P&L line to test if it's causing candlestick rendering issues
+            /*
             const pnlSeries = chart.addLineSeries({
                 color: '#7b2cbf',
                 lineWidth: 2,
@@ -726,13 +727,11 @@
                 },
             });
 
-            // Map equity curve to P&L data
             const pnlData = data.trades.map(t => ({
                 time: Math.floor(t.timestamp_unix),
                 value: t.cumulative_pnl
             }));
 
-            // Add starting zero point
             if (pnlData.length > 0 && data.candles && data.candles.length > 0) {
                 pnlData.unshift({ time: data.candles[0].time, value: 0 });
             }
@@ -741,15 +740,14 @@
                 pnlSeries.setData(pnlData);
             }
 
-            // Configure P&L price scale (bottom 40% of chart)
             chart.priceScale('pnl').applyOptions({
                 scaleMargins: { top: 0.6, bottom: 0 },
             });
 
-            // Configure main price scale (top 60% of chart) for candlesticks
             chart.priceScale('right').applyOptions({
                 scaleMargins: { top: 0, bottom: 0.4 },
             });
+            */
 
             // Fit content to show all data
             console.log('Calling fitContent...');
