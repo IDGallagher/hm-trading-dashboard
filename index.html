@@ -645,7 +645,14 @@
         function renderCharts(data) {
             // Main price chart
             const chartContainer = document.getElementById('chart-container');
+
+            // Get container dimensions
+            const containerWidth = chartContainer.offsetWidth || chartContainer.clientWidth;
+            const containerHeight = chartContainer.offsetHeight || chartContainer.clientHeight;
+
             const chart = LightweightCharts.createChart(chartContainer, {
+                width: containerWidth > 0 ? containerWidth : 800,
+                height: containerHeight > 0 ? containerHeight : 400,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
@@ -730,7 +737,14 @@
 
             // Equity curve chart
             const equityContainer = document.getElementById('equity-chart-container');
+
+            // Get container dimensions
+            const equityWidth = equityContainer.offsetWidth || equityContainer.clientWidth;
+            const equityHeight = equityContainer.offsetHeight || equityContainer.clientHeight;
+
             const equityChart = LightweightCharts.createChart(equityContainer, {
+                width: equityWidth > 0 ? equityWidth : 800,
+                height: equityHeight > 0 ? equityHeight : 250,
                 layout: {
                     background: { type: 'solid', color: 'transparent' },
                     textColor: '#8892b0',
@@ -789,20 +803,20 @@
 
             // Handle resize
             const handleResize = () => {
-                const chartWidth = chartContainer.clientWidth;
-                const equityWidth = equityContainer.clientWidth;
+                const chartWidth = chartContainer.offsetWidth || chartContainer.clientWidth;
+                const eqWidth = equityContainer.offsetWidth || equityContainer.clientWidth;
                 if (chartWidth > 0) {
                     chart.applyOptions({ width: chartWidth });
                 }
-                if (equityWidth > 0) {
-                    equityChart.applyOptions({ width: equityWidth });
+                if (eqWidth > 0) {
+                    equityChart.applyOptions({ width: eqWidth });
                 }
             };
 
             window.addEventListener('resize', handleResize);
 
             // Initial resize after a small delay to ensure container is sized
-            setTimeout(handleResize, 100);
+            setTimeout(handleResize, 250);
         }
 
         // Render trades table
