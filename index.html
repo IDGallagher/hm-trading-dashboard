@@ -674,7 +674,9 @@
             });
 
             // Add candlestick series
+            console.log('Candles data:', data.candles ? `${data.candles.length} candles` : 'NO CANDLES');
             if (data.candles && data.candles.length > 0) {
+                console.log('First candle:', data.candles[0]);
                 const candleSeries = chart.addCandlestickSeries({
                     upColor: '#26a69a',
                     downColor: '#ef5350',
@@ -683,7 +685,9 @@
                     wickDownColor: '#ef5350',
                     wickUpColor: '#26a69a',
                 });
+                console.log('Setting candle data...');
                 candleSeries.setData(data.candles);
+                console.log('Candle data set successfully');
 
                 // Add trade markers
                 if (data.trades.length > 0) {
