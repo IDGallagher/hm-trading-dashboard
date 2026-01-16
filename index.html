@@ -686,13 +686,16 @@
                     borderUpColor: '#26a69a',
                     wickDownColor: '#ef5350',
                     wickUpColor: '#26a69a',
+                    priceScaleId: 'right',
                 });
+                console.log('Candlestick series created');
                 console.log('Setting candle data...');
                 candleSeries.setData(data.candles);
                 console.log('Candle data set successfully');
 
-                // Ensure chart auto-scales to show all data
-                chart.timeScale().fitContent();
+                // Try to get visible range to verify data is there
+                const visibleRange = chart.timeScale().getVisibleRange();
+                console.log('Visible range:', visibleRange);
 
                 // Add trade markers
                 if (data.trades.length > 0) {
@@ -748,7 +751,10 @@
                 scaleMargins: { top: 0, bottom: 0.5 },
             });
 
+            // Fit content to show all data
+            console.log('Calling fitContent...');
             chart.timeScale().fitContent();
+            console.log('fitContent called');
 
             // Equity curve chart
             const equityContainer = document.getElementById('equity-chart-container');
