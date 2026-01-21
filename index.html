@@ -1311,7 +1311,7 @@
             document.getElementById('live-strategy').textContent = currentStrategy;
         }
 
-        // Start live test
+        // Start live test (uses archive replay for deterministic parity testing)
         async function startLiveTest() {
             const strategy = document.getElementById('strategy-selector').value;
             currentStrategy = strategy;
@@ -1320,7 +1320,8 @@
                 updateLiveTestUI('running');
                 liveTestStartTime = Date.now();
 
-                const response = await fetch(`${CONTROL_API_URL}/market/start`, {
+                // Use /test/start for archive replay (deterministic, enables parity with backtest)
+                const response = await fetch(`${CONTROL_API_URL}/test/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
                     body: JSON.stringify({ strategy: strategy })
@@ -1343,45 +1344,31 @@
             }
         }
 
-        // Stop live test and trigger backtest
+        // Stop live test and trigger backtest (uses same archive time range for parity)
         async function stopAndBacktest() {
             try {
-                // Stop the test first
                 updateLiveTestUI('backtesting');
                 stopPolling();
 
-                const stopResponse = await fetch(`${CONTROL_API_URL}/market/stop`, {
+                // Use /test/stop-and-backtest to ensure backtest uses SAME archive time range as test
+                // This is critical for achieving 100% parity
+                const response = await fetch(`${CONTROL_API_URL}/test/stop-and-backtest`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY }
                 });
 
-                if (!stopResponse.ok) {
-                    throw new Error(`Stop failed: HTTP ${stopResponse.status}`);
+                if (!response.ok) {
+                    throw new Error(`Stop and backtest failed: HTTP ${response.status}`);
                 }
 
-                const stopResult = await stopResponse.json();
-                console.log('Live test stopped:', stopResult);
-
-                // Get the test time range for backtest
-                const startTime = Math.floor(liveTestStartTime / 1000);
-                const endTime = Math.floor(Date.now() / 1000);
-
-                // Run backtest over the same period with the same strategy
-                const backtestResponse = await fetch(`${CONTROL_API_URL}/backtest/run`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
-                    body: JSON.stringify({ start: startTime, end: endTime, strategy: currentStrategy })
-                });
-
-                if (!backtestResponse.ok) {
-                    throw new Error(`Backtest failed: HTTP ${backtestResponse.status}`);
-                }
-
-                const backtestResult = await backtestResponse.json();
-                console.log('Backtest completed:', backtestResult);
+                const result = await response.json();
+                console.log('Stop and backtest completed:', result);
 
                 liveTestRunning = false;
                 liveTestStartTime = null;
+
+                // Wait a moment for backtest to complete
+                await new Promise(resolve => setTimeout(resolve, 3000));
 
                 // Switch to comparison view to show TEST vs BACKTEST
                 document.getElementById('session-selector').value = 'compare';
@@ -1403,7 +1390,7 @@
             if (!liveTestRunning) return;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/market/status`, {
+                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
@@ -1456,7 +1443,7 @@
         // Check initial test status on page load
         async function checkInitialTestStatus() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/market/status`, {
+                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
