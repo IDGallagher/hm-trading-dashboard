@@ -536,6 +536,16 @@
                     <option value="recent">Most Recent</option>
                 </select>
             </div>
+            <div class="control-group">
+                <span class="control-label">Candles:</span>
+                <select id="candle-period-selector" class="control-select">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m">15 Minutes</option>
+                    <option value="1h">1 Hour</option>
+                    <option value="1d">1 Day</option>
+                </select>
+            </div>
             <div class="export-buttons">
                 <button class="btn" id="export-csv-btn">
                     <span class="btn-icon">📊</span> Export CSV
@@ -844,6 +854,8 @@
         let currentBot = 'DivergeBot';
         let currentPeriod = 'all';
         let currentSession = 'backtest';
+        let currentCandlePeriod = '1m';
+        let rawCandles = null; // Store original 1m candles
 
         // Bot configurations for display
         const botConfigs = {
@@ -1067,8 +1079,9 @@
 
                     // Update titles and badges
                     const sessionLabel = session === 'test' ? 'TEST' : 'BACKTEST';
+                    const candlePeriodLabel = currentCandlePeriod === '1m' ? '1m' : currentCandlePeriod;
                     document.getElementById('chart-title').textContent =
-                        `${currentData.metadata.pair} Price & ${currentData.metadata.bot_name} P&L (${sessionLabel})`;
+                        `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${currentData.metadata.bot_name} P&L (${sessionLabel})`;
                     document.getElementById('bot-name-title').textContent =
                         `${currentData.metadata.bot_name} Configuration`;
                     document.getElementById('bot-badge').textContent = sessionLabel;
@@ -1305,8 +1318,9 @@
                 renderTrades(data.trades);
 
                 // Update titles and badges
+                const candlePeriodLabel = currentCandlePeriod === '1m' ? '1m' : currentCandlePeriod;
                 document.getElementById('chart-title').textContent =
-                    `${data.metadata.pair} Price & ${data.metadata.bot_name} P&L`;
+                    `${data.metadata.pair} Price (${candlePeriodLabel}) & ${data.metadata.bot_name} P&L`;
                 document.getElementById('bot-name-title').textContent =
                     `${data.metadata.bot_name} Configuration`;
                 document.getElementById('bot-badge').textContent = data.metadata.exchange.toUpperCase();
@@ -1436,6 +1450,62 @@
             `;
         }
 
+        // Aggregate 1m candles into larger timeframes
+        function aggregateCandles(candles, period) {
+            if (!candles || candles.length === 0) return [];
+            if (period === '1m') return candles;
+
+            // Period in seconds
+            const periodSeconds = {
+                '1m': 60,
+                '5m': 300,
+                '15m': 900,
+                '1h': 3600,
+                '1d': 86400
+            };
+
+            const periodSecs = periodSeconds[period] || 60;
+
+            // Group candles by period
+            const groups = {};
+            candles.forEach(candle => {
+                // Floor timestamp to period boundary
+                const periodStart = Math.floor(candle.time / periodSecs) * periodSecs;
+
+                if (!groups[periodStart]) {
+                    groups[periodStart] = [];
+                }
+                groups[periodStart].push(candle);
+            });
+
+            // Aggregate each group into a single candle
+            const aggregated = Object.keys(groups)
+                .map(key => parseInt(key))
+                .sort((a, b) => a - b)
+                .map(periodStart => {
+                    const group = groups[periodStart];
+                    // Sort by time to ensure correct order
+                    group.sort((a, b) => a.time - b.time);
+
+                    const open = group[0].open;
+                    const close = group[group.length - 1].close;
+                    const high = Math.max(...group.map(c => c.high));
+                    const low = Math.min(...group.map(c => c.low));
+                    const volume = group.reduce((sum, c) => sum + (c.volume || 0), 0);
+
+                    return {
+                        time: periodStart,
+                        open: open,
+                        high: high,
+                        low: low,
+                        close: close,
+                        volume: volume
+                    };
+                });
+
+            return aggregated;
+        }
+
         // Render TradingView charts
         function renderCharts(data) {
             // Clear existing charts
@@ -1484,7 +1554,12 @@
                 },
             });
 
-            // Add candlestick series
+            // Store raw candles for aggregation
+            if (data.candles && data.candles.length > 0) {
+                rawCandles = data.candles;
+            }
+
+            // Add candlestick series with aggregated candles
             if (data.candles && data.candles.length > 0) {
                 const candleSeries = mainChart.addCandlestickSeries({
                     upColor: '#26a69a',
@@ -1494,7 +1569,10 @@
                     wickDownColor: '#ef5350',
                     wickUpColor: '#26a69a',
                 });
-                candleSeries.setData(data.candles);
+
+                // Apply aggregation based on current period
+                const displayCandles = aggregateCandles(data.candles, currentCandlePeriod);
+                candleSeries.setData(displayCandles);
 
                 // Add trade markers - both entry AND exit markers
                 if (data.trades && data.trades.length > 0) {
@@ -1731,6 +1809,19 @@
                 currentPeriod = e.target.value;
                 if (currentSession !== 'compare') {
                     initDashboard(currentBot, currentPeriod);
+                }
+            });
+
+            // Candle period selector
+            document.getElementById('candle-period-selector').addEventListener('change', (e) => {
+                currentCandlePeriod = e.target.value;
+                if (currentSession !== 'compare' && currentData) {
+                    renderCharts(currentData);
+                    // Update chart title with new period
+                    const candlePeriodLabel = currentCandlePeriod;
+                    const sessionLabel = currentSession === 'test' ? ' (TEST)' : '';
+                    document.getElementById('chart-title').textContent =
+                        `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${currentData.metadata.bot_name} P&L${sessionLabel}`;
                 }
             });
 
