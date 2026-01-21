@@ -1099,7 +1099,8 @@
         let rawCandles = null; // Store original 1m candles
 
         // Live Test Control State
-        const CONTROL_API_URL = 'http://localhost:3001';
+        const CONTROL_API_URL = 'http://85.10.203.62:3001';
+        const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
         let liveTestRunning = false;
         let liveTestPollingInterval = null;
         let liveTestStartTime = null;
@@ -1186,7 +1187,7 @@
 
                 const response = await fetch(`${CONTROL_API_URL}/test/start`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
                     body: JSON.stringify({ strategy: strategy })
                 });
 
@@ -1216,7 +1217,7 @@
 
                 const stopResponse = await fetch(`${CONTROL_API_URL}/test/stop`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY }
                 });
 
                 if (!stopResponse.ok) {
@@ -1233,7 +1234,7 @@
                 // Run backtest over the same period
                 const backtestResponse = await fetch(`${CONTROL_API_URL}/backtest/run`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
                     body: JSON.stringify({ start: startTime, end: endTime })
                 });
 
@@ -1265,7 +1266,9 @@
             if (!liveTestRunning) return;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`);
+                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -1316,7 +1319,9 @@
         // Check initial test status on page load
         async function checkInitialTestStatus() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`);
+                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
 
                 if (response.ok) {
                     const status = await response.json();
