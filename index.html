@@ -879,6 +879,209 @@
             }
         }
 
+        // Load session-specific data
+        async function loadSessionData(sessionType) {
+            try {
+                const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
+                let response = await fetch(`./${filename}`);
+                const contentType = response.headers.get('content-type') || '';
+
+                // Fall back to backtest_results.json if session file not found
+                if (!response.ok || !contentType.includes('application/json')) {
+                    response = await fetch('./backtest_results.json');
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Session data load failed');
+                }
+
+                return data;
+            } catch (error) {
+                console.error(`Failed to load ${sessionType} session data:`, error);
+                throw error;
+            }
+        }
+
+        // Load both sessions for comparison
+        async function loadBothSessions() {
+            const [testData, backtestData] = await Promise.all([
+                loadSessionData('test'),
+                loadSessionData('backtest')
+            ]);
+            return { testData, backtestData };
+        }
+
+        // Compare two metric values with tolerance
+        function metricsMatch(val1, val2, tolerance = 0.01) {
+            if (typeof val1 === 'number' && typeof val2 === 'number') {
+                if (val1 === 0 && val2 === 0) return true;
+                const diff = Math.abs(val1 - val2);
+                const maxVal = Math.max(Math.abs(val1), Math.abs(val2), 1);
+                return (diff / maxVal) <= tolerance;
+            }
+            return val1 === val2;
+        }
+
+        // Render comparison view
+        function renderComparisonView(testData, backtestData) {
+            const testMetrics = testData.metrics;
+            const backtestMetrics = backtestData.metrics;
+
+            const metricsToCompare = [
+                { key: 'total_trades', label: 'Total Trades', format: v => v },
+                { key: 'winning_trades', label: 'Winning Trades', format: v => v },
+                { key: 'losing_trades', label: 'Losing Trades', format: v => v },
+                { key: 'total_pnl', label: 'Total P&L', format: v => formatPnL(v) },
+                { key: 'win_rate', label: 'Win Rate', format: v => formatPercent(v) },
+                { key: 'final_balance', label: 'Final Balance', format: v => v.toFixed(4) + ' BTC' }
+            ];
+
+            let matchCount = 0;
+            let totalCount = metricsToCompare.length;
+
+            // Render test metrics
+            const testMetricsHtml = metricsToCompare.map(m => {
+                const testVal = testMetrics[m.key];
+                const backtestVal = backtestMetrics[m.key];
+                const isMatch = metricsMatch(testVal, backtestVal);
+                if (isMatch) matchCount++;
+
+                return `
+                    <div class="comparison-metric">
+                        <span class="label">${m.label}</span>
+                        <span class="value ${isMatch ? 'match' : 'mismatch'}">${m.format(testVal)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Render backtest metrics
+            const backtestMetricsHtml = metricsToCompare.map(m => {
+                const testVal = testMetrics[m.key];
+                const backtestVal = backtestMetrics[m.key];
+                const isMatch = metricsMatch(testVal, backtestVal);
+
+                return `
+                    <div class="comparison-metric">
+                        <span class="label">${m.label}</span>
+                        <span class="value ${isMatch ? 'match' : 'mismatch'}">
+                            ${m.format(backtestVal)}
+                            <span class="match-indicator ${isMatch ? 'match' : 'mismatch'}">
+                                ${isMatch ? '✓ Match' : '✗ Differs'}
+                            </span>
+                        </span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('test-metrics').innerHTML = testMetricsHtml;
+            document.getElementById('backtest-metrics').innerHTML = backtestMetricsHtml;
+
+            // Update summary
+            const parityPercent = Math.round((matchCount / totalCount) * 100);
+            document.getElementById('matching-count').textContent = matchCount;
+            document.getElementById('matching-count').className = 'number ' + (matchCount > 0 ? 'positive' : 'negative');
+            document.getElementById('different-count').textContent = totalCount - matchCount;
+            document.getElementById('different-count').className = 'number ' + (totalCount - matchCount > 0 ? 'negative' : 'positive');
+            document.getElementById('parity-percent').textContent = parityPercent + '%';
+            document.getElementById('parity-percent').className = 'number ' + (parityPercent >= 80 ? 'positive' : 'negative');
+
+            // Update parity badge
+            const parityStatus = document.getElementById('parity-status');
+            if (parityPercent === 100) {
+                parityStatus.textContent = '✓ PARITY ACHIEVED';
+                parityStatus.className = 'parity-badge match';
+            } else if (parityPercent >= 80) {
+                parityStatus.textContent = '~ PARTIAL MATCH';
+                parityStatus.className = 'parity-badge match';
+            } else {
+                parityStatus.textContent = '✗ MISMATCH';
+                parityStatus.className = 'parity-badge mismatch';
+            }
+        }
+
+        // Handle session change
+        async function handleSessionChange(session) {
+            currentSession = session;
+            const loadingEl = document.getElementById('loading-state');
+            const contentEl = document.getElementById('dashboard-content');
+            const comparisonEl = document.getElementById('comparison-container');
+
+            try {
+                loadingEl.style.display = 'block';
+                loadingEl.innerHTML = '<div class="loading">Loading session data...</div>';
+                contentEl.style.display = 'none';
+                comparisonEl.classList.remove('active');
+
+                if (session === 'compare') {
+                    // Load both and show comparison view
+                    const { testData, backtestData } = await loadBothSessions();
+                    testSessionData = testData;
+                    backtestSessionData = backtestData;
+
+                    loadingEl.style.display = 'none';
+                    comparisonEl.classList.add('active');
+                    contentEl.style.display = 'none';
+
+                    renderComparisonView(testData, backtestData);
+
+                    document.getElementById('timestamp').textContent =
+                        `Last updated: ${new Date().toLocaleString()} | Comparing TEST vs BACKTEST sessions`;
+                } else {
+                    // Load single session and show normal dashboard
+                    const data = await loadSessionData(session);
+                    currentData = filterDataByPeriod(data, currentPeriod);
+
+                    loadingEl.style.display = 'none';
+                    contentEl.style.display = 'block';
+                    comparisonEl.classList.remove('active');
+
+                    // Update status indicators
+                    document.getElementById('json-status').textContent = 'Loaded successfully';
+                    document.getElementById('metrics-status').textContent = '14 metrics calculated';
+                    document.getElementById('equity-status').textContent = currentData.equity_curve.length + ' data points';
+
+                    // Render all components
+                    renderMetrics(currentData.metrics);
+                    renderConfig(currentData.metadata);
+                    renderCharts(currentData);
+                    renderTrades(currentData.trades);
+
+                    // Update titles and badges
+                    const sessionLabel = session === 'test' ? 'TEST' : 'BACKTEST';
+                    document.getElementById('chart-title').textContent =
+                        `${currentData.metadata.pair} Price & ${currentData.metadata.bot_name} P&L (${sessionLabel})`;
+                    document.getElementById('bot-name-title').textContent =
+                        `${currentData.metadata.bot_name} Configuration`;
+                    document.getElementById('bot-badge').textContent = sessionLabel;
+                    const exitCount = currentData.trades.filter(t => t.exit_time_unix && t.exit_price).length;
+                    document.getElementById('trades-badge').textContent = `${currentData.trades.length} entries / ${exitCount} exits`;
+
+                    document.getElementById('timestamp').textContent =
+                        `Last updated: ${new Date().toLocaleString()} | ${sessionLabel} Session - ${currentData.metadata.bot_name}`;
+
+                    animateCards();
+                }
+            } catch (error) {
+                loadingEl.innerHTML = `
+                    <div class="error-message">
+                        <h3>Failed to load session data</h3>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 0.9rem;">
+                            Make sure test_session.json and backtest_session.json exist.
+                        </p>
+                    </div>
+                `;
+                loadingEl.style.display = 'block';
+                contentEl.style.display = 'none';
+                comparisonEl.classList.remove('active');
+            }
+        }
+
         // Filter data by date range
         function filterDataByPeriod(data, period) {
             if (period === 'all' || !data.trades || data.trades.length === 0) {
@@ -1494,16 +1697,27 @@
 
         // Setup event listeners
         function setupEventListeners() {
+            // Session selector dropdown
+            document.getElementById('session-selector').addEventListener('change', (e) => {
+                handleSessionChange(e.target.value);
+            });
+
             // Bot selector dropdown
             document.getElementById('bot-selector').addEventListener('change', (e) => {
                 currentBot = e.target.value;
-                initDashboard(currentBot, currentPeriod);
+                if (currentSession === 'compare') {
+                    handleSessionChange('compare');
+                } else {
+                    initDashboard(currentBot, currentPeriod);
+                }
             });
 
             // Date range selector
             document.getElementById('date-selector').addEventListener('change', (e) => {
                 currentPeriod = e.target.value;
-                initDashboard(currentBot, currentPeriod);
+                if (currentSession !== 'compare') {
+                    initDashboard(currentBot, currentPeriod);
+                }
             });
 
             // Bot cards click
