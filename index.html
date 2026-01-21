@@ -1732,23 +1732,49 @@
         // Load session-specific data
         async function loadSessionData(sessionType) {
             try {
-                const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
-                console.log(`[loadSessionData] Loading ${filename}...`);
-                let response = await fetch(`./${filename}`);
-                const contentType = response.headers.get('content-type') || '';
-                console.log(`[loadSessionData] ${filename} - ok: ${response.ok}, content-type: ${contentType}`);
+                // First try to load from Control API (for fresh test/backtest data)
+                const apiEndpoint = sessionType === 'test' ? '/session/test' : '/session/backtest';
+                console.log(`[loadSessionData] Trying Control API: ${CONTROL_API_URL}${apiEndpoint}`);
 
-                // Fall back to backtest_results.json if session file not found
-                if (!response.ok || !contentType.includes('application/json')) {
-                    console.log(`[loadSessionData] Falling back to backtest_results.json`);
-                    response = await fetch('./backtest_results.json');
+                let data = null;
+                try {
+                    const apiResponse = await fetch(`${CONTROL_API_URL}${apiEndpoint}`, {
+                        headers: { 'x-api-key': CONTROL_API_KEY }
+                    });
+                    if (apiResponse.ok) {
+                        data = await apiResponse.json();
+                        if (data.success && data.trades && data.trades.length > 0) {
+                            console.log(`[loadSessionData] Loaded ${data.trades.length} trades from Control API`);
+                        } else {
+                            console.log(`[loadSessionData] Control API returned no trades, falling back to static files`);
+                            data = null;
+                        }
+                    }
+                } catch (apiErr) {
+                    console.log(`[loadSessionData] Control API not available: ${apiErr.message}`);
                 }
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Fall back to static files if API didn't return data
+                if (!data || !data.success || !data.trades || data.trades.length === 0) {
+                    const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
+                    console.log(`[loadSessionData] Loading static file: ${filename}...`);
+                    let response = await fetch(`./${filename}`);
+                    const contentType = response.headers.get('content-type') || '';
+                    console.log(`[loadSessionData] ${filename} - ok: ${response.ok}, content-type: ${contentType}`);
+
+                    // Fall back to backtest_results.json if session file not found
+                    if (!response.ok || !contentType.includes('application/json')) {
+                        console.log(`[loadSessionData] Falling back to backtest_results.json`);
+                        response = await fetch('./backtest_results.json');
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    data = await response.json();
                 }
 
-                const data = await response.json();
                 if (!data.success) {
                     throw new Error(data.error || 'Session data load failed');
                 }
