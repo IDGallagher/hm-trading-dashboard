@@ -1366,11 +1366,11 @@
                 const startTime = Math.floor(liveTestStartTime / 1000);
                 const endTime = Math.floor(Date.now() / 1000);
 
-                // Run backtest over the same period
+                // Run backtest over the same period with the same strategy
                 const backtestResponse = await fetch(`${CONTROL_API_URL}/backtest/run`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
-                    body: JSON.stringify({ start: startTime, end: endTime })
+                    body: JSON.stringify({ start: startTime, end: endTime, strategy: currentStrategy })
                 });
 
                 if (!backtestResponse.ok) {
@@ -1737,25 +1737,24 @@
                 console.log(`[loadSessionData] Trying Control API: ${CONTROL_API_URL}${apiEndpoint}`);
 
                 let data = null;
+                let apiSuccess = false;
                 try {
                     const apiResponse = await fetch(`${CONTROL_API_URL}${apiEndpoint}`, {
                         headers: { 'x-api-key': CONTROL_API_KEY }
                     });
                     if (apiResponse.ok) {
                         data = await apiResponse.json();
-                        if (data.success && data.trades && data.trades.length > 0) {
-                            console.log(`[loadSessionData] Loaded ${data.trades.length} trades from Control API`);
-                        } else {
-                            console.log(`[loadSessionData] Control API returned no trades, falling back to static files`);
-                            data = null;
+                        if (data.success) {
+                            apiSuccess = true;
+                            console.log(`[loadSessionData] Loaded ${data.trades?.length || 0} trades from Control API`);
                         }
                     }
                 } catch (apiErr) {
                     console.log(`[loadSessionData] Control API not available: ${apiErr.message}`);
                 }
 
-                // Fall back to static files if API didn't return data
-                if (!data || !data.success || !data.trades || data.trades.length === 0) {
+                // Fall back to static files only if API call failed
+                if (!apiSuccess) {
                     const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
                     console.log(`[loadSessionData] Loading static file: ${filename}...`);
                     let response = await fetch(`./${filename}`);
