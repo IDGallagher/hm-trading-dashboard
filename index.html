@@ -689,6 +689,125 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* Live Trade Feed Styles */
+        .live-trade-feed {
+            display: none;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(123,44,191,0.4);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow: hidden;
+        }
+        .live-trade-feed.active {
+            display: block;
+        }
+        .live-trade-feed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .live-trade-feed-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #c77dff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: #8892b0;
+        }
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff5252;
+        }
+        .ws-dot.connected {
+            background: #00c853;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .live-trade-list {
+            max-height: 220px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        .live-trade-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .live-trade-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .live-trade-list::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+        .live-trade-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .live-trade-item.long {
+            border-left: 3px solid #2196F3;
+        }
+        .live-trade-item.short {
+            border-left: 3px solid #FF9800;
+        }
+        .live-trade-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .live-trade-side {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .live-trade-side.long { color: #2196F3; }
+        .live-trade-side.short { color: #FF9800; }
+        .live-trade-price {
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .live-trade-time {
+            color: #8892b0;
+            font-size: 0.8rem;
+        }
+        .no-trades-message {
+            text-align: center;
+            color: #8892b0;
+            padding: 30px;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -794,6 +913,22 @@
                         <div class="live-stat-label">Strategy</div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Live Trade Feed (WebSocket-powered) -->
+        <div id="live-trade-feed" class="live-trade-feed">
+            <div class="live-trade-feed-header">
+                <span class="live-trade-feed-title">
+                    <span>📡</span> Live Trade Feed
+                </span>
+                <div class="ws-status">
+                    <div id="ws-dot" class="ws-dot"></div>
+                    <span id="ws-status-text">Disconnected</span>
+                </div>
+            </div>
+            <div id="live-trade-list" class="live-trade-list">
+                <div class="no-trades-message">Waiting for trades...</div>
             </div>
         </div>
 
@@ -1344,6 +1479,208 @@
 
         // ==========================================
         // END LIVE TEST CONTROL FUNCTIONS
+        // ==========================================
+
+        // ==========================================
+        // WEBSOCKET - Real-time trade streaming
+        // ==========================================
+
+        let tradeWebSocket = null;
+        let wsReconnectAttempts = 0;
+        const WS_MAX_RECONNECT = 5;
+        const WS_RECONNECT_DELAY = 3000;
+        let liveTrades = [];
+
+        // Connect to WebSocket for live trade streaming
+        function connectTradeWebSocket() {
+            // Use secure websocket if page is HTTPS, otherwise regular
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // The Control API host (same as CONTROL_API_URL but with ws protocol)
+            const wsHost = CONTROL_API_URL.replace(/^https?:/, wsProtocol);
+            const wsUrl = `${wsHost}/trades/stream`;
+
+            console.log('[WS] Connecting to:', wsUrl);
+
+            try {
+                tradeWebSocket = new WebSocket(wsUrl);
+
+                tradeWebSocket.onopen = () => {
+                    console.log('[WS] Connected');
+                    wsReconnectAttempts = 0;
+                    updateWsStatus(true);
+                };
+
+                tradeWebSocket.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleWsMessage(message);
+                    } catch (err) {
+                        console.error('[WS] Failed to parse message:', err);
+                    }
+                };
+
+                tradeWebSocket.onclose = (event) => {
+                    console.log('[WS] Disconnected:', event.code, event.reason);
+                    updateWsStatus(false);
+
+                    // Attempt reconnect if not a clean close
+                    if (wsReconnectAttempts < WS_MAX_RECONNECT) {
+                        wsReconnectAttempts++;
+                        console.log(`[WS] Reconnecting in ${WS_RECONNECT_DELAY}ms (attempt ${wsReconnectAttempts})`);
+                        setTimeout(connectTradeWebSocket, WS_RECONNECT_DELAY);
+                    }
+                };
+
+                tradeWebSocket.onerror = (error) => {
+                    console.error('[WS] Error:', error);
+                    updateWsStatus(false);
+                };
+
+            } catch (err) {
+                console.error('[WS] Failed to create WebSocket:', err);
+                updateWsStatus(false);
+            }
+        }
+
+        // Handle incoming WebSocket messages
+        function handleWsMessage(message) {
+            console.log('[WS] Received:', message.type);
+
+            switch (message.type) {
+                case 'status':
+                    // Server status update
+                    if (message.marketRunning) {
+                        showLiveTradeFeed(true);
+                    }
+                    break;
+
+                case 'trades':
+                    // Full trade list (sent on connect)
+                    liveTrades = message.trades || [];
+                    renderLiveTrades();
+                    break;
+
+                case 'new_trades':
+                    // New trades to add
+                    const newTrades = message.trades || [];
+                    if (newTrades.length > 0) {
+                        liveTrades = [...liveTrades, ...newTrades];
+                        renderLiveTrades(newTrades);
+                        // Update live trades count
+                        document.getElementById('live-trades').textContent = liveTrades.length;
+                    }
+                    break;
+
+                case 'market_started':
+                    showLiveTradeFeed(true);
+                    liveTrades = [];
+                    renderLiveTrades();
+                    break;
+
+                case 'market_stopped':
+                    // Keep feed visible but stop updates
+                    break;
+            }
+        }
+
+        // Update WebSocket connection status indicator
+        function updateWsStatus(connected) {
+            const dot = document.getElementById('ws-dot');
+            const text = document.getElementById('ws-status-text');
+
+            if (dot && text) {
+                if (connected) {
+                    dot.classList.add('connected');
+                    text.textContent = 'Connected';
+                } else {
+                    dot.classList.remove('connected');
+                    text.textContent = 'Disconnected';
+                }
+            }
+        }
+
+        // Show/hide the live trade feed
+        function showLiveTradeFeed(show) {
+            const feed = document.getElementById('live-trade-feed');
+            if (feed) {
+                if (show) {
+                    feed.classList.add('active');
+                } else {
+                    feed.classList.remove('active');
+                }
+            }
+        }
+
+        // Render live trades in the feed
+        function renderLiveTrades(newOnly = null) {
+            const container = document.getElementById('live-trade-list');
+            if (!container) return;
+
+            // If no trades, show waiting message
+            if (liveTrades.length === 0) {
+                container.innerHTML = '<div class="no-trades-message">Waiting for trades...</div>';
+                return;
+            }
+
+            // If rendering new trades only, prepend them
+            if (newOnly && newOnly.length > 0) {
+                const fragment = document.createDocumentFragment();
+                newOnly.forEach(trade => {
+                    const item = createTradeItem(trade);
+                    fragment.appendChild(item);
+                });
+                // Remove "waiting" message if present
+                const waiting = container.querySelector('.no-trades-message');
+                if (waiting) waiting.remove();
+                // Prepend new trades (most recent at top)
+                container.insertBefore(fragment, container.firstChild);
+            } else {
+                // Full render - show most recent first
+                container.innerHTML = '';
+                const tradesReversed = [...liveTrades].reverse();
+                tradesReversed.slice(0, 50).forEach(trade => {
+                    const item = createTradeItem(trade);
+                    container.appendChild(item);
+                });
+            }
+        }
+
+        // Create a trade item element
+        function createTradeItem(trade) {
+            const item = document.createElement('div');
+            const side = trade.side || 'long';
+            item.className = `live-trade-item ${side}`;
+
+            const time = new Date(trade.timestamp_unix * 1000).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            const sideLabel = side === 'long' ? '▲ LONG' : '▼ SHORT';
+            const sideClass = side === 'long' ? 'long' : 'short';
+
+            item.innerHTML = `
+                <div class="live-trade-info">
+                    <span class="live-trade-side ${sideClass}">${sideLabel}</span>
+                    <span class="live-trade-price">$${trade.price?.toFixed(1) || '0.0'}</span>
+                </div>
+                <span class="live-trade-time">${time}</span>
+            `;
+
+            return item;
+        }
+
+        // Initialize WebSocket on page load
+        function initWebSocket() {
+            // Small delay to let the page initialize
+            setTimeout(() => {
+                connectTradeWebSocket();
+            }, 1000);
+        }
+
+        // ==========================================
+        // END WEBSOCKET
         // ==========================================
 
         // Load backtest data from JSON file
@@ -2447,6 +2784,7 @@
         setupEventListeners();
         initDashboard();
         checkInitialTestStatus(); // Check if a live test is already running
+        initWebSocket(); // Connect to WebSocket for real-time trade streaming
     </script>
 </body>
 </html>
