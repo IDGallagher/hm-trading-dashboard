@@ -1320,7 +1320,7 @@
                 updateLiveTestUI('running');
                 liveTestStartTime = Date.now();
 
-                const response = await fetch(`${CONTROL_API_URL}/test/start`, {
+                const response = await fetch(`${CONTROL_API_URL}/market/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
                     body: JSON.stringify({ strategy: strategy })
@@ -1350,7 +1350,7 @@
                 updateLiveTestUI('backtesting');
                 stopPolling();
 
-                const stopResponse = await fetch(`${CONTROL_API_URL}/test/stop`, {
+                const stopResponse = await fetch(`${CONTROL_API_URL}/market/stop`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY }
                 });
@@ -1401,7 +1401,7 @@
             if (!liveTestRunning) return;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
+                const response = await fetch(`${CONTROL_API_URL}/market/status`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
@@ -1454,7 +1454,7 @@
         // Check initial test status on page load
         async function checkInitialTestStatus() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
+                const response = await fetch(`${CONTROL_API_URL}/market/status`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
