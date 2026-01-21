@@ -872,6 +872,13 @@
                     throw new Error(data.error || 'Backtest failed');
                 }
 
+                // Add defaults for missing metrics fields
+                const metrics = data.metrics;
+                metrics.initial_balance = metrics.initial_balance ?? 1.0;
+                metrics.final_balance = metrics.final_balance ?? (metrics.initial_balance + (metrics.total_pnl / 100));
+                metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
+                metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown;
+
                 return data;
             } catch (error) {
                 console.error('Failed to load backtest data:', error);
@@ -899,6 +906,13 @@
                 if (!data.success) {
                     throw new Error(data.error || 'Session data load failed');
                 }
+
+                // Add defaults for missing metrics fields
+                const metrics = data.metrics;
+                metrics.initial_balance = metrics.initial_balance ?? 1.0;
+                metrics.final_balance = metrics.final_balance ?? (metrics.initial_balance + (metrics.total_pnl / 100));
+                metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
+                metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown;
 
                 return data;
             } catch (error) {
