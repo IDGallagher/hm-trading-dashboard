@@ -1471,11 +1471,18 @@
                         document.getElementById('strategy-selector').value = currentStrategy;
                         updateLiveTestUI('running');
                         startPolling();
+                    } else {
+                        // No test running - enable the start button
+                        updateLiveTestUI('ready');
                     }
+                } else {
+                    // API error - still enable buttons for manual attempt
+                    updateLiveTestUI('ready');
                 }
             } catch (error) {
-                // API not available, that's fine
+                // API not available - still enable buttons (user will see error when they click)
                 console.log('Control API not available:', error.message);
+                updateLiveTestUI('ready');
             }
         }
 
