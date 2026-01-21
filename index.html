@@ -1382,11 +1382,13 @@
 
                 liveTestRunning = false;
                 liveTestStartTime = null;
-                updateLiveTestUI('ready');
 
                 // Switch to comparison view to show TEST vs BACKTEST
                 document.getElementById('session-selector').value = 'compare';
-                handleSessionChange('compare');
+                await handleSessionChange('compare');
+
+                // Update UI to show comparison is ready
+                updateLiveTestUI('ready');
 
             } catch (error) {
                 console.error('Failed to stop test or run backtest:', error);
