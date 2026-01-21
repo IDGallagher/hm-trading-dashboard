@@ -336,6 +336,166 @@
             background: rgba(255,255,255,0.2);
             border-radius: 3px;
         }
+
+        /* Session Comparison Styles */
+        .comparison-container {
+            display: none;
+        }
+        .comparison-container.active {
+            display: block;
+        }
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0,212,255,0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(0,212,255,0.3);
+        }
+        .comparison-title {
+            font-size: 1.2rem;
+            color: #00d4ff;
+        }
+        .parity-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .parity-badge.match {
+            background: rgba(0,200,83,0.2);
+            color: #00c853;
+            border: 1px solid rgba(0,200,83,0.3);
+        }
+        .parity-badge.mismatch {
+            background: rgba(255,82,82,0.2);
+            color: #ff5252;
+            border: 1px solid rgba(255,82,82,0.3);
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .session-column {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .session-column.test {
+            border-color: rgba(0,212,255,0.3);
+        }
+        .session-column.backtest {
+            border-color: rgba(123,44,191,0.3);
+        }
+        .session-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .session-label .badge {
+            font-size: 0.9rem;
+            padding: 6px 14px;
+        }
+        .session-label .session-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .comparison-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .comparison-metric:last-child {
+            margin-bottom: 0;
+        }
+        .comparison-metric .label {
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+        .comparison-metric .value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .comparison-metric .value.match {
+            color: #00c853;
+        }
+        .comparison-metric .value.mismatch {
+            color: #ff5252;
+        }
+        .match-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+        }
+        .match-indicator.match {
+            background: rgba(0,200,83,0.2);
+            color: #00c853;
+        }
+        .match-indicator.mismatch {
+            background: rgba(255,82,82,0.2);
+            color: #ff5252;
+        }
+        .comparison-summary {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+        }
+        .summary-title {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+        .summary-item .number {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .summary-item .number.positive {
+            color: #00c853;
+        }
+        .summary-item .number.negative {
+            color: #ff5252;
+        }
+        .summary-item .label {
+            color: #8892b0;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -350,6 +510,14 @@
 
         <!-- Controls Bar -->
         <div class="controls-bar">
+            <div class="control-group">
+                <span class="control-label">Session:</span>
+                <select id="session-selector" class="control-select">
+                    <option value="backtest">Backtest Session</option>
+                    <option value="test">Test Session</option>
+                    <option value="compare">Compare Both</option>
+                </select>
+            </div>
             <div class="control-group">
                 <span class="control-label">Bot:</span>
                 <select id="bot-selector" class="control-select">
@@ -381,6 +549,56 @@
         <!-- Loading/Error State -->
         <div id="loading-state" class="card full-width" style="margin-bottom: 20px;">
             <div class="loading">Loading backtest data...</div>
+        </div>
+
+        <!-- Session Comparison View -->
+        <div id="comparison-container" class="comparison-container">
+            <div class="comparison-header">
+                <span class="comparison-title">📊 Session Comparison: TEST vs BACKTEST</span>
+                <span id="parity-status" class="parity-badge match">✓ PARITY ACHIEVED</span>
+            </div>
+
+            <div class="comparison-grid">
+                <!-- Test Session Column -->
+                <div class="session-column test">
+                    <div class="session-label">
+                        <span class="badge badge-info">TEST</span>
+                        <span class="session-name">Test Session</span>
+                    </div>
+                    <div id="test-metrics">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Backtest Session Column -->
+                <div class="session-column backtest">
+                    <div class="session-label">
+                        <span class="badge badge-real">BACKTEST</span>
+                        <span class="session-name">Backtest Session</span>
+                    </div>
+                    <div id="backtest-metrics">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="comparison-summary">
+                <div class="summary-title">Comparison Summary</div>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div id="matching-count" class="number positive">0</div>
+                        <div class="label">Matching Metrics</div>
+                    </div>
+                    <div class="summary-item">
+                        <div id="different-count" class="number negative">0</div>
+                        <div class="label">Different Metrics</div>
+                    </div>
+                    <div class="summary-item">
+                        <div id="parity-percent" class="number positive">0%</div>
+                        <div class="label">Parity Rate</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="dashboard-content" style="display: none;">
@@ -619,10 +837,13 @@
     <script>
         // Global state
         let currentData = null;
+        let testSessionData = null;
+        let backtestSessionData = null;
         let mainChart = null;
         let equityChart = null;
         let currentBot = 'DivergeBot';
         let currentPeriod = 'all';
+        let currentSession = 'backtest';
 
         // Bot configurations for display
         const botConfigs = {
