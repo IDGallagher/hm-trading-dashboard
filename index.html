@@ -1806,15 +1806,16 @@
                 const metadata = data.metadata;
                 metadata.divergence_threshold = metadata.divergence_threshold ?? 0.003;
                 metadata.ema_period = metadata.ema_period ?? 100;
-                metadata.trade_size = metadata.trade_size ?? 1;
+                metadata.trade_size = metadata.trade_size ?? 0.01;
                 metadata.leverage = metadata.leverage ?? 1;
                 metadata.second_pair = metadata.second_pair ?? 'ETH/USD';
                 metadata.initial_balance = metadata.initial_balance ?? 1;
                 // Use trade timestamps for session period if not provided
+                // Support both start_timestamp_unix and start_time field names
                 const firstTrade = data.trades?.[0];
                 const lastTrade = data.trades?.[data.trades.length - 1];
-                metadata.start_timestamp_unix = metadata.start_timestamp_unix ?? firstTrade?.timestamp_unix ?? Math.floor(Date.now() / 1000);
-                metadata.end_timestamp_unix = metadata.end_timestamp_unix ?? lastTrade?.timestamp_unix ?? Math.floor(Date.now() / 1000);
+                metadata.start_timestamp_unix = metadata.start_timestamp_unix ?? metadata.start_time ?? firstTrade?.timestamp_unix ?? Math.floor(Date.now() / 1000);
+                metadata.end_timestamp_unix = metadata.end_timestamp_unix ?? metadata.end_time ?? lastTrade?.exit_time_unix ?? lastTrade?.timestamp_unix ?? Math.floor(Date.now() / 1000);
 
                 // Ensure equity_curve exists
                 data.equity_curve = data.equity_curve || [];
