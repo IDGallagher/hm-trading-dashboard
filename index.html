@@ -1785,7 +1785,13 @@
                 metrics.initial_balance = metrics.initial_balance ?? 1.0;
                 metrics.final_balance = metrics.final_balance ?? (metrics.initial_balance + (metrics.total_pnl / 100));
                 metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
-                metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown;
+                metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown ?? 0;
+                // Additional defaults for metrics used in rendering
+                metrics.sharpe_ratio = metrics.sharpe_ratio ?? 0;
+                metrics.profit_factor = metrics.profit_factor ?? (metrics.winning_trades > 0 ? 1 : 0);
+                metrics.avg_win = metrics.avg_win ?? (metrics.winning_trades > 0 ? metrics.total_pnl / metrics.winning_trades : 0);
+                metrics.avg_loss = metrics.avg_loss ?? 0;
+                metrics.max_drawdown = metrics.max_drawdown ?? 0;
 
                 // If session data lacks candles or has non-1m candles, generate 1m candles from trades
                 if (data.candles && data.candles.length >= 2) {
