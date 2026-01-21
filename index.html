@@ -1695,15 +1695,17 @@
         // Load backtest data from JSON file
         async function loadBacktestData(botName = 'DivergeBot') {
             try {
-                // Try bot-specific file first, fall back to default
+                // Try bot-specific file first, fall back to session file
                 // Check content-type to avoid parsing HTML as JSON (Cloudflare Pages SPA fallback issue)
                 let response = await fetch(`./${botName.toLowerCase()}_backtest.json`);
-                const contentType = response.headers.get('content-type') || '';
+                let contentType = response.headers.get('content-type') || '';
                 if (!response.ok || !contentType.includes('application/json')) {
-                    response = await fetch('./backtest_results.json');
+                    // Fall back to backtest_session.json (current data with live prices)
+                    response = await fetch('./backtest_session.json');
+                    contentType = response.headers.get('content-type') || '';
                 }
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!response.ok || !contentType.includes('application/json')) {
+                    throw new Error(`No backtest data available`);
                 }
                 const data = await response.json();
 
