@@ -1906,12 +1906,14 @@
 
         // Handle session change
         async function handleSessionChange(session) {
+            console.log(`[handleSessionChange] Called with session: ${session}`);
             currentSession = session;
             const loadingEl = document.getElementById('loading-state');
             const contentEl = document.getElementById('dashboard-content');
             const comparisonEl = document.getElementById('comparison-container');
 
             try {
+                console.log(`[handleSessionChange] Starting to load session: ${session}`);
                 loadingEl.style.display = 'block';
                 loadingEl.innerHTML = '<div class="loading">Loading session data...</div>';
                 contentEl.style.display = 'none';
@@ -2751,6 +2753,7 @@
 
             // Session selector dropdown
             document.getElementById('session-selector').addEventListener('change', (e) => {
+                console.log(`[session-selector] Change event fired, value: ${e.target.value}`);
                 handleSessionChange(e.target.value);
             });
 
