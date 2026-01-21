@@ -1,123 +1,366 @@
 {
   "success": true,
-  "session_type": "backtest",
   "metadata": {
-    "bot_name": "DivergeBot",
+    "bot_name": "TestBot",
     "exchange": "bitmex",
     "pair": "BTC/USD",
-    "second_pair": "ETH/USD",
-    "start_time": "2017-11-02T13:00:00Z",
-    "end_time": "2017-11-04T11:00:00Z",
-    "start_timestamp_unix": 1509627600,
-    "end_timestamp_unix": 1509800400,
-    "trade_size": 1.0,
-    "leverage": 1.0,
-    "initial_balance": 1.0,
-    "ema_period": 100,
-    "divergence_threshold": 0.003,
-    "candle_interval": 3600,
-    "total_ticks_processed": 500000
+    "session_type": "backtest",
+    "start_time": 1768994340,
+    "end_time": 1768997940
   },
   "metrics": {
-    "total_pnl": 370.40,
-    "total_return_percent": 370.40,
-    "win_rate": 81.25,
-    "sharpe_ratio": 2.45,
-    "max_drawdown": 6.90,
-    "max_drawdown_percent": 1.86,
-    "total_trades": 16,
-    "winning_trades": 13,
-    "losing_trades": 3,
-    "avg_win": 28.44,
-    "avg_loss": -4.53,
-    "profit_factor": 6.28,
-    "initial_balance": 1.0,
-    "final_balance": 1.37,
-    "avg_trade_duration": 15.5,
-    "longest_win_streak": 10,
-    "longest_lose_streak": 1
+    "total_pnl": -4.346,
+    "win_rate": 52.38,
+    "sharpe_ratio": -6.2074,
+    "max_drawdown": 4.864,
+    "profit_factor": 0.3181,
+    "total_trades": 21,
+    "winning_trades": 11,
+    "losing_trades": 10,
+    "avg_win": 0.18427273,
+    "avg_loss": -0.6373,
+    "largest_win": 0.505,
+    "largest_loss": -1.552,
+    "avg_trade_duration": 87.95
   },
   "trades": [
-    {"timestamp": "2017-11-02T13:17:45Z", "timestamp_unix": 1509628665, "side": "long", "price": 7083.9, "quantity": 1.0, "pnl": 26.20, "cumulative_pnl": 26.20, "exit_price": 7110.1, "exit_time_unix": 1509628666},
-    {"timestamp": "2017-11-02T13:17:48Z", "timestamp_unix": 1509628668, "side": "long", "price": 7082.1, "quantity": 1.0, "pnl": 17.90, "cumulative_pnl": 44.10, "exit_price": 7100.0, "exit_time_unix": 1509628673},
-    {"timestamp": "2017-11-02T13:18:09Z", "timestamp_unix": 1509628689, "side": "long", "price": 7101.0, "quantity": 1.0, "pnl": 39.10, "cumulative_pnl": 83.20, "exit_price": 7140.1, "exit_time_unix": 1509628689},
-    {"timestamp": "2017-11-02T13:18:11Z", "timestamp_unix": 1509628691, "side": "long", "price": 7104.2, "quantity": 1.0, "pnl": 35.90, "cumulative_pnl": 119.10, "exit_price": 7140.1, "exit_time_unix": 1509628691},
-    {"timestamp": "2017-11-02T13:18:11Z", "timestamp_unix": 1509628691, "side": "long", "price": 7104.2, "quantity": 1.0, "pnl": 36.50, "cumulative_pnl": 155.60, "exit_price": 7140.7, "exit_time_unix": 1509628691},
-    {"timestamp": "2017-11-02T13:18:11Z", "timestamp_unix": 1509628691, "side": "long", "price": 7110.0, "quantity": 1.0, "pnl": 30.00, "cumulative_pnl": 185.60, "exit_price": 7140.0, "exit_time_unix": 1509628693},
-    {"timestamp": "2017-11-02T13:18:13Z", "timestamp_unix": 1509628693, "side": "long", "price": 7100.3, "quantity": 1.0, "pnl": 40.40, "cumulative_pnl": 226.00, "exit_price": 7140.7, "exit_time_unix": 1509628693},
-    {"timestamp": "2017-11-02T13:18:13Z", "timestamp_unix": 1509628693, "side": "long", "price": 7100.4, "quantity": 1.0, "pnl": 29.60, "cumulative_pnl": 255.60, "exit_price": 7130.0, "exit_time_unix": 1509628693},
-    {"timestamp": "2017-11-02T13:18:14Z", "timestamp_unix": 1509628694, "side": "long", "price": 7100.5, "quantity": 1.0, "pnl": 39.50, "cumulative_pnl": 295.10, "exit_price": 7140.0, "exit_time_unix": 1509628694},
-    {"timestamp": "2017-11-02T13:18:15Z", "timestamp_unix": 1509628695, "side": "long", "price": 7100.4, "quantity": 1.0, "pnl": 39.60, "cumulative_pnl": 334.70, "exit_price": 7140.0, "exit_time_unix": 1509628695},
-    {"timestamp": "2017-11-02T23:00:01Z", "timestamp_unix": 1509663601, "side": "long", "price": 7002.4, "quantity": 1.0, "pnl": -6.30, "cumulative_pnl": 328.40, "exit_price": 6996.1, "exit_time_unix": 1509663649},
-    {"timestamp": "2017-11-03T04:32:38Z", "timestamp_unix": 1509683558, "side": "short", "price": 7234.5, "quantity": 1.0, "pnl": 22.80, "cumulative_pnl": 351.20, "exit_price": 7211.7, "exit_time_unix": 1509683559},
-    {"timestamp": "2017-11-03T08:00:02Z", "timestamp_unix": 1509696002, "side": "short", "price": 7330.7, "quantity": 1.0, "pnl": -6.90, "cumulative_pnl": 344.30, "exit_price": 7337.6, "exit_time_unix": 1509696020},
-    {"timestamp": "2017-11-03T09:19:29Z", "timestamp_unix": 1509700769, "side": "long", "price": 7370.8, "quantity": 1.0, "pnl": 11.00, "cumulative_pnl": 355.30, "exit_price": 7381.8, "exit_time_unix": 1509700785},
-    {"timestamp": "2017-11-03T12:51:04Z", "timestamp_unix": 1509713464, "side": "long", "price": 7327.4, "quantity": 1.0, "pnl": -0.40, "cumulative_pnl": 354.90, "exit_price": 7327.0, "exit_time_unix": 1509713541},
-    {"timestamp": "2017-11-04T12:03:54Z", "timestamp_unix": 1509797034, "side": "long", "price": 7160.6, "quantity": 1.0, "pnl": 15.50, "cumulative_pnl": 370.40, "exit_price": 7176.1, "exit_time_unix": 1509797070}
+    {
+      "timestamp_unix": 1768994385,
+      "side": "long",
+      "price": 89320.0,
+      "quantity": 0.01,
+      "pnl": 0.199,
+      "exit_time_unix": 1768994489,
+      "exit_price": 89339.9,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.199
+    },
+    {
+      "timestamp_unix": 1768994616,
+      "side": "long",
+      "price": 89307.1,
+      "quantity": 0.01,
+      "pnl": -0.031,
+      "exit_time_unix": 1768994858,
+      "exit_price": 89304.0,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.168
+    },
+    {
+      "timestamp_unix": 1768994996,
+      "side": "long",
+      "price": 89287.3,
+      "quantity": 0.01,
+      "pnl": 0.071,
+      "exit_time_unix": 1768995066,
+      "exit_price": 89294.4,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.239
+    },
+    {
+      "timestamp_unix": 1768995149,
+      "side": "long",
+      "price": 89265.2,
+      "quantity": 0.01,
+      "pnl": 0.017,
+      "exit_time_unix": 1768995247,
+      "exit_price": 89266.9,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.256
+    },
+    {
+      "timestamp_unix": 1768995350,
+      "side": "long",
+      "price": 89239.6,
+      "quantity": 0.01,
+      "pnl": 0.016,
+      "exit_time_unix": 1768995434,
+      "exit_price": 89241.2,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.272
+    },
+    {
+      "timestamp_unix": 1768995643,
+      "side": "long",
+      "price": 89213.0,
+      "quantity": 0.01,
+      "pnl": 0.246,
+      "exit_time_unix": 1768995842,
+      "exit_price": 89237.6,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.518
+    },
+    {
+      "timestamp_unix": 1768995928,
+      "side": "long",
+      "price": 89240.4,
+      "quantity": 0.01,
+      "pnl": -0.448,
+      "exit_time_unix": 1768996020,
+      "exit_price": 89195.6,
+      "reason": "interval_trade",
+      "cumulative_pnl": 0.07
+    },
+    {
+      "timestamp_unix": 1768996081,
+      "side": "long",
+      "price": 89161.6,
+      "quantity": 0.01,
+      "pnl": -0.243,
+      "exit_time_unix": 1768996147,
+      "exit_price": 89137.3,
+      "reason": "interval_trade",
+      "cumulative_pnl": -0.173
+    },
+    {
+      "timestamp_unix": 1768996216,
+      "side": "long",
+      "price": 89078.7,
+      "quantity": 0.01,
+      "pnl": -0.244,
+      "exit_time_unix": 1768996295,
+      "exit_price": 89054.3,
+      "reason": "interval_trade",
+      "cumulative_pnl": -0.417
+    },
+    {
+      "timestamp_unix": 1768996363,
+      "side": "long",
+      "price": 89059.4,
+      "quantity": 0.01,
+      "pnl": -1.119,
+      "exit_time_unix": 1768996445,
+      "exit_price": 88947.5,
+      "reason": "interval_trade",
+      "cumulative_pnl": -1.536
+    },
+    {
+      "timestamp_unix": 1768996506,
+      "side": "long",
+      "price": 88912.9,
+      "quantity": 0.01,
+      "pnl": 0.055,
+      "exit_time_unix": 1768996584,
+      "exit_price": 88918.4,
+      "reason": "interval_trade",
+      "cumulative_pnl": -1.481
+    },
+    {
+      "timestamp_unix": 1768996658,
+      "side": "long",
+      "price": 88843.2,
+      "quantity": 0.01,
+      "pnl": -1.552,
+      "exit_time_unix": 1768996725,
+      "exit_price": 88688.0,
+      "reason": "interval_trade",
+      "cumulative_pnl": -3.033
+    },
+    {
+      "timestamp_unix": 1768996785,
+      "side": "long",
+      "price": 88759.5,
+      "quantity": 0.01,
+      "pnl": 0.304,
+      "exit_time_unix": 1768996845,
+      "exit_price": 88789.9,
+      "reason": "interval_trade",
+      "cumulative_pnl": -2.729
+    },
+    {
+      "timestamp_unix": 1768996905,
+      "side": "long",
+      "price": 88786.1,
+      "quantity": 0.01,
+      "pnl": 0.239,
+      "exit_time_unix": 1768996978,
+      "exit_price": 88810.0,
+      "reason": "interval_trade",
+      "cumulative_pnl": -2.49
+    },
+    {
+      "timestamp_unix": 1768997048,
+      "side": "long",
+      "price": 88742.7,
+      "quantity": 0.01,
+      "pnl": 0.204,
+      "exit_time_unix": 1768997109,
+      "exit_price": 88763.1,
+      "reason": "interval_trade",
+      "cumulative_pnl": -2.286
+    },
+    {
+      "timestamp_unix": 1768997173,
+      "side": "long",
+      "price": 88650.0,
+      "quantity": 0.01,
+      "pnl": 0.505,
+      "exit_time_unix": 1768997243,
+      "exit_price": 88700.5,
+      "reason": "interval_trade",
+      "cumulative_pnl": -1.781
+    },
+    {
+      "timestamp_unix": 1768997322,
+      "side": "long",
+      "price": 88765.8,
+      "quantity": 0.01,
+      "pnl": -1.048,
+      "exit_time_unix": 1768997388,
+      "exit_price": 88661.0,
+      "reason": "interval_trade",
+      "cumulative_pnl": -2.829
+    },
+    {
+      "timestamp_unix": 1768997457,
+      "side": "long",
+      "price": 88471.1,
+      "quantity": 0.01,
+      "pnl": -0.592,
+      "exit_time_unix": 1768997517,
+      "exit_price": 88411.9,
+      "reason": "interval_trade",
+      "cumulative_pnl": -3.421
+    },
+    {
+      "timestamp_unix": 1768997581,
+      "side": "long",
+      "price": 88350.0,
+      "quantity": 0.01,
+      "pnl": -0.837,
+      "exit_time_unix": 1768997641,
+      "exit_price": 88266.3,
+      "reason": "interval_trade",
+      "cumulative_pnl": -4.258
+    },
+    {
+      "timestamp_unix": 1768997701,
+      "side": "long",
+      "price": 88350.2,
+      "quantity": 0.01,
+      "pnl": 0.171,
+      "exit_time_unix": 1768997764,
+      "exit_price": 88367.3,
+      "reason": "interval_trade",
+      "cumulative_pnl": -4.087
+    },
+    {
+      "timestamp_unix": 1768997830,
+      "side": "long",
+      "price": 88323.8,
+      "quantity": 0.01,
+      "pnl": -0.259,
+      "exit_time_unix": 1768997903,
+      "exit_price": 88297.9,
+      "reason": "interval_trade",
+      "cumulative_pnl": -4.346
+    }
   ],
   "equity_curve": [
-    {"timestamp": "2017-11-02T13:17:45Z", "timestamp_unix": 1509628665, "equity": 1.0, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:17:46Z", "timestamp_unix": 1509628666, "equity": 1.00374, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:17:53Z", "timestamp_unix": 1509628673, "equity": 1.00630, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:18:09Z", "timestamp_unix": 1509628689, "equity": 1.01189, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:18:11Z", "timestamp_unix": 1509628691, "equity": 1.02225, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:18:13Z", "timestamp_unix": 1509628693, "equity": 1.03651, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:18:14Z", "timestamp_unix": 1509628694, "equity": 1.04215, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T13:18:15Z", "timestamp_unix": 1509628695, "equity": 1.04781, "drawdown": 0.0},
-    {"timestamp": "2017-11-02T23:00:49Z", "timestamp_unix": 1509663649, "equity": 1.04691, "drawdown": 0.0009},
-    {"timestamp": "2017-11-03T04:32:39Z", "timestamp_unix": 1509683559, "equity": 1.05017, "drawdown": 0.0},
-    {"timestamp": "2017-11-03T08:00:20Z", "timestamp_unix": 1509696020, "equity": 1.04918, "drawdown": 0.00099},
-    {"timestamp": "2017-11-03T09:19:45Z", "timestamp_unix": 1509700785, "equity": 1.05076, "drawdown": 0.0},
-    {"timestamp": "2017-11-03T12:52:21Z", "timestamp_unix": 1509713541, "equity": 1.05070, "drawdown": 0.00006},
-    {"timestamp": "2017-11-04T12:04:30Z", "timestamp_unix": 1509797070, "equity": 1.05292, "drawdown": 0.0}
-  ],
-  "candles": [
-    {"time": 1509627600, "open": 6975.0, "high": 7189.0, "low": 6953.1, "close": 7144.8},
-    {"time": 1509631200, "open": 7144.7, "high": 7171.5, "low": 7000.0, "close": 7057.9},
-    {"time": 1509634800, "open": 7057.9, "high": 7132.6, "low": 7030.0, "close": 7096.9},
-    {"time": 1509638400, "open": 7096.9, "high": 7099.0, "low": 6930.0, "close": 6955.5},
-    {"time": 1509642000, "open": 6955.6, "high": 7025.3, "low": 6878.5, "close": 6985.7},
-    {"time": 1509645600, "open": 6985.2, "high": 6990.1, "low": 6836.1, "close": 6883.6},
-    {"time": 1509649200, "open": 6883.7, "high": 7010.0, "low": 6871.1, "close": 6985.4},
-    {"time": 1509652800, "open": 6985.3, "high": 7135.1, "low": 6935.9, "close": 7062.5},
-    {"time": 1509656400, "open": 7062.5, "high": 7100.0, "low": 7042.5, "close": 7087.6},
-    {"time": 1509660000, "open": 7087.7, "high": 7100.0, "low": 7053.3, "close": 7085.1},
-    {"time": 1509663600, "open": 7002.4, "high": 7089.5, "low": 6990.5, "close": 7025.8},
-    {"time": 1509667200, "open": 7025.8, "high": 7059.7, "low": 6951.2, "close": 6951.9},
-    {"time": 1509670800, "open": 6952.0, "high": 7000.0, "low": 6920.0, "close": 6995.7},
-    {"time": 1509674400, "open": 6995.6, "high": 7047.9, "low": 6994.0, "close": 7038.0},
-    {"time": 1509678000, "open": 7038.0, "high": 7280.6, "low": 7038.0, "close": 7211.0},
-    {"time": 1509681600, "open": 7211.0, "high": 7300.0, "low": 7173.0, "close": 7213.2},
-    {"time": 1509685200, "open": 7213.1, "high": 7266.4, "low": 7135.3, "close": 7239.9},
-    {"time": 1509688800, "open": 7239.9, "high": 7285.3, "low": 7201.0, "close": 7209.6},
-    {"time": 1509692400, "open": 7207.6, "high": 7350.0, "low": 7205.0, "close": 7303.2},
-    {"time": 1509696000, "open": 7330.7, "high": 7450.4, "low": 7281.0, "close": 7431.6},
-    {"time": 1509699600, "open": 7370.8, "high": 7429.1, "low": 7370.0, "close": 7393.3},
-    {"time": 1509710400, "open": 7327.4, "high": 7329.0, "low": 7294.1, "close": 7310.7},
-    {"time": 1509714000, "open": 7310.8, "high": 7325.1, "low": 7178.8, "close": 7216.8},
-    {"time": 1509717600, "open": 7216.8, "high": 7313.0, "low": 7166.0, "close": 7273.7},
-    {"time": 1509721200, "open": 7273.8, "high": 7360.6, "low": 7260.1, "close": 7331.4},
-    {"time": 1509724800, "open": 7331.3, "high": 7337.8, "low": 7260.2, "close": 7281.4},
-    {"time": 1509728400, "open": 7281.5, "high": 7287.3, "low": 7238.9, "close": 7272.0},
-    {"time": 1509732000, "open": 7272.0, "high": 7341.7, "low": 7271.9, "close": 7334.2},
-    {"time": 1509735600, "open": 7334.2, "high": 7343.0, "low": 7242.9, "close": 7292.1},
-    {"time": 1509739200, "open": 7292.2, "high": 7304.9, "low": 7217.5, "close": 7217.6},
-    {"time": 1509742800, "open": 7217.6, "high": 7227.0, "low": 7100.0, "close": 7147.8},
-    {"time": 1509746400, "open": 7147.7, "high": 7241.0, "low": 7140.0, "close": 7160.0},
-    {"time": 1509750000, "open": 7160.1, "high": 7209.2, "low": 7139.9, "close": 7146.5},
-    {"time": 1509753600, "open": 7146.6, "high": 7154.5, "low": 7021.1, "close": 7077.0},
-    {"time": 1509757200, "open": 7077.0, "high": 7122.5, "low": 6983.6, "close": 7119.5},
-    {"time": 1509760800, "open": 7120.0, "high": 7198.0, "low": 7118.0, "close": 7135.0},
-    {"time": 1509764400, "open": 7135.1, "high": 7229.9, "low": 7125.1, "close": 7191.1},
-    {"time": 1509768000, "open": 7191.1, "high": 7289.9, "low": 7182.1, "close": 7257.4},
-    {"time": 1509771600, "open": 7257.5, "high": 7257.5, "low": 7166.6, "close": 7174.6},
-    {"time": 1509775200, "open": 7173.3, "high": 7190.5, "low": 7127.0, "close": 7137.0},
-    {"time": 1509778800, "open": 7137.0, "high": 7272.0, "low": 7131.8, "close": 7235.7},
-    {"time": 1509782400, "open": 7235.6, "high": 7250.0, "low": 7159.0, "close": 7172.3},
-    {"time": 1509786000, "open": 7172.4, "high": 7213.3, "low": 7150.0, "close": 7159.8},
-    {"time": 1509789600, "open": 7159.8, "high": 7185.0, "low": 7102.4, "close": 7148.0},
-    {"time": 1509793200, "open": 7148.0, "high": 7190.0, "low": 7114.6, "close": 7141.2},
-    {"time": 1509796800, "open": 7141.2, "high": 7215.0, "low": 7132.8, "close": 7205.8},
-    {"time": 1509800400, "open": 7205.8, "high": 7267.0, "low": 7185.0, "close": 7262.5}
+    {
+      "timestamp_unix": 1768994489,
+      "equity": 0.199,
+      "drawdown": 0.0
+    },
+    {
+      "timestamp_unix": 1768994858,
+      "equity": 0.168,
+      "drawdown": 0.031
+    },
+    {
+      "timestamp_unix": 1768995066,
+      "equity": 0.239,
+      "drawdown": 0.0
+    },
+    {
+      "timestamp_unix": 1768995247,
+      "equity": 0.256,
+      "drawdown": 0.0
+    },
+    {
+      "timestamp_unix": 1768995434,
+      "equity": 0.272,
+      "drawdown": 0.0
+    },
+    {
+      "timestamp_unix": 1768995842,
+      "equity": 0.518,
+      "drawdown": 0.0
+    },
+    {
+      "timestamp_unix": 1768996020,
+      "equity": 0.07,
+      "drawdown": 0.448
+    },
+    {
+      "timestamp_unix": 1768996147,
+      "equity": -0.173,
+      "drawdown": 0.691
+    },
+    {
+      "timestamp_unix": 1768996295,
+      "equity": -0.417,
+      "drawdown": 0.935
+    },
+    {
+      "timestamp_unix": 1768996445,
+      "equity": -1.536,
+      "drawdown": 2.054
+    },
+    {
+      "timestamp_unix": 1768996584,
+      "equity": -1.481,
+      "drawdown": 1.999
+    },
+    {
+      "timestamp_unix": 1768996725,
+      "equity": -3.033,
+      "drawdown": 3.551
+    },
+    {
+      "timestamp_unix": 1768996845,
+      "equity": -2.729,
+      "drawdown": 3.247
+    },
+    {
+      "timestamp_unix": 1768996978,
+      "equity": -2.49,
+      "drawdown": 3.008
+    },
+    {
+      "timestamp_unix": 1768997109,
+      "equity": -2.286,
+      "drawdown": 2.804
+    },
+    {
+      "timestamp_unix": 1768997243,
+      "equity": -1.781,
+      "drawdown": 2.299
+    },
+    {
+      "timestamp_unix": 1768997388,
+      "equity": -2.829,
+      "drawdown": 3.347
+    },
+    {
+      "timestamp_unix": 1768997517,
+      "equity": -3.421,
+      "drawdown": 3.939
+    },
+    {
+      "timestamp_unix": 1768997641,
+      "equity": -4.258,
+      "drawdown": 4.776
+    },
+    {
+      "timestamp_unix": 1768997764,
+      "equity": -4.087,
+      "drawdown": 4.605
+    },
+    {
+      "timestamp_unix": 1768997903,
+      "equity": -4.346,
+      "drawdown": 4.864
+    }
   ]
 }
