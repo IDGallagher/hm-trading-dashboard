@@ -1367,6 +1367,19 @@
                 metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
                 metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown;
 
+                // If data lacks candles or has non-1m candles, generate 1m candles from trades
+                if (data.candles && data.candles.length >= 2) {
+                    // Check if candles are 1-minute (60 sec apart) or larger timeframe
+                    const candleInterval = data.candles[1].time - data.candles[0].time;
+                    if (candleInterval > 60) {
+                        console.log(`[loadBacktestData] Candles are ${candleInterval}s intervals (not 1m), generating 1m candles from trades`);
+                        data.candles = generateCandlesFromTrades(data);
+                    }
+                } else if (!data.candles || data.candles.length === 0) {
+                    console.log(`[loadBacktestData] No candles found, generating from trades`);
+                    data.candles = generateCandlesFromTrades(data);
+                }
+
                 return data;
             } catch (error) {
                 console.error('Failed to load backtest data:', error);
@@ -1378,11 +1391,14 @@
         async function loadSessionData(sessionType) {
             try {
                 const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
+                console.log(`[loadSessionData] Loading ${filename}...`);
                 let response = await fetch(`./${filename}`);
                 const contentType = response.headers.get('content-type') || '';
+                console.log(`[loadSessionData] ${filename} - ok: ${response.ok}, content-type: ${contentType}`);
 
                 // Fall back to backtest_results.json if session file not found
                 if (!response.ok || !contentType.includes('application/json')) {
+                    console.log(`[loadSessionData] Falling back to backtest_results.json`);
                     response = await fetch('./backtest_results.json');
                 }
 
@@ -1401,6 +1417,19 @@
                 metrics.final_balance = metrics.final_balance ?? (metrics.initial_balance + (metrics.total_pnl / 100));
                 metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
                 metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? metrics.max_drawdown;
+
+                // If session data lacks candles or has non-1m candles, generate 1m candles from trades
+                if (data.candles && data.candles.length >= 2) {
+                    const candleInterval = data.candles[1].time - data.candles[0].time;
+                    if (candleInterval > 60) {
+                        console.log(`[loadSessionData] Candles are ${candleInterval}s intervals, generating 1m candles from ${data.trades?.length || 0} trades`);
+                        data.candles = generateCandlesFromTrades(data);
+                    }
+                } else if (!data.candles || data.candles.length === 0) {
+                    console.log(`[loadSessionData] No candles found, generating from ${data.trades?.length || 0} trades`);
+                    data.candles = generateCandlesFromTrades(data);
+                }
+                console.log(`[loadSessionData] Final candle count: ${data.candles?.length || 0}`);
 
                 return data;
             } catch (error) {
@@ -1926,10 +1955,91 @@
             `;
         }
 
+        // Generate 1-minute candles from trade data (when session lacks candle data)
+        function generateCandlesFromTrades(data) {
+            if (!data.trades || data.trades.length === 0) return [];
+
+            // Collect all price points with timestamps
+            const pricePoints = [];
+            data.trades.forEach(trade => {
+                pricePoints.push({ time: trade.timestamp_unix, price: trade.price });
+                if (trade.exit_time_unix && trade.exit_price) {
+                    pricePoints.push({ time: trade.exit_time_unix, price: trade.exit_price });
+                }
+            });
+
+            // Add equity curve points if available
+            if (data.equity_curve && data.equity_curve.length > 0) {
+                // Use first trade price as reference
+                const refPrice = pricePoints.length > 0 ? pricePoints[0].price : 0;
+                // Note: equity curve doesn't have price, just use trade prices
+            }
+
+            if (pricePoints.length === 0) return [];
+
+            // Sort by time
+            pricePoints.sort((a, b) => a.time - b.time);
+
+            // Find time range
+            const minTime = pricePoints[0].time;
+            const maxTime = pricePoints[pricePoints.length - 1].time;
+
+            // Group into 1-minute buckets
+            const candles = [];
+            const bucketSize = 60; // 1 minute in seconds
+
+            // Round start time down to minute boundary
+            let currentBucket = Math.floor(minTime / bucketSize) * bucketSize;
+            const endBucket = Math.floor(maxTime / bucketSize) * bucketSize;
+
+            let lastPrice = pricePoints[0].price;
+            let priceIdx = 0;
+
+            while (currentBucket <= endBucket) {
+                const bucketEnd = currentBucket + bucketSize;
+
+                // Find all prices in this bucket
+                const bucketPrices = [];
+                while (priceIdx < pricePoints.length && pricePoints[priceIdx].time < bucketEnd) {
+                    bucketPrices.push(pricePoints[priceIdx].price);
+                    priceIdx++;
+                }
+
+                if (bucketPrices.length > 0) {
+                    candles.push({
+                        time: currentBucket,
+                        open: lastPrice,
+                        high: Math.max(lastPrice, ...bucketPrices),
+                        low: Math.min(lastPrice, ...bucketPrices),
+                        close: bucketPrices[bucketPrices.length - 1]
+                    });
+                    lastPrice = bucketPrices[bucketPrices.length - 1];
+                } else {
+                    // No trades in this minute - create flat candle
+                    candles.push({
+                        time: currentBucket,
+                        open: lastPrice,
+                        high: lastPrice,
+                        low: lastPrice,
+                        close: lastPrice
+                    });
+                }
+
+                currentBucket += bucketSize;
+            }
+
+            console.log(`Generated ${candles.length} 1m candles from ${pricePoints.length} price points`);
+            return candles;
+        }
+
         // Aggregate 1m candles into larger timeframes
         function aggregateCandles(candles, period) {
+            console.log(`[aggregateCandles] Input: ${candles?.length || 0} candles, period: ${period}`);
             if (!candles || candles.length === 0) return [];
-            if (period === '1m') return candles;
+            if (period === '1m') {
+                console.log(`[aggregateCandles] Returning ${candles.length} raw 1m candles`);
+                return candles;
+            }
 
             // Period in seconds
             const periodSeconds = {
@@ -1979,6 +2089,7 @@
                     };
                 });
 
+            console.log(`[aggregateCandles] Output: ${aggregated.length} candles after ${period} aggregation`);
             return aggregated;
         }
 
@@ -2295,6 +2406,7 @@
             // Candle period selector
             document.getElementById('candle-period-selector').addEventListener('change', (e) => {
                 currentCandlePeriod = e.target.value;
+                console.log(`[Period Change] Selected: ${currentCandlePeriod}, has data: ${!!currentData}, candles: ${currentData?.candles?.length || 0}`);
                 if (currentSession !== 'compare' && currentData) {
                     renderCharts(currentData);
                     // Update chart title with new period
