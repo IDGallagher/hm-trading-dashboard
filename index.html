@@ -496,6 +496,199 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Live Test Control Panel Styles */
+        .live-test-panel {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,212,255,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .live-test-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .live-test-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+        .live-test-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .live-test-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .live-test-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            padding: 12px 15px;
+            font-size: 0.95rem;
+            min-width: 180px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238892b0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 35px;
+        }
+        .live-test-select:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+        .live-test-select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .btn-start {
+            background: rgba(0,200,83,0.2);
+            border: 1px solid rgba(0,200,83,0.4);
+            color: #00c853;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-start:hover:not(:disabled) {
+            background: rgba(0,200,83,0.3);
+            transform: translateY(-1px);
+        }
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-stop {
+            background: rgba(255,82,82,0.2);
+            border: 1px solid rgba(255,82,82,0.4);
+            color: #ff5252;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-stop:hover:not(:disabled) {
+            background: rgba(255,82,82,0.3);
+            transform: translateY(-1px);
+        }
+        .btn-stop:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            min-width: 200px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: none;
+        }
+        .status-indicator.ready {
+            background: #8892b0;
+        }
+        .status-indicator.running {
+            background: #00c853;
+            animation: pulse 1.5s infinite;
+        }
+        .status-indicator.backtesting {
+            background: #ffc107;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-text {
+            font-size: 0.9rem;
+            color: #fff;
+        }
+
+        /* Real-time Stats Display */
+        .live-stats {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,200,83,0.1);
+            border: 1px solid rgba(0,200,83,0.3);
+            border-radius: 8px;
+        }
+        .live-stats.active {
+            display: block;
+        }
+        .live-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .live-stat-item {
+            text-align: center;
+        }
+        .live-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .live-stat-value.positive {
+            color: #00c853;
+        }
+        .live-stat-value.negative {
+            color: #ff5252;
+        }
+        .live-stat-label {
+            font-size: 0.8rem;
+            color: #8892b0;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .live-test-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .live-test-select {
+                width: 100%;
+            }
+            .btn-start, .btn-stop {
+                width: 100%;
+                justify-content: center;
+            }
+            .live-status {
+                justify-content: center;
+            }
+            .live-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
     </style>
 </head>
 <body>
@@ -553,6 +746,54 @@
                 <button class="btn" id="export-chart-btn">
                     <span class="btn-icon">📷</span> Save Chart
                 </button>
+            </div>
+        </div>
+
+        <!-- Live Test Control Panel -->
+        <div class="live-test-panel" id="live-test-panel">
+            <div class="live-test-header">
+                <span class="live-test-title">🔴 Live Test Control</span>
+                <span class="live-test-badge badge-info">Control API</span>
+            </div>
+            <div class="live-test-controls">
+                <select id="strategy-selector" class="live-test-select">
+                    <option value="TestBot">TestBot</option>
+                    <option value="DivergeBot">DivergeBot</option>
+                    <option value="SazBot">SazBot</option>
+                    <option value="SDBot">SDBot</option>
+                    <option value="PairTradeBot">PairTradeBot</option>
+                </select>
+                <button id="btn-start-test" class="btn-start">
+                    <span>▶</span> Start Live Test
+                </button>
+                <button id="btn-stop-backtest" class="btn-stop" disabled>
+                    <span>■</span> Stop & Backtest
+                </button>
+                <div class="live-status">
+                    <div id="status-indicator" class="status-indicator ready"></div>
+                    <span id="status-text" class="status-text">Ready</span>
+                </div>
+            </div>
+            <!-- Real-time stats (shown when test is running) -->
+            <div id="live-stats" class="live-stats">
+                <div class="live-stats-grid">
+                    <div class="live-stat-item">
+                        <div id="live-trades" class="live-stat-value">0</div>
+                        <div class="live-stat-label">Trades</div>
+                    </div>
+                    <div class="live-stat-item">
+                        <div id="live-pnl" class="live-stat-value">$0.00</div>
+                        <div class="live-stat-label">Running P&L</div>
+                    </div>
+                    <div class="live-stat-item">
+                        <div id="live-duration" class="live-stat-value">00:00</div>
+                        <div class="live-stat-label">Duration</div>
+                    </div>
+                    <div class="live-stat-item">
+                        <div id="live-strategy" class="live-stat-value">-</div>
+                        <div class="live-stat-label">Strategy</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -857,6 +1098,13 @@
         let currentCandlePeriod = '1m';
         let rawCandles = null; // Store original 1m candles
 
+        // Live Test Control State
+        const CONTROL_API_URL = 'http://localhost:3001';
+        let liveTestRunning = false;
+        let liveTestPollingInterval = null;
+        let liveTestStartTime = null;
+        let currentStrategy = 'TestBot';
+
         // Bot configurations for display
         const botConfigs = {
             DivergeBot: { icon: '🔀', color: '#00c853', desc: 'Price ratio divergence trading' },
@@ -864,6 +1112,234 @@
             SDBot: { icon: '📉', color: '#ffc107', desc: 'Standard deviation mean reversion' },
             PairTradeBot: { icon: '📊', color: '#7b2cbf', desc: 'Statistical arbitrage' }
         };
+
+        // ==========================================
+        // LIVE TEST CONTROL FUNCTIONS
+        // ==========================================
+
+        // Update UI based on live test state
+        function updateLiveTestUI(state) {
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const startBtn = document.getElementById('btn-start-test');
+            const stopBtn = document.getElementById('btn-stop-backtest');
+            const liveStats = document.getElementById('live-stats');
+            const strategySelector = document.getElementById('strategy-selector');
+
+            if (state === 'ready') {
+                statusIndicator.className = 'status-indicator ready';
+                statusText.textContent = 'Ready';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                liveStats.classList.remove('active');
+                strategySelector.disabled = false;
+            } else if (state === 'running') {
+                statusIndicator.className = 'status-indicator running';
+                statusText.textContent = 'Running...';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                liveStats.classList.add('active');
+                strategySelector.disabled = true;
+            } else if (state === 'backtesting') {
+                statusIndicator.className = 'status-indicator backtesting';
+                statusText.textContent = 'Backtesting...';
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                liveStats.classList.remove('active');
+                strategySelector.disabled = true;
+            }
+        }
+
+        // Format duration from milliseconds
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update live stats display
+        function updateLiveStats(data) {
+            document.getElementById('live-trades').textContent = data.trades || 0;
+
+            const pnl = data.pnl || 0;
+            const pnlElement = document.getElementById('live-pnl');
+            pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+            pnlElement.className = 'live-stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
+
+            if (liveTestStartTime) {
+                const duration = Date.now() - liveTestStartTime;
+                document.getElementById('live-duration').textContent = formatDuration(duration);
+            }
+
+            document.getElementById('live-strategy').textContent = currentStrategy;
+        }
+
+        // Start live test
+        async function startLiveTest() {
+            const strategy = document.getElementById('strategy-selector').value;
+            currentStrategy = strategy;
+
+            try {
+                updateLiveTestUI('running');
+                liveTestStartTime = Date.now();
+
+                const response = await fetch(`${CONTROL_API_URL}/test/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy: strategy })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('Live test started:', result);
+
+                liveTestRunning = true;
+                startPolling();
+
+            } catch (error) {
+                console.error('Failed to start live test:', error);
+                updateLiveTestUI('ready');
+                alert(`Failed to start live test: ${error.message}\n\nMake sure the Control API server is running at ${CONTROL_API_URL}`);
+            }
+        }
+
+        // Stop live test and trigger backtest
+        async function stopAndBacktest() {
+            try {
+                // Stop the test first
+                updateLiveTestUI('backtesting');
+                stopPolling();
+
+                const stopResponse = await fetch(`${CONTROL_API_URL}/test/stop`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!stopResponse.ok) {
+                    throw new Error(`Stop failed: HTTP ${stopResponse.status}`);
+                }
+
+                const stopResult = await stopResponse.json();
+                console.log('Live test stopped:', stopResult);
+
+                // Get the test time range for backtest
+                const startTime = Math.floor(liveTestStartTime / 1000);
+                const endTime = Math.floor(Date.now() / 1000);
+
+                // Run backtest over the same period
+                const backtestResponse = await fetch(`${CONTROL_API_URL}/backtest/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start: startTime, end: endTime })
+                });
+
+                if (!backtestResponse.ok) {
+                    throw new Error(`Backtest failed: HTTP ${backtestResponse.status}`);
+                }
+
+                const backtestResult = await backtestResponse.json();
+                console.log('Backtest completed:', backtestResult);
+
+                liveTestRunning = false;
+                liveTestStartTime = null;
+                updateLiveTestUI('ready');
+
+                // Switch to comparison view to show TEST vs BACKTEST
+                document.getElementById('session-selector').value = 'compare';
+                handleSessionChange('compare');
+
+            } catch (error) {
+                console.error('Failed to stop test or run backtest:', error);
+                updateLiveTestUI('ready');
+                liveTestRunning = false;
+                alert(`Failed to complete backtest: ${error.message}`);
+            }
+        }
+
+        // Poll for live test status
+        async function pollLiveTestStatus() {
+            if (!liveTestRunning) return;
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/test/status`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const status = await response.json();
+
+                // Update the running status text
+                const statusText = document.getElementById('status-text');
+                statusText.textContent = `Running: ${status.trades || 0} trades`;
+
+                // Update live stats
+                updateLiveStats(status);
+
+                // Check if test is still running
+                if (!status.running && liveTestRunning) {
+                    // Test was stopped externally
+                    liveTestRunning = false;
+                    stopPolling();
+                    updateLiveTestUI('ready');
+                }
+
+            } catch (error) {
+                console.warn('Status poll failed:', error.message);
+                // Don't stop polling on transient errors
+            }
+        }
+
+        // Start polling for status updates
+        function startPolling() {
+            if (liveTestPollingInterval) {
+                clearInterval(liveTestPollingInterval);
+            }
+            // Poll every 2 seconds
+            liveTestPollingInterval = setInterval(pollLiveTestStatus, 2000);
+            // Also poll immediately
+            pollLiveTestStatus();
+        }
+
+        // Stop polling
+        function stopPolling() {
+            if (liveTestPollingInterval) {
+                clearInterval(liveTestPollingInterval);
+                liveTestPollingInterval = null;
+            }
+        }
+
+        // Check initial test status on page load
+        async function checkInitialTestStatus() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/test/status`);
+
+                if (response.ok) {
+                    const status = await response.json();
+
+                    if (status.running) {
+                        // Test is already running - resume polling
+                        liveTestRunning = true;
+                        liveTestStartTime = status.startTime ? status.startTime * 1000 : Date.now();
+                        currentStrategy = status.strategy || 'Unknown';
+                        document.getElementById('strategy-selector').value = currentStrategy;
+                        updateLiveTestUI('running');
+                        startPolling();
+                    }
+                }
+            } catch (error) {
+                // API not available, that's fine
+                console.log('Control API not available:', error.message);
+            }
+        }
+
+        // ==========================================
+        // END LIVE TEST CONTROL FUNCTIONS
+        // ==========================================
 
         // Load backtest data from JSON file
         async function loadBacktestData(botName = 'DivergeBot') {
@@ -1789,6 +2265,10 @@
 
         // Setup event listeners
         function setupEventListeners() {
+            // Live Test Control buttons
+            document.getElementById('btn-start-test').addEventListener('click', startLiveTest);
+            document.getElementById('btn-stop-backtest').addEventListener('click', stopAndBacktest);
+
             // Session selector dropdown
             document.getElementById('session-selector').addEventListener('change', (e) => {
                 handleSessionChange(e.target.value);
@@ -1849,6 +2329,7 @@
         // Initialize on page load
         setupEventListeners();
         initDashboard();
+        checkInitialTestStatus(); // Check if a live test is already running
     </script>
 </body>
 </html>
