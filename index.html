@@ -1763,9 +1763,8 @@
                         liveMarketContent.style.display = 'block';
                         document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
                         document.querySelector('.export-buttons').style.display = 'none';
-                        const liveTestPanel = document.getElementById('live-test-panel');
+                        // Keep live-test-panel visible so users can start live tests
                         const liveTradeFeed = document.getElementById('live-trade-feed');
-                        if (liveTestPanel) liveTestPanel.style.display = 'none';
                         if (liveTradeFeed) liveTradeFeed.style.display = 'none';
                         if (!liveMarketChart) initLiveMarketChart();
                         loadLiveMarketData();
@@ -3180,17 +3179,17 @@
                 { label: 'Total P&L', value: formatPnL(metrics.total_pnl), positive: metrics.total_pnl >= 0 },
                 { label: 'Total Return', value: formatPercent(metrics.total_return_percent), positive: metrics.total_return_percent >= 0 },
                 { label: 'Win Rate', value: formatPercent(metrics.win_rate), positive: metrics.win_rate >= 50 },
-                { label: 'Sharpe Ratio', value: metrics.sharpe_ratio.toFixed(2), positive: metrics.sharpe_ratio >= 1 },
-                { label: 'Max Drawdown', value: '$' + metrics.max_drawdown.toFixed(2), positive: false },
+                { label: 'Sharpe Ratio', value: (metrics.sharpe_ratio ?? 0).toFixed(2), positive: (metrics.sharpe_ratio ?? 0) >= 1 },
+                { label: 'Max Drawdown', value: '$' + (metrics.max_drawdown ?? 0).toFixed(2), positive: false },
                 { label: 'Max DD %', value: formatPercent(metrics.max_drawdown_percent), positive: false },
-                { label: 'Total Trades', value: metrics.total_trades, positive: true },
-                { label: 'Winning Trades', value: metrics.winning_trades, positive: true },
-                { label: 'Losing Trades', value: metrics.losing_trades, positive: false },
+                { label: 'Total Trades', value: metrics.total_trades ?? 0, positive: true },
+                { label: 'Winning Trades', value: metrics.winning_trades ?? 0, positive: true },
+                { label: 'Losing Trades', value: metrics.losing_trades ?? 0, positive: false },
                 { label: 'Avg Win', value: formatPnL(metrics.avg_win), positive: true },
                 { label: 'Avg Loss', value: formatPnL(metrics.avg_loss), positive: false },
-                { label: 'Profit Factor', value: metrics.profit_factor.toFixed(2), positive: metrics.profit_factor >= 1.5 },
-                { label: 'Initial Balance', value: metrics.initial_balance.toFixed(4) + ' BTC', positive: true },
-                { label: 'Final Balance', value: metrics.final_balance.toFixed(4) + ' BTC', positive: metrics.final_balance >= metrics.initial_balance }
+                { label: 'Profit Factor', value: (metrics.profit_factor ?? 0).toFixed(2), positive: (metrics.profit_factor ?? 0) >= 1.5 },
+                { label: 'Initial Balance', value: (metrics.initial_balance ?? 0).toFixed(4) + ' BTC', positive: true },
+                { label: 'Final Balance', value: (metrics.final_balance ?? 0).toFixed(4) + ' BTC', positive: (metrics.final_balance ?? 0) >= (metrics.initial_balance ?? 0) }
             ];
 
             grid.innerHTML = metricsList.map(m => `
@@ -3629,8 +3628,8 @@
                             <td style="color: ${entryColor}; font-weight: 500;">
                                 ${trade.side === 'long' ? '&#x25B2;' : '&#x25BC;'} ${entryType}
                             </td>
-                            <td>$${trade.price.toFixed(1)}</td>
-                            <td>${trade.quantity}</td>
+                            <td>$${(trade.price ?? 0).toFixed(1)}</td>
+                            <td>${trade.quantity ?? 0}</td>
                             <td style="color: #8892b0;">-</td>
                             <td style="color: #8892b0;">-</td>
                         </tr>
@@ -3654,10 +3653,10 @@
                                 <td style="color: ${exitColor}; font-weight: 500;">
                                     &#x25CF; ${exitType}
                                 </td>
-                                <td>$${trade.exit_price.toFixed(1)}</td>
-                                <td>${trade.quantity}</td>
-                                <td class="${trade.pnl >= 0 ? 'positive' : 'negative'}">${profitSign}$${trade.pnl.toFixed(2)}</td>
-                                <td class="${trade.cumulative_pnl >= 0 ? 'positive' : 'negative'}">${trade.cumulative_pnl >= 0 ? '+' : ''}$${trade.cumulative_pnl.toFixed(2)}</td>
+                                <td>$${(trade.exit_price ?? 0).toFixed(1)}</td>
+                                <td>${trade.quantity ?? 0}</td>
+                                <td class="${(trade.pnl ?? 0) >= 0 ? 'positive' : 'negative'}">${profitSign}$${(trade.pnl ?? 0).toFixed(2)}</td>
+                                <td class="${(trade.cumulative_pnl ?? 0) >= 0 ? 'positive' : 'negative'}">${(trade.cumulative_pnl ?? 0) >= 0 ? '+' : ''}$${(trade.cumulative_pnl ?? 0).toFixed(2)}</td>
                             </tr>
                         `
                     });
@@ -3763,13 +3762,12 @@
 
         // Default to Live Market view
         (function initLiveMarketView() {
-            // Hide backtest controls
+            // Hide backtest controls (but keep live-test-panel visible for starting tests)
             document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
             document.querySelector('.export-buttons').style.display = 'none';
-            const liveTestPanel = document.getElementById('live-test-panel');
             const liveTradeFeed = document.getElementById('live-trade-feed');
-            if (liveTestPanel) liveTestPanel.style.display = 'none';
             if (liveTradeFeed) liveTradeFeed.style.display = 'none';
+            // Keep live-test-panel visible so users can start live tests
             // Hide backtest content
             const dashboardContent = document.getElementById('dashboard-content');
             if (dashboardContent) dashboardContent.style.display = 'none';
