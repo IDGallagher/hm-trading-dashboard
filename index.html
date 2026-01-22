@@ -882,9 +882,26 @@
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
                 </select>
-                <button id="btn-start-test" class="btn-start" onclick="this.style.border='3px solid red'; this.innerHTML='<span>⚡</span> CLICKED!'; console.log('[START CLICK] Button onclick fired!'); startLiveTest();">
+                <button id="btn-start-test" class="btn-start">
                     <span>▶</span> Start Live Test
                 </button>
+                <script>
+                    // Immediately attach click handler after button is created
+                    (function() {
+                        var btn = document.getElementById('btn-start-test');
+                        if (btn) {
+                            btn.onclick = function() {
+                                console.log('[IMMEDIATE ONCLICK] Fired!');
+                                this.style.border = '3px solid red';
+                                this.textContent = 'CLICKED!';
+                            };
+                            btn.addEventListener('click', function() {
+                                console.log('[IMMEDIATE LISTENER] Fired!');
+                            });
+                            console.log('[INIT] Button handler attached immediately');
+                        }
+                    })();
+                </script>
                 <button id="btn-stop-backtest" class="btn-stop" disabled>
                     <span>■</span> Stop & Backtest
                 </button>
