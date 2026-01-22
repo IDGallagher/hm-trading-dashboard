@@ -882,7 +882,7 @@
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
                 </select>
-                <button id="btn-start-test" class="btn-start" onclick="console.log('[START CLICK] Button onclick fired!'); startLiveTest();">
+                <button id="btn-start-test" class="btn-start" onclick="this.style.border='3px solid red'; this.innerHTML='<span>⚡</span> CLICKED!'; console.log('[START CLICK] Button onclick fired!'); startLiveTest();">
                     <span>▶</span> Start Live Test
                 </button>
                 <button id="btn-stop-backtest" class="btn-stop" disabled>
