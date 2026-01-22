@@ -1690,7 +1690,11 @@
         // Load price/candle data
         async function loadPriceData() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=200`,
+                // Use archive source for longer periods (1d, 1w) - historical FlatBuffer data
+                // Use MySQL (live data) for shorter periods
+                const useArchive = currentMarketPeriod === '1d' || currentMarketPeriod === '1w';
+                const sourceParam = useArchive ? '&source=archive' : '';
+                const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=200${sourceParam}`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch prices');
                 const data = await response.json();
@@ -1705,7 +1709,9 @@
                     const changeBadge = document.getElementById('price-change-badge');
                     changeBadge.textContent = `${change >= 0 ? '+' : ''}${change}%`;
                     changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
-                    document.getElementById('live-chart-title').textContent = `${MARKET_NAMES[currentMarket]} Live Price`;
+                    // Show data source in title (Archive for historical, Live for recent)
+                    const dataSourceLabel = data.source === 'archive' ? '📦 Historical' : '🔴 Live';
+                    document.getElementById('live-chart-title').textContent = `${MARKET_NAMES[currentMarket]} Price (${dataSourceLabel})`;
                 }
             } catch (err) { console.error('Error loading price data:', err); }
         }
