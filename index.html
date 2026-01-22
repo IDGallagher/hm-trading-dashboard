@@ -2796,8 +2796,16 @@
 
         // Setup event listeners
         function setupEventListeners() {
+            console.log('[setupEventListeners] Setting up event listeners');
+
             // Live Test Control buttons
-            document.getElementById('btn-start-test').addEventListener('click', startLiveTest);
+            const startBtn = document.getElementById('btn-start-test');
+            console.log('[setupEventListeners] Start button found:', !!startBtn);
+            startBtn.addEventListener('click', (e) => {
+                console.log('[btn-start-test] CLICK EVENT FIRED');
+                e.preventDefault();
+                startLiveTest();
+            });
             document.getElementById('btn-stop-backtest').addEventListener('click', stopAndBacktest);
 
             // Session selector dropdown
