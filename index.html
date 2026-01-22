@@ -1717,25 +1717,60 @@
         // END WEBSOCKET
         // ==========================================
 
-        // Load backtest data from JSON file
+        // Load backtest data from Control API (no static fallback)
         async function loadBacktestData(botName = 'DivergeBot') {
             try {
-                // Try bot-specific file first, fall back to session file
-                // Check content-type to avoid parsing HTML as JSON (Cloudflare Pages SPA fallback issue)
-                let response = await fetch(`./${botName.toLowerCase()}_backtest.json`);
-                let contentType = response.headers.get('content-type') || '';
-                if (!response.ok || !contentType.includes('application/json')) {
-                    // Fall back to backtest_session.json (current data with live prices)
-                    response = await fetch('./backtest_session.json');
-                    contentType = response.headers.get('content-type') || '';
+                // Try Control API first
+                console.log(`[loadBacktestData] Trying Control API for ${botName}...`);
+                let data = null;
+                try {
+                    const apiResponse = await fetch(`${CONTROL_API_URL}/session/backtest`, {
+                        headers: { 'x-api-key': CONTROL_API_KEY }
+                    });
+                    if (apiResponse.ok) {
+                        data = await apiResponse.json();
+                        if (data.success) {
+                            console.log(`[loadBacktestData] Loaded ${data.trades?.length || 0} trades from Control API`);
+                        } else {
+                            data = null;
+                        }
+                    }
+                } catch (apiErr) {
+                    console.log(`[loadBacktestData] Control API not available: ${apiErr.message}`);
                 }
-                if (!response.ok || !contentType.includes('application/json')) {
-                    throw new Error(`No backtest data available`);
-                }
-                const data = await response.json();
 
-                if (!data.success) {
-                    throw new Error(data.error || 'Backtest failed');
+                // If no data from API, return empty dataset
+                if (!data) {
+                    console.log(`[loadBacktestData] No data available, returning empty dataset`);
+                    data = {
+                        success: true,
+                        metadata: {
+                            bot_name: botName,
+                            exchange: 'bitmex',
+                            pair: 'BTC/USD',
+                            session_type: 'backtest',
+                            start_time: Math.floor(Date.now() / 1000) - 3600,
+                            end_time: Math.floor(Date.now() / 1000)
+                        },
+                        metrics: {
+                            total_pnl: 0,
+                            win_rate: 0,
+                            sharpe_ratio: 0,
+                            max_drawdown: 0,
+                            profit_factor: 0,
+                            total_trades: 0,
+                            winning_trades: 0,
+                            losing_trades: 0,
+                            avg_win: 0,
+                            avg_loss: 0,
+                            largest_win: 0,
+                            largest_loss: 0,
+                            avg_trade_duration: 0
+                        },
+                        trades: [],
+                        equity_curve: [],
+                        candles: []
+                    };
                 }
 
                 // Add defaults for missing metrics fields
@@ -1807,29 +1842,38 @@
                     console.log(`[loadSessionData] Control API not available: ${apiErr.message}`);
                 }
 
-                // Fall back to static files only if API call failed
+                // If no data from API, return empty dataset (no static fallback)
                 if (!apiSuccess) {
-                    const filename = sessionType === 'test' ? 'test_session.json' : 'backtest_session.json';
-                    console.log(`[loadSessionData] Loading static file: ${filename}...`);
-                    let response = await fetch(`./${filename}`);
-                    const contentType = response.headers.get('content-type') || '';
-                    console.log(`[loadSessionData] ${filename} - ok: ${response.ok}, content-type: ${contentType}`);
-
-                    // Fall back to backtest_results.json if session file not found
-                    if (!response.ok || !contentType.includes('application/json')) {
-                        console.log(`[loadSessionData] Falling back to backtest_results.json`);
-                        response = await fetch('./backtest_results.json');
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    data = await response.json();
-                }
-
-                if (!data.success) {
-                    throw new Error(data.error || 'Session data load failed');
+                    console.log(`[loadSessionData] No data available from API, returning empty dataset`);
+                    data = {
+                        success: true,
+                        metadata: {
+                            bot_name: 'Unknown',
+                            exchange: 'bitmex',
+                            pair: 'BTC/USD',
+                            session_type: sessionType,
+                            start_time: Math.floor(Date.now() / 1000) - 3600,
+                            end_time: Math.floor(Date.now() / 1000)
+                        },
+                        metrics: {
+                            total_pnl: 0,
+                            win_rate: 0,
+                            sharpe_ratio: 0,
+                            max_drawdown: 0,
+                            profit_factor: 0,
+                            total_trades: 0,
+                            winning_trades: 0,
+                            losing_trades: 0,
+                            avg_win: 0,
+                            avg_loss: 0,
+                            largest_win: 0,
+                            largest_loss: 0,
+                            avg_trade_duration: 0
+                        },
+                        trades: [],
+                        equity_curve: [],
+                        candles: []
+                    };
                 }
 
                 // Add defaults for missing metrics fields
