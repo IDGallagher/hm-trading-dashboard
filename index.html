@@ -1785,7 +1785,7 @@
                 layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8892b0' },
                 grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
-                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true },
                 crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
             });
 
@@ -1830,6 +1830,8 @@
                     lastCandleData = candles; // Store for reference
                     liveMarketCandleSeries.setData(candles);
                     liveMarketChart.timeScale().fitContent();
+                    // Reset price scale to auto-fit the data range
+                    liveMarketChart.priceScale('right').applyOptions({ autoScale: true });
 
                     // Initialize the forming candle from loaded data
                     initFormingCandleFromData(candles);
@@ -3411,6 +3413,7 @@
                 },
                 rightPriceScale: {
                     borderColor: 'rgba(255,255,255,0.1)',
+                    autoScale: true,
                 },
                 timeScale: {
                     borderColor: 'rgba(255,255,255,0.1)',
@@ -3493,6 +3496,8 @@
             }
 
             mainChart.timeScale().fitContent();
+            // Ensure price scale auto-fits the data range
+            mainChart.priceScale('right').applyOptions({ autoScale: true });
 
             // Equity curve chart
             const equityWidth = equityContainer.offsetWidth || equityContainer.clientWidth || 800;
