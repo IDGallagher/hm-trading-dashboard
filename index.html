@@ -198,6 +198,48 @@
             color: #ff5252;
             text-align: center;
         }
+        /* Error Toast for API failures */
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,82,82,0.95);
+            border: 1px solid #ff5252;
+            border-radius: 8px;
+            padding: 16px 20px;
+            color: #fff;
+            font-size: 0.95rem;
+            max-width: 400px;
+            z-index: 10000;
+            box-shadow: 0 4px 20px rgba(255,82,82,0.4);
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        .error-toast.show { display: block; }
+        .error-toast-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-toast-message { opacity: 0.9; font-size: 0.9rem; }
+        .error-toast-close {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.7;
+        }
+        .error-toast-close:hover { opacity: 1; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
         .config-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1025,6 +1067,13 @@
     </style>
 </head>
 <body>
+    <!-- Error Toast for API failures -->
+    <div id="error-toast" class="error-toast">
+        <button class="error-toast-close" onclick="hideErrorToast()">&times;</button>
+        <div class="error-toast-title">⚠️ <span id="error-toast-title">Error</span></div>
+        <div class="error-toast-message" id="error-toast-message">An error occurred</div>
+    </div>
+
     <div class="container">
         <header>
             <h1>HM Trading Dashboard</h1>
@@ -1090,7 +1139,7 @@
         <div class="live-test-panel" id="live-test-panel">
             <div class="live-test-header">
                 <span class="live-test-title">🔴 Live Test Control</span>
-                <span class="live-test-badge badge-info">Control API</span>
+                <span class="live-test-badge badge-info" title="Backend API that manages bot processes and data collection">API Connected</span>
             </div>
             <div class="live-test-controls">
                 <select id="strategy-selector" class="live-test-select">
@@ -1585,6 +1634,26 @@
             SDBot: { icon: '📉', color: '#ffc107', desc: 'Standard deviation mean reversion' },
             PairTradeBot: { icon: '📊', color: '#7b2cbf', desc: 'Statistical arbitrage' }
         };
+
+        // Error Toast Functions
+        function showErrorToast(title, message, duration = 8000) {
+            const toast = document.getElementById('error-toast');
+            const titleEl = document.getElementById('error-toast-title');
+            const messageEl = document.getElementById('error-toast-message');
+
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            toast.classList.add('show');
+
+            // Auto-hide after duration
+            if (duration > 0) {
+                setTimeout(() => hideErrorToast(), duration);
+            }
+        }
+
+        function hideErrorToast() {
+            document.getElementById('error-toast').classList.remove('show');
+        }
 
         // ==========================================
         // LIVE MARKET DATA FUNCTIONS
@@ -2205,10 +2274,17 @@
 
             } catch (error) {
                 console.error('[startLiveTest] FAILED:', error);
-                btn.innerHTML = '<span>❌</span> ' + error.message.substring(0, 40);
-                btn.style.border = '3px solid red';
+                btn.innerHTML = '<span>▶</span> Start Live Test';
+                btn.style.border = '';
                 isStartingTest = false;
                 updateLiveTestUI('ready');
+
+                // Show error toast to user
+                showErrorToast(
+                    'Failed to Start Test',
+                    error.message || 'Could not connect to the Control API. Please check if the backend is running.',
+                    10000
+                );
             }
         }
 
@@ -2249,7 +2325,11 @@
                 console.error('Failed to stop test or run backtest:', error);
                 updateLiveTestUI('ready');
                 liveTestRunning = false;
-                alert(`Failed to complete backtest: ${error.message}`);
+                showErrorToast(
+                    'Backtest Failed',
+                    error.message || 'Could not stop test or run backtest. Please try again.',
+                    10000
+                );
             }
         }
 
@@ -3729,6 +3809,21 @@
                 } else {
                     initDashboard(currentBot, currentPeriod);
                 }
+            });
+
+            // Strategy selector for live test - updates chart title dynamically
+            document.getElementById('strategy-selector').addEventListener('change', (e) => {
+                currentStrategy = e.target.value;
+                document.getElementById('live-strategy').textContent = currentStrategy;
+
+                // Update chart title if we have data loaded
+                if (currentData && currentData.metadata) {
+                    const candlePeriodLabel = currentCandlePeriod;
+                    const sessionLabel = currentSession === 'test' ? ' (TEST)' : '';
+                    document.getElementById('chart-title').textContent =
+                        `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${currentStrategy} P&L${sessionLabel}`;
+                }
+                console.log(`[strategy-selector] Strategy changed to: ${currentStrategy}`);
             });
 
             // Date range selector
