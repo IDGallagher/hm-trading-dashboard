@@ -1055,6 +1055,11 @@
             font-size: 0.9rem;
             padding: 4px 8px;
             border-radius: 4px;
+            cursor: help;
+        }
+        .price-change .change-label {
+            opacity: 0.7;
+            font-size: 0.8rem;
         }
         .price-change.positive {
             background: rgba(0,200,83,0.2);
@@ -1302,7 +1307,9 @@
                 <button id="refresh-market-btn" class="refresh-btn">🔄 Refresh</button>
                 <div class="market-price-display">
                     <span id="current-market-price" class="current-price">--</span>
-                    <span id="price-change-badge" class="price-change">--</span>
+                    <span id="price-change-badge" class="price-change" title="Price change from first to last candle in loaded data">
+                        <span class="change-label">Period:</span> <span id="price-change-value">--</span>
+                    </span>
                 </div>
             </div>
 
@@ -1807,8 +1814,15 @@
             const sessionControl = document.getElementById('session-control');
 
             toggleBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const view = btn.dataset.view;
+
+                    // Show loading state on button
+                    const originalText = btn.textContent;
+                    btn.textContent = '⏳ Loading...';
+                    btn.disabled = true;
+                    toggleBtns.forEach(b => b.disabled = true);
+
                     toggleBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
 
@@ -1839,10 +1853,14 @@
                         const liveTradeFeed = document.getElementById('live-trade-feed');
                         if (liveTradeFeed) liveTradeFeed.style.display = 'none';
                         if (!liveMarketChart) initLiveMarketChart();
-                        loadLiveMarketData();
+                        await loadLiveMarketData();
                         liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
                         connectLiveMarketWebSocket();
                     }
+
+                    // Restore button state
+                    btn.textContent = originalText;
+                    toggleBtns.forEach(b => b.disabled = false);
                 });
             });
         }
@@ -1925,7 +1943,8 @@
                     priceDisplay.textContent = formatMarketPrice(lastCandle.close, currentMarket);
                     const change = ((lastCandle.close - firstCandle.open) / firstCandle.open * 100).toFixed(2);
                     const changeBadge = document.getElementById('price-change-badge');
-                    changeBadge.textContent = `${change >= 0 ? '+' : ''}${change}%`;
+                    const changeValue = document.getElementById('price-change-value');
+                    changeValue.textContent = `${change >= 0 ? '+' : ''}${change}%`;
                     changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
                     // Show data source and candle count
                     const sourceLabels = { 'archive': '📦 Archive', 'mysql': '🔴 Live', 'hybrid': '🔀 Combined' };
