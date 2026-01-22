@@ -1785,7 +1785,7 @@
                 layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8892b0' },
                 grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
-                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true },
+                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true, scaleMargins: { top: 0.1, bottom: 0.1 } },
                 crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
             });
 
@@ -1830,8 +1830,15 @@
                     lastCandleData = candles; // Store for reference
                     liveMarketCandleSeries.setData(candles);
                     liveMarketChart.timeScale().fitContent();
-                    // Reset price scale to auto-fit the data range
-                    liveMarketChart.priceScale('right').applyOptions({ autoScale: true });
+                    // Force price scale to auto-fit by toggling autoScale
+                    liveMarketChart.priceScale('right').applyOptions({
+                        autoScale: true,
+                        scaleMargins: { top: 0.1, bottom: 0.1 }
+                    });
+                    // Recalculate visible range after a brief delay
+                    setTimeout(() => {
+                        liveMarketChart.timeScale().fitContent();
+                    }, 100);
 
                     // Initialize the forming candle from loaded data
                     initFormingCandleFromData(candles);
