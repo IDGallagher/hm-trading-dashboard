@@ -27,6 +27,24 @@
 
 **Implementation:** `timestamp = message.timestamp / 1000`
 
+### Archive Replay vs Live Market Mode (January 2026)
+**Decision:** Use `market` mode for live tests instead of archive replay.
+
+**Context:** Test runs were completing in ~2 seconds instead of running indefinitely against live data.
+
+**Reasoning:**
+- The `/test/start` endpoint was hardcoded to use archive replay with fixed timestamps
+- This caused tests to replay ~94 minutes of archived data instantly
+- For true live testing, we need real-time data from BitMEX WebSocket
+- Archive mode is useful for deterministic backtesting, but not for live strategy evaluation
+
+**Implementation:**
+- Removed `--local-archive`, `--start`, `--end` flags from C++ binary invocation
+- Test now connects to live BitMEX WebSocket via `market` mode
+- Tracks wall clock start/end times so backtest can replay the exact test period
+
+**Trade-off:** Live tests now depend on BitMEX connectivity. Archive replay remains available for backtesting.
+
 ## Lessons Learned
 
 ### Data Dependency Debugging
@@ -41,6 +59,13 @@ When charts display incorrect time formatting:
 1. Check the unit of timestamps at the source (ms vs s)
 2. Check what unit the charting library expects
 3. Look for both visual symptoms: wrong scale AND raw numbers on axis
+
+### Archive vs Live Mode Confusion
+When tests complete too quickly:
+1. Check if the endpoint is using archive replay vs live market mode
+2. Look for hardcoded timestamps or `--local-archive` flags
+3. Verify the C++ binary is connecting to live WebSocket (not replaying files)
+4. Check if duration reflects wall clock time vs data playback time
 
 ## Best Practices
 
@@ -73,3 +98,7 @@ When charts display incorrect time formatting:
 ### Null Value Handling in JavaScript
 **Problem:** Calling `.toFixed()` on undefined crashes the view.
 **Solution:** Always add null checks before formatting: `value?.toFixed(2) ?? 'N/A'`
+
+### Hardcoded Test Modes
+**Problem:** Test endpoints may be hardcoded for a specific mode (archive replay) during development, causing live tests to behave unexpectedly (instant completion, wrong data source).
+**Solution:** Make test mode configurable via parameters. Document which mode each endpoint uses. Verify the data source (archive files vs live WebSocket) matches the intended use case.

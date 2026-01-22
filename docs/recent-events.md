@@ -12,6 +12,7 @@
 | **Hidden Start Test button** | Button was not visible in UI | Fixed button visibility/styling | ui-fix-dev |
 | **Live candle micro-candles** | WebSocket sends timestamps in milliseconds, chart expects seconds | Added ms → seconds conversion (÷1000) | candle-fix-dev |
 | **X-axis showing raw numbers** | Same timestamp format mismatch | Same fix - ms → seconds conversion | candle-fix-dev |
+| **Test runs completing instantly** | `/test/start` hardcoded to archive replay mode with fixed timestamps | Changed to `market` mode - connects to live BitMEX WebSocket, runs indefinitely | backend-dev |
 
 ### Verified Milestones
 
@@ -39,6 +40,22 @@ All milestones verified by QA on January 22, 2026:
 - **Impact:** Backtests produced 0 trades
 - **Root Cause:** PairTradeBot arbitrage strategy requires both BTC/USD and BTC/USDT data pairs, but only BTC/USD historical data is available
 - **Resolution:** Switched to TestBot strategy which only requires single pair data
+
+### Live WebSocket Test Mode (Resolved)
+- **Date:** January 22, 2026
+- **Impact:** Test runs completed in ~2 seconds instead of running indefinitely against live data
+- **Root Cause:** `/test/start` endpoint was hardcoded to use archive replay mode:
+  - Used fixed timestamps (`ARCHIVE_START`/`ARCHIVE_END`)
+  - Called C++ binary with `--local-archive`, `--start`, `--end` flags
+  - Replayed ~94 minutes of archived data instantly
+- **Resolution:** Changed to use `market` mode:
+  - Removed archive-related flags from C++ binary invocation
+  - Test now connects to live BitMEX WebSocket
+  - Runs indefinitely until manually stopped via `/test/stop`
+  - Tracks wall clock start/end times for accurate backtest periods
+- **Files Modified:**
+  - `hm-trading-control-api/server.js` lines 221-307 (`/test/start`)
+  - `hm-trading-control-api/server.js` lines 769-846 (`/test/stop-and-backtest`)
 
 ## Deployments
 
