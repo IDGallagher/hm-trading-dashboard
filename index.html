@@ -2145,10 +2145,22 @@
             document.getElementById('live-strategy').textContent = currentStrategy;
         }
 
+        // Flag to prevent double-clicking during API call
+        let isStartingTest = false;
+
         // Start live test (uses archive replay for deterministic parity testing)
         async function startLiveTest() {
             const btn = document.getElementById('btn-start-test');
             console.log('[startLiveTest] Function called');
+
+            // Prevent double-clicking
+            if (isStartingTest || liveTestRunning) {
+                console.log('[startLiveTest] Already starting or running, ignoring click');
+                btn.innerHTML = '<span>⏳</span> Please wait...';
+                return;
+            }
+            isStartingTest = true;
+
             btn.innerHTML = '<span>1️⃣</span> Getting strategy...';
 
             const strategy = document.getElementById('strategy-selector').value;
@@ -2175,23 +2187,27 @@
                 console.log('[startLiveTest] Response received:', response.status, response.statusText);
                 btn.innerHTML = '<span>4️⃣</span> Got response: ' + response.status;
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
                 const result = await response.json();
+
+                if (!response.ok) {
+                    // Parse error from API response body
+                    const errorMsg = result.error || result.message || `HTTP ${response.status}`;
+                    throw new Error(errorMsg);
+                }
                 console.log('[startLiveTest] Live test started:', result);
                 btn.innerHTML = '<span>✅</span> Started!';
                 btn.style.border = '3px solid lime';
 
                 liveTestRunning = true;
+                isStartingTest = false;
                 startPolling();
                 console.log('[startLiveTest] Polling started');
 
             } catch (error) {
                 console.error('[startLiveTest] FAILED:', error);
-                btn.innerHTML = '<span>❌</span> Error: ' + error.message.substring(0, 30);
+                btn.innerHTML = '<span>❌</span> ' + error.message.substring(0, 40);
                 btn.style.border = '3px solid red';
+                isStartingTest = false;
                 updateLiveTestUI('ready');
             }
         }
