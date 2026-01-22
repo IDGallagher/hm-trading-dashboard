@@ -1829,16 +1829,22 @@
                     const candles = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
                     lastCandleData = candles; // Store for reference
                     liveMarketCandleSeries.setData(candles);
-                    liveMarketChart.timeScale().fitContent();
-                    // Force price scale to auto-fit by toggling autoScale
+
+                    // Show only recent data (scroll to right) instead of all data
+                    // This prevents large time gaps from compressing the visible candles
+                    const lastTime = candles[candles.length - 1].time;
+                    const hoursToShow = 6; // Show last 6 hours
+                    const visibleFrom = lastTime - (hoursToShow * 3600);
+                    liveMarketChart.timeScale().setVisibleRange({
+                        from: visibleFrom,
+                        to: lastTime + 300 // Small buffer for forming candle
+                    });
+
+                    // Force price scale to auto-fit the visible data
                     liveMarketChart.priceScale('right').applyOptions({
                         autoScale: true,
                         scaleMargins: { top: 0.1, bottom: 0.1 }
                     });
-                    // Recalculate visible range after a brief delay
-                    setTimeout(() => {
-                        liveMarketChart.timeScale().fitContent();
-                    }, 100);
 
                     // Initialize the forming candle from loaded data
                     initFormingCandleFromData(candles);
