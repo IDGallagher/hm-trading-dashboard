@@ -1632,6 +1632,7 @@
                             clearInterval(liveMarketRefreshInterval);
                             liveMarketRefreshInterval = null;
                         }
+                        disconnectLiveMarketWebSocket();
                     } else if (view === 'live-market') {
                         dashboardContent.style.display = 'none';
                         dashboardContent.classList.add('hidden');
@@ -1646,6 +1647,7 @@
                         if (!liveMarketChart) initLiveMarketChart();
                         loadLiveMarketData();
                         liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
+                        connectLiveMarketWebSocket();
                     }
                 });
             });
@@ -1785,9 +1787,97 @@
             const marketSelector = document.getElementById('market-selector');
             const periodSelector = document.getElementById('market-period-selector');
             const refreshBtn = document.getElementById('refresh-market-btn');
-            if (marketSelector) marketSelector.addEventListener('change', (e) => { currentMarket = e.target.value; loadLiveMarketData(); });
+            if (marketSelector) marketSelector.addEventListener('change', (e) => {
+                currentMarket = e.target.value;
+                loadLiveMarketData();
+                subscribeToMarket(currentMarket);
+            });
             if (periodSelector) periodSelector.addEventListener('change', (e) => { currentMarketPeriod = e.target.value; loadPriceData(); });
             if (refreshBtn) refreshBtn.addEventListener('click', loadLiveMarketData);
+        }
+
+        // ==========================================
+        // LIVE MARKET WEBSOCKET
+        // ==========================================
+        let liveMarketWs = null;
+        let liveMarketWsReconnectTimer = null;
+
+        function connectLiveMarketWebSocket() {
+            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) return;
+
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = CONTROL_API_URL.replace(/^https?:/, wsProtocol);
+            const wsUrl = `${wsHost}/trades/stream`;
+
+            console.log('[LiveMarket WS] Connecting to:', wsUrl);
+            liveMarketWs = new WebSocket(wsUrl);
+
+            liveMarketWs.onopen = () => {
+                console.log('[LiveMarket WS] Connected');
+                subscribeToMarket(currentMarket);
+            };
+
+            liveMarketWs.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'market_update') {
+                        handleMarketUpdate(data);
+                    }
+                } catch (err) {
+                    console.error('[LiveMarket WS] Parse error:', err);
+                }
+            };
+
+            liveMarketWs.onclose = () => {
+                console.log('[LiveMarket WS] Disconnected, reconnecting in 5s...');
+                liveMarketWsReconnectTimer = setTimeout(connectLiveMarketWebSocket, 5000);
+            };
+
+            liveMarketWs.onerror = (err) => {
+                console.error('[LiveMarket WS] Error:', err);
+            };
+        }
+
+        function subscribeToMarket(market) {
+            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
+                liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'market', market: market }));
+                console.log('[LiveMarket WS] Subscribed to:', market);
+            }
+        }
+
+        function handleMarketUpdate(data) {
+            // Update price display
+            if (data.price) {
+                const priceEl = document.getElementById('current-market-price');
+                if (priceEl) priceEl.textContent = formatMarketPrice(data.price.value, data.market);
+            }
+
+            // Update orderbook
+            if (data.orderbook) {
+                renderOrderbook(data.orderbook.bids || [], data.orderbook.asks || []);
+                if (data.orderbook.bids?.length && data.orderbook.asks?.length) {
+                    const spread = data.orderbook.asks[0].price - data.orderbook.bids[0].price;
+                    const spreadPct = (spread / data.orderbook.asks[0].price * 100).toFixed(3);
+                    document.getElementById('orderbook-spread').textContent = `Spread: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
+                }
+            }
+
+            // Update trades
+            if (data.trades && data.trades.length > 0) {
+                renderLiveMarketTrades(data.trades);
+                document.getElementById('trades-count').textContent = `${data.trades.length} trades`;
+            }
+        }
+
+        function disconnectLiveMarketWebSocket() {
+            if (liveMarketWsReconnectTimer) {
+                clearTimeout(liveMarketWsReconnectTimer);
+                liveMarketWsReconnectTimer = null;
+            }
+            if (liveMarketWs) {
+                liveMarketWs.close();
+                liveMarketWs = null;
+            }
         }
 
         // ==========================================
@@ -3482,8 +3572,10 @@
             // Initialize chart and load data
             initLiveMarketChart();
             loadLiveMarketData();
-            // Start auto-refresh
+            // Start auto-refresh (fallback, WebSocket is primary)
             liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
+            // Connect WebSocket for real-time updates
+            connectLiveMarketWebSocket();
         })();
 
         checkInitialTestStatus(); // Check if a live test is already running
