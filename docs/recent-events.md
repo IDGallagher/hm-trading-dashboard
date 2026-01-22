@@ -14,6 +14,16 @@
 | **X-axis showing raw numbers** | Same timestamp format mismatch | Same fix - ms → seconds conversion | candle-fix-dev |
 | **Test runs completing instantly** | `/test/start` hardcoded to archive replay mode with fixed timestamps | Changed to `market` mode - connects to live BitMEX WebSocket, runs indefinitely | backend-dev |
 
+### UI Improvements (commit bed3d75)
+
+| Improvement | Before | After | Fixed By |
+|-------------|--------|-------|----------|
+| **Chart Title Dynamic Update** | Showed "DivergeBot P&L" regardless of strategy | Updates to `BTC/USD Price (1m) & {selectedStrategy} P&L` when strategy changes | backend-dev |
+| **Error Toast Notifications** | Confusing `alert()` popups | New toast component (top-right), clear title + detailed message, auto-dismiss after 10s | backend-dev |
+| **API Badge Clarification** | "Control API" (unclear) | "API Connected" with tooltip explaining backend purpose | backend-dev |
+| **24h Percentage Label** | Unlabeled percentage next to price | Added "24h:" label for clarity | backend-dev |
+| **Loading States** | No feedback when switching views | Added loading indicators during view transitions | backend-dev |
+
 ### Verified Milestones
 
 All milestones verified by QA on January 22, 2026:
@@ -61,4 +71,5 @@ All milestones verified by QA on January 22, 2026:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-22 | bed3d75 | UI improvements: dynamic chart titles, error toasts, API badge, 24h label, loading states |
 | 2026-01-22 | - | Bug fixes for chart scaling, backtest, UI, and live candles |
