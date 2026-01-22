@@ -1750,14 +1750,14 @@
                 if (!response.ok) throw new Error('Failed to fetch trades');
                 const data = await response.json();
                 if (data.success && data.trades) {
-                    renderTrades(data.trades);
+                    renderLiveMarketTrades(data.trades);
                     document.getElementById('trades-count').textContent = `${data.trades.length} trades`;
                 }
             } catch (err) { console.error('Error loading trades:', err); }
         }
 
-        // Render trades
-        function renderTrades(trades) {
+        // Render live market trades (renamed to avoid collision with backtest renderTrades)
+        function renderLiveMarketTrades(trades) {
             const tbody = document.getElementById('trades-tbody');
             tbody.innerHTML = trades.map(trade => {
                 const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
