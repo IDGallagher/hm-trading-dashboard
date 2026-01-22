@@ -2771,7 +2771,7 @@
                 { key: 'losing_trades', label: 'Losing Trades', format: v => v },
                 { key: 'total_pnl', label: 'Total P&L', format: v => formatPnL(v) },
                 { key: 'win_rate', label: 'Win Rate', format: v => formatPercent(v) },
-                { key: 'final_balance', label: 'Final Balance', format: v => v.toFixed(4) + ' BTC' }
+                { key: 'final_balance', label: 'Final Balance', format: v => (v ?? 0).toFixed(4) + ' BTC' }
             ];
 
             let matchCount = 0;
@@ -3009,13 +3009,14 @@
 
         // Format number with sign
         function formatPnL(value, decimals = 2) {
-            const sign = value >= 0 ? '+' : '';
-            return sign + '$' + value.toFixed(decimals);
+            const v = value ?? 0;
+            const sign = v >= 0 ? '+' : '';
+            return sign + '$' + v.toFixed(decimals);
         }
 
         // Format percentage
         function formatPercent(value, decimals = 2) {
-            return value.toFixed(decimals) + '%';
+            return (value ?? 0).toFixed(decimals) + '%';
         }
 
         // Export trades to CSV (with entry/exit breakdown)
