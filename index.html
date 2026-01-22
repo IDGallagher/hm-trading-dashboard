@@ -1621,7 +1621,10 @@
         function updateFormingCandle(trade) {
             if (!liveMarketCandleSeries) return;
 
-            const tradeTime = trade.timestamp || Math.floor(Date.now() / 1000);
+            // Get raw timestamp, defaulting to current time in seconds
+            const rawTimestamp = trade.timestamp || Math.floor(Date.now() / 1000);
+            // Convert milliseconds to seconds if needed (timestamps > year 2033 are likely in ms)
+            const tradeTime = rawTimestamp > 9999999999 ? Math.floor(rawTimestamp / 1000) : rawTimestamp;
             const price = trade.price;
             const amount = trade.amount || 0;
             const periodStart = getPeriodStartTime(tradeTime, currentMarketPeriod);
