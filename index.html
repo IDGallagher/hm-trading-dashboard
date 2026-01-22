@@ -890,15 +890,18 @@
                     (function() {
                         var btn = document.getElementById('btn-start-test');
                         if (btn) {
-                            btn.onclick = function() {
-                                console.log('[IMMEDIATE ONCLICK] Fired!');
-                                this.style.border = '3px solid red';
-                                this.textContent = 'CLICKED!';
-                            };
                             btn.addEventListener('click', function() {
-                                console.log('[IMMEDIATE LISTENER] Fired!');
+                                console.log('[BUTTON CLICK] Handler fired, calling startLiveTest()');
+                                this.style.border = '3px solid lime';
+                                this.innerHTML = '<span>⚡</span> Starting...';
+                                // Call the actual function (defined later in script)
+                                if (typeof startLiveTest === 'function') {
+                                    startLiveTest();
+                                } else {
+                                    console.error('[BUTTON CLICK] startLiveTest not defined yet!');
+                                }
                             });
-                            console.log('[INIT] Button handler attached immediately');
+                            console.log('[INIT] Button click handler attached immediately');
                         }
                     })();
                 </script>
