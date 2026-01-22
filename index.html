@@ -1689,12 +1689,16 @@
 
         // Load price/candle data
         async function loadPriceData() {
+            const chartTitle = document.getElementById('live-chart-title');
+            const priceDisplay = document.getElementById('current-market-price');
+
+            // Show loading state
+            chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (⏳ Loading...)`;
+            priceDisplay.textContent = '...';
+
             try {
-                // Use archive source for longer periods (1d, 1w) - historical FlatBuffer data
-                // Use MySQL (live data) for shorter periods
-                const useArchive = currentMarketPeriod === '1d' || currentMarketPeriod === '1w';
-                const sourceParam = useArchive ? '&source=archive' : '';
-                const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=200${sourceParam}`,
+                // Use hybrid source to combine archive (historical) + MySQL (recent) data
+                const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch prices');
                 const data = await response.json();
@@ -1704,20 +1708,31 @@
                     liveMarketChart.timeScale().fitContent();
                     const lastCandle = data.candles[data.candles.length - 1];
                     const firstCandle = data.candles[0];
-                    document.getElementById('current-market-price').textContent = formatMarketPrice(lastCandle.close, currentMarket);
+                    priceDisplay.textContent = formatMarketPrice(lastCandle.close, currentMarket);
                     const change = ((lastCandle.close - firstCandle.open) / firstCandle.open * 100).toFixed(2);
                     const changeBadge = document.getElementById('price-change-badge');
                     changeBadge.textContent = `${change >= 0 ? '+' : ''}${change}%`;
                     changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
-                    // Show data source in title (Archive for historical, Live for recent)
-                    const dataSourceLabel = data.source === 'archive' ? '📦 Historical' : '🔴 Live';
-                    document.getElementById('live-chart-title').textContent = `${MARKET_NAMES[currentMarket]} Price (${dataSourceLabel})`;
+                    // Show data source and candle count
+                    const sourceLabels = { 'archive': '📦 Archive', 'mysql': '🔴 Live', 'hybrid': '🔀 Combined' };
+                    const sourceLabel = sourceLabels[data.source] || data.source;
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (${sourceLabel} · ${data.candleCount || data.candles.length} candles)`;
+                } else {
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (No data)`;
+                    priceDisplay.textContent = '--';
                 }
-            } catch (err) { console.error('Error loading price data:', err); }
+            } catch (err) {
+                console.error('Error loading price data:', err);
+                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (Error)`;
+                priceDisplay.textContent = '--';
+            }
         }
 
         // Load orderbook data
         async function loadOrderbookData() {
+            const spreadEl = document.getElementById('orderbook-spread');
+            spreadEl.textContent = 'Loading...';
+
             try {
                 const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=10`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
@@ -1728,10 +1743,15 @@
                     if (data.bids?.length && data.asks?.length) {
                         const spread = data.asks[0].price - data.bids[0].price;
                         const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
-                        document.getElementById('orderbook-spread').textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                        spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                    } else {
+                        spreadEl.textContent = 'No data';
                     }
                 }
-            } catch (err) { console.error('Error loading orderbook:', err); }
+            } catch (err) {
+                console.error('Error loading orderbook:', err);
+                spreadEl.textContent = 'Error loading';
+            }
         }
 
         // Render orderbook
@@ -1752,6 +1772,9 @@
 
         // Load trades data
         async function loadTradesData() {
+            const countEl = document.getElementById('trades-count');
+            countEl.textContent = 'Loading...';
+
             try {
                 const response = await fetch(`${CONTROL_API_URL}/api/trades?market=${currentMarket}&limit=50`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
@@ -1759,9 +1782,14 @@
                 const data = await response.json();
                 if (data.success && data.trades) {
                     renderLiveMarketTrades(data.trades);
-                    document.getElementById('trades-count').textContent = `${data.trades.length} trades`;
+                    countEl.textContent = `${data.trades.length} trades`;
+                } else {
+                    countEl.textContent = 'No trades';
                 }
-            } catch (err) { console.error('Error loading trades:', err); }
+            } catch (err) {
+                console.error('Error loading trades:', err);
+                countEl.textContent = 'Error';
+            }
         }
 
         // Render live market trades (renamed to avoid collision with backtest renderTrades)
