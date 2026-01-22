@@ -1333,13 +1333,17 @@
 
         // Start live test (uses archive replay for deterministic parity testing)
         async function startLiveTest() {
+            const btn = document.getElementById('btn-start-test');
             console.log('[startLiveTest] Function called');
+            btn.innerHTML = '<span>1️⃣</span> Getting strategy...';
+
             const strategy = document.getElementById('strategy-selector').value;
             console.log('[startLiveTest] Strategy:', strategy);
             currentStrategy = strategy;
 
             try {
                 console.log('[startLiveTest] Updating UI to running state');
+                btn.innerHTML = '<span>2️⃣</span> Updating UI...';
                 updateLiveTestUI('running');
                 liveTestStartTime = Date.now();
 
@@ -1347,6 +1351,7 @@
                 const url = `${CONTROL_API_URL}/test/start`;
                 console.log('[startLiveTest] Fetching:', url);
                 console.log('[startLiveTest] API Key:', CONTROL_API_KEY ? 'present' : 'MISSING');
+                btn.innerHTML = '<span>3️⃣</span> Calling API...';
 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -1354,6 +1359,7 @@
                     body: JSON.stringify({ strategy: strategy })
                 });
                 console.log('[startLiveTest] Response received:', response.status, response.statusText);
+                btn.innerHTML = '<span>4️⃣</span> Got response: ' + response.status;
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1361,6 +1367,8 @@
 
                 const result = await response.json();
                 console.log('[startLiveTest] Live test started:', result);
+                btn.innerHTML = '<span>✅</span> Started!';
+                btn.style.border = '3px solid lime';
 
                 liveTestRunning = true;
                 startPolling();
@@ -1368,8 +1376,9 @@
 
             } catch (error) {
                 console.error('[startLiveTest] FAILED:', error);
+                btn.innerHTML = '<span>❌</span> Error: ' + error.message.substring(0, 30);
+                btn.style.border = '3px solid red';
                 updateLiveTestUI('ready');
-                alert(`Failed to start live test: ${error.message}\n\nMake sure the Control API server is running at ${CONTROL_API_URL}`);
             }
         }
 
