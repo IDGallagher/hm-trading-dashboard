@@ -1037,8 +1037,8 @@
         <!-- Controls Bar -->
         <div class="controls-bar">
             <div class="view-toggle">
-                <button class="view-toggle-btn active" data-view="backtest">📊 Backtest</button>
-                <button class="view-toggle-btn" data-view="live-market">📈 Live Market</button>
+                <button class="view-toggle-btn" data-view="backtest">📊 Backtest</button>
+                <button class="view-toggle-btn active" data-view="live-market">📈 Live Market</button>
             </div>
             <div class="control-group" id="session-control">
                 <span class="control-label">Session:</span>
@@ -1226,7 +1226,7 @@
         </div>
 
         <!-- Live Market Data Section -->
-        <div id="live-market-content">
+        <div id="live-market-content" class="active" style="display: block;">
             <div class="market-controls">
                 <div class="market-control-group">
                     <span class="market-control-label">Market:</span>
@@ -3466,6 +3466,26 @@
         initDashboard();
         initViewToggle(); // Enable view toggle between Backtest and Live Market
         initLiveMarketControls(); // Setup live market data controls
+
+        // Default to Live Market view
+        (function initLiveMarketView() {
+            // Hide backtest controls
+            document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
+            document.querySelector('.export-buttons').style.display = 'none';
+            const liveTestPanel = document.getElementById('live-test-panel');
+            const liveTradeFeed = document.getElementById('live-trade-feed');
+            if (liveTestPanel) liveTestPanel.style.display = 'none';
+            if (liveTradeFeed) liveTradeFeed.style.display = 'none';
+            // Hide backtest content
+            const dashboardContent = document.getElementById('dashboard-content');
+            if (dashboardContent) dashboardContent.style.display = 'none';
+            // Initialize chart and load data
+            initLiveMarketChart();
+            loadLiveMarketData();
+            // Start auto-refresh
+            liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
+        })();
+
         checkInitialTestStatus(); // Check if a live test is already running
         initWebSocket(); // Connect to WebSocket for real-time trade streaming
     </script>
