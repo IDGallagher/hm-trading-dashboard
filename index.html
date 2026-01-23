@@ -2528,6 +2528,9 @@
                 stopBtn.disabled = true;
                 liveStats.classList.remove('active');
                 strategySelector.disabled = false;
+                // Reset Performance Metrics badge when test stops
+                const metricsBadge = document.getElementById('metrics-badge');
+                if (metricsBadge) metricsBadge.textContent = '14 Metrics';
             } else if (state === 'running') {
                 statusIndicator.className = 'status-indicator running';
                 statusText.textContent = 'Running...';
@@ -2692,6 +2695,9 @@
         }
 
         // Poll for live test status
+        let lastMetricsRefresh = 0;
+        const METRICS_REFRESH_INTERVAL = 5000; // Refresh Performance Metrics every 5 seconds
+
         async function pollLiveTestStatus() {
             if (!liveTestRunning) return;
 
@@ -2713,6 +2719,13 @@
                 // Update live stats
                 updateLiveStats(status);
 
+                // Periodically refresh Performance Metrics panel with live test data
+                const now = Date.now();
+                if (now - lastMetricsRefresh > METRICS_REFRESH_INTERVAL) {
+                    lastMetricsRefresh = now;
+                    refreshPerformanceMetricsFromLiveTest();
+                }
+
                 // Check if test is still running
                 if (!status.running && liveTestRunning) {
                     // Test was stopped externally
@@ -2724,6 +2737,41 @@
             } catch (error) {
                 console.warn('Status poll failed:', error.message);
                 // Don't stop polling on transient errors
+            }
+        }
+
+        // Refresh Performance Metrics panel with current live test data
+        async function refreshPerformanceMetricsFromLiveTest() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (data.success && data.metrics) {
+                    // Add fallback values for missing metrics
+                    const metrics = data.metrics;
+                    metrics.initial_balance = metrics.initial_balance ?? 1.0;
+                    metrics.final_balance = metrics.final_balance ?? (metrics.initial_balance + (metrics.total_pnl / 100));
+                    metrics.total_return_percent = metrics.total_return_percent ?? metrics.total_pnl;
+                    metrics.max_drawdown_percent = metrics.max_drawdown_percent ?? 0;
+                    metrics.sharpe_ratio = metrics.sharpe_ratio ?? 0;
+                    metrics.profit_factor = metrics.profit_factor ?? (metrics.winning_trades > 0 && metrics.losing_trades > 0 ?
+                        Math.abs(metrics.avg_win * metrics.winning_trades) / Math.abs(metrics.avg_loss * metrics.losing_trades) : 0);
+                    metrics.max_drawdown = metrics.max_drawdown ?? 0;
+
+                    // Update Performance Metrics panel
+                    renderMetrics(metrics);
+
+                    // Update metrics badge to show live indicator
+                    const badge = document.getElementById('metrics-badge');
+                    if (badge) badge.textContent = '🔴 LIVE';
+
+                    console.log('[LiveTest] Performance Metrics refreshed:', metrics.total_trades, 'trades, P&L:', metrics.total_pnl);
+                }
+            } catch (err) {
+                console.warn('[LiveTest] Failed to refresh Performance Metrics:', err.message);
             }
         }
 
