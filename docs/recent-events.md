@@ -1,6 +1,39 @@
 # Recent Events
 
-## Latest Updates - January 22, 2026
+## Latest Updates - January 23, 2026
+
+### Bug Fixes Completed
+
+| Bug | Root Cause | Fix | Commit |
+|-----|------------|-----|--------|
+| **#1 Periodic refresh too aggressive** | Chart refresh every 30s caused data loss and performance issues | Reduced refresh interval from 30s to 5 minutes | 096cbcb |
+| **#2 4h candle zoom not scaling** | Zoom level was fixed regardless of candle period | Zoom now scales by candle period (1m, 5m, 1h, etc.) | 096cbcb |
+| **#6 TestBot not generating trades** | Multiple issues: C++ binary needed rebuild, NDJSON parsing broken, field name mismatch | Rebuilt binary, fixed NDJSON line parsing, corrected field names | backend-dev |
+
+### New Features
+
+| Feature | Description | Commit |
+|---------|-------------|--------|
+| **#3 Historical data lazy loading** | Scroll left on chart to load older candles dynamically | 2df01e7 |
+| **#4 Bot strategy descriptions** | Shows strategy description when a bot is selected | c2fd7bd |
+| **#5 Chart indicator overlays** | EMA and Bollinger Bands per strategy (configurable per bot) | e5ec8aa |
+
+### Verified Features
+
+All 6 features verified by QA on January 23, 2026:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| #1 Periodic refresh (5 min) | ✅ Working | No more data loss from aggressive refresh |
+| #2 4h candle zoom scaling | ✅ Working | Zoom adapts to candle period |
+| #3 Historical lazy loading | ✅ Working | Scroll left loads older candles |
+| #4 Bot descriptions | ✅ Working | All 5 strategies have descriptions |
+| #5 Chart overlays | ✅ Working | EMA/Bollinger per strategy |
+| #6 TestBot trades | ✅ Working | Trades generating correctly |
+
+---
+
+## Updates - January 22, 2026
 
 ### Bug Fixes Completed
 
@@ -71,5 +104,9 @@ All milestones verified by QA on January 22, 2026:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-23 | e5ec8aa | Feature #5: Chart indicator overlays (EMA, Bollinger Bands) |
+| 2026-01-23 | c2fd7bd | Feature #4: Bot strategy descriptions |
+| 2026-01-23 | 2df01e7 | Feature #3: Historical data lazy loading |
+| 2026-01-23 | 096cbcb | Bug fixes #1 & #2: Periodic refresh interval, 4h candle zoom scaling |
 | 2026-01-22 | bed3d75 | UI improvements: dynamic chart titles, error toasts, API badge, 24h label, loading states |
 | 2026-01-22 | - | Bug fixes for chart scaling, backtest, UI, and live candles |
