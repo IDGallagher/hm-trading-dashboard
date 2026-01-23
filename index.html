@@ -2379,7 +2379,7 @@
 
                 // Update the running status text
                 const statusText = document.getElementById('status-text');
-                statusText.textContent = `Running: ${status.trades || 0} trades`;
+                statusText.textContent = `Running: ${status.tradeCount || 0} trades`;
 
                 // Update live stats
                 updateLiveStats(status);
