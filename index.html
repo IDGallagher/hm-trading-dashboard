@@ -2555,9 +2555,11 @@
 
         // Update live stats display
         function updateLiveStats(data) {
-            document.getElementById('live-trades').textContent = data.trades || 0;
+            // Use tradeCount from API (not trades)
+            document.getElementById('live-trades').textContent = data.tradeCount || 0;
 
-            const pnl = data.pnl || 0;
+            // Use totalPnl from API (not pnl)
+            const pnl = data.totalPnl || 0;
             const pnlElement = document.getElementById('live-pnl');
             pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
             pnlElement.className = 'live-stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
