@@ -1834,6 +1834,162 @@
             'PairTradeBot': 'Statistical arbitrage using mean reversion between correlated trading pairs.'
         };
 
+        // Strategy indicator configurations
+        const STRATEGY_INDICATORS = {
+            'TestBot': [], // Simple - no indicators
+            'DivergeBot': [
+                { type: 'ema', period: 20, color: '#ff9800', label: 'EMA 20' }
+            ],
+            'SazBot': [
+                { type: 'ema', period: 20, color: '#2196f3', label: 'EMA 20' },
+                { type: 'ema', period: 50, color: '#ff9800', label: 'EMA 50' }
+            ],
+            'SDBot': [
+                { type: 'ema', period: 20, color: '#2196f3', label: 'EMA 20' },
+                { type: 'ema', period: 50, color: '#ff9800', label: 'EMA 50' },
+                { type: 'bollinger', period: 20, stdDev: 2, color: '#9c27b0', label: 'BB' }
+            ],
+            'PairTradeBot': [
+                { type: 'ema', period: 20, color: '#2196f3', label: 'EMA 20' },
+                { type: 'ema', period: 50, color: '#ff9800', label: 'EMA 50' }
+            ]
+        };
+
+        // Indicator line series for live market chart
+        let indicatorSeries = {}; // { 'ema_20': lineSeries, 'ema_50': lineSeries, etc. }
+        let currentStrategyIndicators = 'TestBot';
+
+        // Calculate EMA from candle data
+        function calculateEMA(candles, period) {
+            if (!candles || candles.length < period) return [];
+            const k = 2 / (period + 1);
+            const emaData = [];
+
+            // Initialize with SMA for first period
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+                sum += candles[i].close;
+            }
+            let ema = sum / period;
+            emaData.push({ time: candles[period - 1].time, value: ema });
+
+            // Calculate EMA for remaining candles
+            for (let i = period; i < candles.length; i++) {
+                ema = candles[i].close * k + ema * (1 - k);
+                emaData.push({ time: candles[i].time, value: ema });
+            }
+            return emaData;
+        }
+
+        // Calculate Bollinger Bands from candle data
+        function calculateBollingerBands(candles, period, stdDev) {
+            if (!candles || candles.length < period) return { upper: [], middle: [], lower: [] };
+
+            const upper = [], middle = [], lower = [];
+
+            for (let i = period - 1; i < candles.length; i++) {
+                // Calculate SMA
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) {
+                    sum += candles[j].close;
+                }
+                const sma = sum / period;
+
+                // Calculate standard deviation
+                let sqSum = 0;
+                for (let j = i - period + 1; j <= i; j++) {
+                    sqSum += Math.pow(candles[j].close - sma, 2);
+                }
+                const std = Math.sqrt(sqSum / period);
+
+                const time = candles[i].time;
+                middle.push({ time, value: sma });
+                upper.push({ time, value: sma + stdDev * std });
+                lower.push({ time, value: sma - stdDev * std });
+            }
+
+            return { upper, middle, lower };
+        }
+
+        // Clear all indicator series from chart
+        function clearIndicators() {
+            for (const key in indicatorSeries) {
+                if (indicatorSeries[key] && liveMarketChart) {
+                    try {
+                        liveMarketChart.removeSeries(indicatorSeries[key]);
+                    } catch (e) {
+                        console.warn('[Indicators] Error removing series:', key, e);
+                    }
+                }
+            }
+            indicatorSeries = {};
+        }
+
+        // Update indicators for the selected strategy
+        function updateChartIndicators(strategy) {
+            if (!liveMarketChart || !lastCandleData.length) return;
+
+            // Clear existing indicators
+            clearIndicators();
+
+            const indicators = STRATEGY_INDICATORS[strategy] || [];
+            currentStrategyIndicators = strategy;
+
+            if (indicators.length === 0) {
+                console.log('[Indicators] No indicators for', strategy);
+                return;
+            }
+
+            console.log('[Indicators] Adding indicators for', strategy, ':', indicators.length);
+
+            for (const config of indicators) {
+                if (config.type === 'ema') {
+                    const emaData = calculateEMA(lastCandleData, config.period);
+                    if (emaData.length > 0) {
+                        const series = liveMarketChart.addLineSeries({
+                            color: config.color,
+                            lineWidth: 1,
+                            title: config.label,
+                            priceLineVisible: false,
+                            lastValueVisible: false
+                        });
+                        series.setData(emaData);
+                        indicatorSeries[`ema_${config.period}`] = series;
+                        console.log(`[Indicators] Added EMA ${config.period} with ${emaData.length} points`);
+                    }
+                } else if (config.type === 'bollinger') {
+                    const bb = calculateBollingerBands(lastCandleData, config.period, config.stdDev);
+                    if (bb.upper.length > 0) {
+                        // Upper band
+                        const upperSeries = liveMarketChart.addLineSeries({
+                            color: config.color,
+                            lineWidth: 1,
+                            lineStyle: 2, // Dashed
+                            title: 'BB Upper',
+                            priceLineVisible: false,
+                            lastValueVisible: false
+                        });
+                        upperSeries.setData(bb.upper);
+                        indicatorSeries['bb_upper'] = upperSeries;
+
+                        // Lower band
+                        const lowerSeries = liveMarketChart.addLineSeries({
+                            color: config.color,
+                            lineWidth: 1,
+                            lineStyle: 2, // Dashed
+                            title: 'BB Lower',
+                            priceLineVisible: false,
+                            lastValueVisible: false
+                        });
+                        lowerSeries.setData(bb.lower);
+                        indicatorSeries['bb_lower'] = lowerSeries;
+
+                        console.log(`[Indicators] Added Bollinger Bands with ${bb.upper.length} points`);
+                    }
+                }
+            }
+        }
+
         // Update strategy description when selector changes
         function updateStrategyDescription(strategy) {
             const descEl = document.getElementById('strategy-description');
@@ -1998,6 +2154,9 @@
                         // Update chart with all data
                         liveMarketCandleSeries.setData(lastCandleData);
 
+                        // Re-calculate and update indicators with new data
+                        updateChartIndicators(currentStrategyIndicators);
+
                         console.log(`[LazyLoad] Added ${newCandles.length} older candles, total: ${lastCandleData.length}`);
 
                         // Update title with new candle count
@@ -2075,6 +2234,10 @@
 
                     // Fetch archive info for lazy loading bounds (don't await, do in background)
                     fetchArchiveInfo(currentMarket);
+
+                    // Update chart indicators for selected strategy
+                    const selectedStrategy = document.getElementById('strategy-selector')?.value || 'TestBot';
+                    updateChartIndicators(selectedStrategy);
 
                     // Show only recent data (scroll to right) instead of all data
                     // This prevents large time gaps from compressing the visible candles
@@ -2227,6 +2390,7 @@
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
                 isLoadingOlderCandles = false;
+                clearIndicators(); // Clear indicators before loading new data
                 loadLiveMarketData();
                 subscribeToMarket(currentMarket);
             });
@@ -2235,6 +2399,7 @@
                 formingCandle = null; // Reset forming candle on period change
                 earliestCandleTime = null; // Reset lazy loading state
                 isLoadingOlderCandles = false;
+                clearIndicators(); // Clear indicators before loading new data
                 loadPriceData();
             });
             if (refreshBtn) refreshBtn.addEventListener('click', loadLiveMarketData);
@@ -4009,6 +4174,9 @@
 
                 // Update strategy description
                 updateStrategyDescription(currentStrategy);
+
+                // Update chart indicators for live market chart
+                updateChartIndicators(currentStrategy);
 
                 // Update chart title if we have data loaded
                 if (currentData && currentData.metadata) {
