@@ -1854,7 +1854,7 @@
                         if (liveTradeFeed) liveTradeFeed.style.display = 'none';
                         if (!liveMarketChart) initLiveMarketChart();
                         await loadLiveMarketData();
-                        liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
+                        liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
                         connectLiveMarketWebSocket();
                     }
 
@@ -1922,7 +1922,17 @@
                     // Show only recent data (scroll to right) instead of all data
                     // This prevents large time gaps from compressing the visible candles
                     const lastTime = candles[candles.length - 1].time;
-                    const hoursToShow = 6; // Show last 6 hours
+                    // Scale visible range based on period for appropriate candle count
+                    const hoursToShowByPeriod = {
+                        '1m': 6,      // 360 candles
+                        '5m': 6,      // 72 candles
+                        '15m': 12,    // 48 candles
+                        '1h': 24,     // 24 candles
+                        '4h': 96,     // 24 candles (4 days)
+                        '1d': 720,    // 30 candles (30 days)
+                        '1w': 2520    // 15 candles (105 days)
+                    };
+                    const hoursToShow = hoursToShowByPeriod[currentMarketPeriod] || 6;
                     const visibleFrom = lastTime - (hoursToShow * 3600);
                     liveMarketChart.timeScale().setVisibleRange({
                         from: visibleFrom,
@@ -3909,7 +3919,7 @@
             initLiveMarketChart();
             loadLiveMarketData();
             // Start auto-refresh (fallback, WebSocket is primary)
-            liveMarketRefreshInterval = setInterval(loadLiveMarketData, 30000);
+            liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
             // Connect WebSocket for real-time updates
             connectLiveMarketWebSocket();
         })();
