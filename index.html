@@ -863,30 +863,6 @@
         }
 
         /* Live Market Data Section Styles */
-        .view-toggle {
-            display: flex;
-            gap: 5px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 8px;
-            padding: 4px;
-        }
-        .view-toggle-btn {
-            padding: 8px 16px;
-            border: none;
-            background: transparent;
-            color: #8892b0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        .view-toggle-btn:hover {
-            color: #fff;
-        }
-        .view-toggle-btn.active {
-            background: rgba(0,212,255,0.2);
-            color: #00d4ff;
-        }
         #live-market-content {
             display: none;
         }
@@ -1101,10 +1077,6 @@
 
         <!-- Controls Bar -->
         <div class="controls-bar">
-            <div class="view-toggle">
-                <button class="view-toggle-btn" data-view="backtest">📊 Backtest</button>
-                <button class="view-toggle-btn active" data-view="live-market">📈 Live Market</button>
-            </div>
             <div class="control-group" id="session-control">
                 <span class="control-label">Session:</span>
                 <select id="session-selector" class="control-select">
@@ -1159,6 +1131,7 @@
             </div>
             <div class="live-test-controls">
                 <select id="strategy-selector" class="live-test-select">
+                    <option value="none" selected>📈 Live Market Only</option>
                     <option value="TestBot">TestBot</option>
                     <option value="DivergeBot">DivergeBot</option>
                     <option value="SazBot">SazBot</option>
@@ -1166,9 +1139,9 @@
                     <option value="PairTradeBot">PairTradeBot</option>
                 </select>
                 <div id="strategy-description" class="strategy-description" title="Strategy description">
-                    Simple test strategy that trades every 60 seconds for verification purposes.
+                    Live market data only. Select a strategy to view trade overlays and backtest results.
                 </div>
-                <button id="btn-start-test" class="btn-start">
+                <button id="btn-start-test" class="btn-start disabled" disabled>
                     <span>▶</span> Start Live Test
                 </button>
                 <script>
@@ -1334,7 +1307,7 @@
                     <span class="badge badge-info">LIVE DATA</span>
                 </div>
                 <div id="live-price-chart-container"></div>
-                <div class="chart-legend">
+                <div class="chart-legend" id="price-chart-legend">
                     <div class="legend-item">
                         <div class="legend-color" style="background: #26a69a;"></div>
                         <span>Price Candles</span>
@@ -1342,6 +1315,44 @@
                     <div class="legend-item">
                         <div class="legend-color" style="background: #2962FF;"></div>
                         <span>Volume</span>
+                    </div>
+                </div>
+                <!-- Trade overlay legend (shown in strategy mode) -->
+                <div class="chart-legend" id="trade-overlay-legend" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2196F3;"></div>
+                        <span>Long Entry</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF9800;"></div>
+                        <span>Short Entry</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00c853;"></div>
+                        <span>Profit Exit</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff5252;"></div>
+                        <span>Loss Exit</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equity Curve Chart (shown in strategy mode) -->
+            <div id="equity-curve-container" class="card full-width" style="display: none; margin-bottom: 20px;">
+                <div class="card-header">
+                    <span class="card-title" id="equity-chart-title">Equity Curve</span>
+                    <span class="badge badge-success" id="equity-badge">STRATEGY</span>
+                </div>
+                <div id="equity-curve-chart-container" style="height: 200px;"></div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4caf50;"></div>
+                        <span>Equity</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff5252;"></div>
+                        <span>Drawdown</span>
                     </div>
                 </div>
             </div>
@@ -1827,6 +1838,7 @@
 
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
+            'none': 'Live market data only. Select a strategy to view trade overlays and backtest results.',
             'TestBot': 'Simple test strategy that trades every 60 seconds for verification purposes.',
             'DivergeBot': 'Arbitrage strategy that detects price divergence between BTC/USD and BTC/USDT markets.',
             'SazBot': 'Order book imbalance strategy analyzing bid/ask ratios at multiple depth levels (1%-25%).',
@@ -1998,63 +2010,285 @@
             }
         }
 
-        // Initialize view toggle
-        function initViewToggle() {
-            const toggleBtns = document.querySelectorAll('.view-toggle-btn');
+        // Current dashboard mode ('market' = no strategy, 'strategy' = strategy selected)
+        let currentDashboardMode = 'market';
+
+        // Switch dashboard mode based on strategy selection
+        // Mode A (market): Live price chart + orderbook + recent trades
+        // Mode B (strategy): Price chart with trade overlays + equity curve
+        async function switchDashboardMode(mode) {
             const dashboardContent = document.getElementById('dashboard-content');
             const liveMarketContent = document.getElementById('live-market-content');
             const sessionControl = document.getElementById('session-control');
+            const exportButtons = document.querySelector('.export-buttons');
+            const liveTestPanel = document.getElementById('live-test-panel');
+            const liveTradeFeed = document.getElementById('live-trade-feed');
+            const equityCurveContainer = document.getElementById('equity-curve-container');
+            const tradeOverlayLegend = document.getElementById('trade-overlay-legend');
 
-            toggleBtns.forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const view = btn.dataset.view;
+            currentDashboardMode = mode;
 
-                    // Show loading state on button
-                    const originalText = btn.textContent;
-                    btn.textContent = '⏳ Loading...';
-                    btn.disabled = true;
-                    toggleBtns.forEach(b => b.disabled = true);
+            if (mode === 'market') {
+                // Mode A: No strategy selected - show live market view
+                dashboardContent.style.display = 'none';
+                dashboardContent.classList.add('hidden');
+                liveMarketContent.classList.add('active');
+                liveMarketContent.style.display = 'block';
 
-                    toggleBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                // Hide backtest controls
+                document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
+                if (exportButtons) exportButtons.style.display = 'none';
+                if (liveTradeFeed) liveTradeFeed.style.display = 'none';
+                if (equityCurveContainer) equityCurveContainer.style.display = 'none';
+                if (tradeOverlayLegend) tradeOverlayLegend.style.display = 'none';
 
-                    if (view === 'backtest') {
-                        dashboardContent.style.display = '';
-                        dashboardContent.classList.remove('hidden');
-                        liveMarketContent.classList.remove('active');
-                        liveMarketContent.style.display = 'none';
-                        document.querySelectorAll('.control-group').forEach(el => el.style.display = '');
-                        document.querySelector('.export-buttons').style.display = '';
-                        const liveTestPanel = document.getElementById('live-test-panel');
-                        const liveTradeFeed = document.getElementById('live-trade-feed');
-                        if (liveTestPanel) liveTestPanel.style.display = '';
-                        if (liveTradeFeed) liveTradeFeed.style.display = '';
-                        if (liveMarketRefreshInterval) {
-                            clearInterval(liveMarketRefreshInterval);
-                            liveMarketRefreshInterval = null;
-                        }
-                        disconnectLiveMarketWebSocket();
-                    } else if (view === 'live-market') {
-                        dashboardContent.style.display = 'none';
-                        dashboardContent.classList.add('hidden');
-                        liveMarketContent.classList.add('active');
-                        liveMarketContent.style.display = 'block';
-                        document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
-                        document.querySelector('.export-buttons').style.display = 'none';
-                        // Keep live-test-panel visible so users can start live tests
-                        const liveTradeFeed = document.getElementById('live-trade-feed');
-                        if (liveTradeFeed) liveTradeFeed.style.display = 'none';
-                        if (!liveMarketChart) initLiveMarketChart();
-                        await loadLiveMarketData();
-                        liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
-                        connectLiveMarketWebSocket();
+                // Initialize live market chart
+                if (!liveMarketChart) initLiveMarketChart();
+                await loadLiveMarketData();
+                liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
+                connectLiveMarketWebSocket();
+
+                // Clear trade overlays from chart
+                clearTradeOverlays();
+
+                // Update chart title
+                const chartTitle = document.getElementById('live-chart-title');
+                if (chartTitle) chartTitle.textContent = 'BTC/USD Live Price';
+
+            } else if (mode === 'strategy') {
+                // Mode B: Strategy selected - show price chart with trade overlays + equity curve
+                dashboardContent.style.display = 'none';
+                dashboardContent.classList.add('hidden');
+                liveMarketContent.classList.add('active');
+                liveMarketContent.style.display = 'block';
+
+                // Keep live market chart but add trade overlays
+                if (!liveMarketChart) initLiveMarketChart();
+                await loadLiveMarketData();
+                liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
+                connectLiveMarketWebSocket();
+
+                // Show equity curve container and trade overlay legend
+                if (equityCurveContainer) equityCurveContainer.style.display = 'block';
+                if (tradeOverlayLegend) tradeOverlayLegend.style.display = 'flex';
+
+                // Hide other controls
+                document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
+                if (exportButtons) exportButtons.style.display = 'none';
+                if (liveTradeFeed) liveTradeFeed.style.display = 'none';
+
+                // Load trade overlays for selected strategy
+                await loadTradeOverlays();
+
+                // Load equity curve
+                await loadEquityCurve();
+
+                // Update chart title with strategy
+                const chartTitle = document.getElementById('live-chart-title');
+                if (chartTitle) chartTitle.textContent = `BTC/USD Price with ${currentStrategy} Trades`;
+            }
+        }
+
+        // Initialize mode switching based on strategy selector
+        function initViewToggle() {
+            // Mode is now driven by strategy selector
+            // This function is kept for backwards compatibility
+            // Actual mode switching happens in strategy selector change handler
+        }
+
+        // Clear trade overlay markers from the live market chart
+        function clearTradeOverlays() {
+            if (liveMarketCandleSeries) {
+                liveMarketCandleSeries.setMarkers([]);
+            }
+        }
+
+        // Load and display trade overlays on the live market chart
+        async function loadTradeOverlays() {
+            if (!liveMarketCandleSeries || !lastCandleData.length) return;
+            if (currentStrategy === 'none') {
+                clearTradeOverlays();
+                return;
+            }
+
+            try {
+                // Fetch trades from the session/test endpoint
+                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    console.log('[Trade Overlays] No test session data available');
+                    return;
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.trades || data.trades.length === 0) {
+                    console.log('[Trade Overlays] No trades to display');
+                    clearTradeOverlays();
+                    return;
+                }
+
+                const markers = [];
+                const trades = data.trades;
+
+                // Helper to find closest candle to a timestamp
+                const findClosestCandle = (timestamp) => {
+                    return lastCandleData.reduce((prev, curr) => {
+                        return Math.abs(curr.time - timestamp) < Math.abs(prev.time - timestamp) ? curr : prev;
+                    });
+                };
+
+                trades.forEach(trade => {
+                    // ENTRY marker - arrow shape
+                    const entryTime = trade.timestamp_unix || trade.entry_time_unix;
+                    if (entryTime) {
+                        const entryCandle = findClosestCandle(entryTime);
+                        markers.push({
+                            time: entryCandle.time,
+                            position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
+                            color: trade.side === 'long' ? '#2196F3' : '#FF9800', // Blue for long, orange for short
+                            shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
+                            text: '' // No text to prevent overlap
+                        });
                     }
 
-                    // Restore button state
-                    btn.textContent = originalText;
-                    toggleBtns.forEach(b => b.disabled = false);
+                    // EXIT marker - circle shape (if exit data exists)
+                    if (trade.exit_time_unix && trade.exit_price) {
+                        const exitCandle = findClosestCandle(trade.exit_time_unix);
+                        markers.push({
+                            time: exitCandle.time,
+                            position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
+                            color: trade.pnl >= 0 ? '#00c853' : '#ff5252', // Green for profit, red for loss
+                            shape: 'circle',
+                            text: ''
+                        });
+                    }
                 });
+
+                // Sort markers by time (required by Lightweight Charts)
+                markers.sort((a, b) => a.time - b.time);
+                liveMarketCandleSeries.setMarkers(markers);
+                console.log(`[Trade Overlays] Displayed ${markers.length} markers for ${trades.length} trades`);
+
+            } catch (err) {
+                console.error('[Trade Overlays] Error loading trades:', err);
+            }
+        }
+
+        // Equity curve chart instance
+        let equityCurveChart = null;
+        let equitySeries = null;
+        let drawdownSeries = null;
+
+        // Load and display equity curve in the separate chart
+        async function loadEquityCurve() {
+            const container = document.getElementById('equity-curve-chart-container');
+            if (!container) return;
+
+            if (currentStrategy === 'none') {
+                // Clear equity curve in market mode
+                if (equityCurveChart) {
+                    equityCurveChart.remove();
+                    equityCurveChart = null;
+                    equitySeries = null;
+                    drawdownSeries = null;
+                }
+                return;
+            }
+
+            try {
+                // Fetch equity curve data from session/test endpoint
+                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    console.log('[Equity Curve] No test session data available');
+                    return;
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.equity_curve || data.equity_curve.length === 0) {
+                    console.log('[Equity Curve] No equity curve data');
+                    // Show empty state
+                    if (!equityCurveChart) {
+                        initEquityCurveChart(container);
+                    }
+                    if (equitySeries) equitySeries.setData([]);
+                    if (drawdownSeries) drawdownSeries.setData([]);
+                    return;
+                }
+
+                // Initialize chart if not exists
+                if (!equityCurveChart) {
+                    initEquityCurveChart(container);
+                }
+
+                // Format equity curve data for Lightweight Charts
+                const equityData = data.equity_curve.map(point => ({
+                    time: point.timestamp_unix,
+                    value: point.equity
+                }));
+
+                // Format drawdown data (inverted to show below zero line)
+                const drawdownData = data.equity_curve.map(point => ({
+                    time: point.timestamp_unix,
+                    value: -(point.drawdown || 0) / 100  // Negative percentage as decimal
+                }));
+
+                equitySeries.setData(equityData);
+                drawdownSeries.setData(drawdownData);
+
+                // Update title with strategy name
+                const titleEl = document.getElementById('equity-chart-title');
+                if (titleEl) titleEl.textContent = `${currentStrategy} Equity Curve`;
+
+                equityCurveChart.timeScale().fitContent();
+                console.log(`[Equity Curve] Loaded ${equityData.length} points`);
+
+            } catch (err) {
+                console.error('[Equity Curve] Error loading data:', err);
+            }
+        }
+
+        // Initialize the equity curve chart
+        function initEquityCurveChart(container) {
+            equityCurveChart = LightweightCharts.createChart(container, {
+                layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8892b0' },
+                grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+                timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
+                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                height: 200
             });
+
+            equitySeries = equityCurveChart.addLineSeries({
+                color: '#4caf50',
+                lineWidth: 2,
+                priceScaleId: 'right'
+            });
+
+            drawdownSeries = equityCurveChart.addAreaSeries({
+                topColor: 'rgba(255, 82, 82, 0.4)',
+                bottomColor: 'rgba(255, 82, 82, 0.1)',
+                lineColor: '#ff5252',
+                lineWidth: 1,
+                priceScaleId: 'left'
+            });
+
+            // Configure left scale for drawdown
+            equityCurveChart.applyOptions({
+                leftPriceScale: {
+                    visible: true,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    autoScale: true
+                }
+            });
+
+            // Resize observer
+            const resizeObserver = new ResizeObserver(() => {
+                equityCurveChart.applyOptions({ width: container.clientWidth });
+            });
+            resizeObserver.observe(container);
         }
 
         // Initialize live market chart
@@ -4217,25 +4451,38 @@
                 }
             });
 
-            // Strategy selector for live test - updates chart title dynamically
-            document.getElementById('strategy-selector').addEventListener('change', (e) => {
+            // Strategy selector for live test - drives dashboard mode
+            document.getElementById('strategy-selector').addEventListener('change', async (e) => {
                 currentStrategy = e.target.value;
-                document.getElementById('live-strategy').textContent = currentStrategy;
 
-                // Update strategy description
-                updateStrategyDescription(currentStrategy);
-
-                // Update chart indicators for live market chart
-                updateChartIndicators(currentStrategy);
+                // Switch dashboard mode based on strategy selection
+                if (currentStrategy === 'none') {
+                    // Mode A: Live market only
+                    document.getElementById('live-strategy').textContent = 'None';
+                    document.getElementById('btn-start-test').disabled = true;
+                    document.getElementById('btn-start-test').classList.add('disabled');
+                    updateStrategyDescription('none');
+                    clearIndicators();
+                    await switchDashboardMode('market');
+                } else {
+                    // Mode B: Strategy selected - show trade overlays + equity curve
+                    document.getElementById('live-strategy').textContent = currentStrategy;
+                    document.getElementById('btn-start-test').disabled = false;
+                    document.getElementById('btn-start-test').classList.remove('disabled');
+                    updateStrategyDescription(currentStrategy);
+                    updateChartIndicators(currentStrategy);
+                    await switchDashboardMode('strategy');
+                }
 
                 // Update chart title if we have data loaded
                 if (currentData && currentData.metadata) {
                     const candlePeriodLabel = currentCandlePeriod;
                     const sessionLabel = currentSession === 'test' ? ' (TEST)' : '';
+                    const strategyLabel = currentStrategy === 'none' ? '' : ` & ${currentStrategy} P&L`;
                     document.getElementById('chart-title').textContent =
-                        `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${currentStrategy} P&L${sessionLabel}`;
+                        `${currentData.metadata.pair} Price (${candlePeriodLabel})${strategyLabel}${sessionLabel}`;
                 }
-                console.log(`[strategy-selector] Strategy changed to: ${currentStrategy}`);
+                console.log(`[strategy-selector] Strategy changed to: ${currentStrategy}, mode: ${currentStrategy === 'none' ? 'market' : 'strategy'}`);
             });
 
             // Date range selector
@@ -4287,20 +4534,40 @@
         initViewToggle(); // Enable view toggle between Backtest and Live Market
         initLiveMarketControls(); // Setup live market data controls
 
-        // Default to Live Market view
-        (function initLiveMarketView() {
-            // Hide backtest controls (but keep live-test-panel visible for starting tests)
+        // Default to Market mode (no strategy selected)
+        (async function initLiveMarketView() {
+            // Set initial strategy to 'none'
+            currentStrategy = 'none';
+
+            // Disable start button initially (no strategy selected)
+            const startBtn = document.getElementById('btn-start-test');
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.classList.add('disabled');
+            }
+
+            // Update strategy display
+            document.getElementById('live-strategy').textContent = 'None';
+            updateStrategyDescription('none');
+
+            // Hide backtest controls (but keep live-test-panel visible)
             document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
             document.querySelector('.export-buttons').style.display = 'none';
             const liveTradeFeed = document.getElementById('live-trade-feed');
             if (liveTradeFeed) liveTradeFeed.style.display = 'none';
-            // Keep live-test-panel visible so users can start live tests
+
+            // Hide equity curve container (market mode)
+            const equityCurveContainer = document.getElementById('equity-curve-container');
+            if (equityCurveContainer) equityCurveContainer.style.display = 'none';
+
             // Hide backtest content
             const dashboardContent = document.getElementById('dashboard-content');
             if (dashboardContent) dashboardContent.style.display = 'none';
+
             // Initialize chart and load data
             initLiveMarketChart();
-            loadLiveMarketData();
+            await loadLiveMarketData();
+
             // Start auto-refresh (fallback, WebSocket is primary)
             liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
             // Connect WebSocket for real-time updates
