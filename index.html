@@ -596,6 +596,17 @@
             background: #1a1a2e;
             color: #fff;
         }
+        .strategy-description {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.7);
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            margin-top: 8px;
+            max-width: 350px;
+        }
         .btn-start {
             background: rgba(0,200,83,0.2);
             border: 1px solid rgba(0,200,83,0.4);
@@ -1154,6 +1165,9 @@
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
                 </select>
+                <div id="strategy-description" class="strategy-description" title="Strategy description">
+                    Simple test strategy that trades every 60 seconds for verification purposes.
+                </div>
                 <button id="btn-start-test" class="btn-start">
                     <span>▶</span> Start Live Test
                 </button>
@@ -1805,6 +1819,23 @@
             'xrpusd': 'XRP/USD',
             'dogeusd': 'DOGE/USD'
         };
+
+        // Strategy descriptions for the Live Test Control panel
+        const STRATEGY_DESCRIPTIONS = {
+            'TestBot': 'Simple test strategy that trades every 60 seconds for verification purposes.',
+            'DivergeBot': 'Arbitrage strategy that detects price divergence between BTC/USD and BTC/USDT markets.',
+            'SazBot': 'Order book imbalance strategy analyzing bid/ask ratios at multiple depth levels (1%-25%).',
+            'SDBot': 'Supply/demand zone trading based on detecting significant price runs and zone boundaries.',
+            'PairTradeBot': 'Statistical arbitrage using mean reversion between correlated trading pairs.'
+        };
+
+        // Update strategy description when selector changes
+        function updateStrategyDescription(strategy) {
+            const descEl = document.getElementById('strategy-description');
+            if (descEl) {
+                descEl.textContent = STRATEGY_DESCRIPTIONS[strategy] || 'No description available.';
+            }
+        }
 
         // Initialize view toggle
         function initViewToggle() {
@@ -3844,6 +3875,9 @@
             document.getElementById('strategy-selector').addEventListener('change', (e) => {
                 currentStrategy = e.target.value;
                 document.getElementById('live-strategy').textContent = currentStrategy;
+
+                // Update strategy description
+                updateStrategyDescription(currentStrategy);
 
                 // Update chart title if we have data loaded
                 if (currentData && currentData.metadata) {
