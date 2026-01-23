@@ -1690,6 +1690,11 @@
         let formingCandle = null;  // { time, open, high, low, close, volume }
         let lastCandleData = [];   // Store the historical candles for reference
 
+        // Lazy loading state for historical candles
+        let earliestCandleTime = null;  // Track earliest loaded candle timestamp
+        let isLoadingOlderCandles = false;  // Prevent concurrent fetches
+        let archiveMinTime = null;  // Track archive data availability
+
         // Period duration in seconds
         const PERIOD_SECONDS = {
             '1m': 60,
@@ -1918,6 +1923,123 @@
                 liveMarketChart.applyOptions({ width: container.clientWidth });
             });
             resizeObserver.observe(container);
+
+            // Subscribe to visible range changes for lazy loading
+            liveMarketChart.timeScale().subscribeVisibleLogicalRangeChange((logicalRange) => {
+                if (!logicalRange || !lastCandleData.length || isLoadingOlderCandles) return;
+
+                // Check if user has scrolled near the left edge (first 10% of visible range)
+                const visibleBarsCount = logicalRange.to - logicalRange.from;
+                const leftEdgeThreshold = Math.max(5, Math.floor(visibleBarsCount * 0.1));
+
+                // If logicalRange.from is close to 0, user is at the start of data
+                if (logicalRange.from < leftEdgeThreshold) {
+                    loadOlderCandles();
+                }
+            });
+        }
+
+        // Load older candles when user scrolls left
+        async function loadOlderCandles() {
+            if (isLoadingOlderCandles || !earliestCandleTime) return;
+
+            // Check if we've already loaded all available archive data
+            if (archiveMinTime && earliestCandleTime <= archiveMinTime) {
+                console.log('[LazyLoad] Already at archive start, no more data available');
+                return;
+            }
+
+            isLoadingOlderCandles = true;
+            const chartTitle = document.getElementById('live-chart-title');
+            const originalTitle = chartTitle?.textContent || '';
+
+            try {
+                // Show loading indicator
+                if (chartTitle) {
+                    chartTitle.textContent = originalTitle.replace(')', ' · ⏳ Loading older...)').replace('))', ')');
+                }
+
+                // Calculate time range to fetch (go back by period-appropriate amount)
+                const periodSeconds = PERIOD_SECONDS[currentMarketPeriod] || 300;
+                const candlesToFetch = 200; // Fetch ~200 candles at a time
+                const fetchDuration = candlesToFetch * periodSeconds;
+
+                const endTime = earliestCandleTime - 1; // Just before our earliest
+                const startTime = endTime - fetchDuration;
+
+                console.log(`[LazyLoad] Fetching older candles: ${new Date(startTime * 1000).toISOString()} to ${new Date(endTime * 1000).toISOString()}`);
+
+                const response = await fetch(
+                    `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`,
+                    { headers: { 'x-api-key': CONTROL_API_KEY } }
+                );
+
+                if (!response.ok) throw new Error('Failed to fetch older candles');
+                const data = await response.json();
+
+                if (data.success && data.candles && data.candles.length > 0) {
+                    const olderCandles = data.candles.map(c => ({
+                        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close
+                    }));
+
+                    // Filter out any duplicates (candles we already have)
+                    const existingTimes = new Set(lastCandleData.map(c => c.time));
+                    const newCandles = olderCandles.filter(c => !existingTimes.has(c.time));
+
+                    if (newCandles.length > 0) {
+                        // Prepend new candles to existing data
+                        lastCandleData = [...newCandles, ...lastCandleData];
+                        // Sort by time to ensure correct order
+                        lastCandleData.sort((a, b) => a.time - b.time);
+
+                        // Update earliest time
+                        earliestCandleTime = lastCandleData[0].time;
+
+                        // Update chart with all data
+                        liveMarketCandleSeries.setData(lastCandleData);
+
+                        console.log(`[LazyLoad] Added ${newCandles.length} older candles, total: ${lastCandleData.length}`);
+
+                        // Update title with new candle count
+                        if (chartTitle) {
+                            chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (📦 Archive · ${lastCandleData.length} candles · 🟢 Live)`;
+                        }
+                    } else {
+                        console.log('[LazyLoad] No new candles in response (all duplicates)');
+                        // Restore original title
+                        if (chartTitle) chartTitle.textContent = originalTitle;
+                    }
+                } else {
+                    console.log('[LazyLoad] No older data available');
+                    // Restore original title
+                    if (chartTitle) chartTitle.textContent = originalTitle;
+                }
+            } catch (err) {
+                console.error('[LazyLoad] Error:', err);
+                // Restore original title
+                if (chartTitle) chartTitle.textContent = originalTitle;
+            } finally {
+                isLoadingOlderCandles = false;
+            }
+        }
+
+        // Fetch archive info to know the available data range
+        async function fetchArchiveInfo(market) {
+            try {
+                const response = await fetch(
+                    `${CONTROL_API_URL}/api/archive/info?market=${market}`,
+                    { headers: { 'x-api-key': CONTROL_API_KEY } }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.archive?.available) {
+                        archiveMinTime = data.archive.minTime;
+                        console.log(`[Archive] Data available from ${new Date(archiveMinTime * 1000).toISOString()}`);
+                    }
+                }
+            } catch (err) {
+                console.error('[Archive] Error fetching archive info:', err);
+            }
         }
 
         // Load all live market data
@@ -1948,7 +2070,11 @@
                 if (data.success && data.candles && data.candles.length > 0) {
                     const candles = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
                     lastCandleData = candles; // Store for reference
+                    earliestCandleTime = candles[0].time; // Track earliest for lazy loading
                     liveMarketCandleSeries.setData(candles);
+
+                    // Fetch archive info for lazy loading bounds (don't await, do in background)
+                    fetchArchiveInfo(currentMarket);
 
                     // Show only recent data (scroll to right) instead of all data
                     // This prevents large time gaps from compressing the visible candles
@@ -2098,12 +2224,17 @@
             if (marketSelector) marketSelector.addEventListener('change', (e) => {
                 currentMarket = e.target.value;
                 formingCandle = null; // Reset forming candle on market change
+                earliestCandleTime = null; // Reset lazy loading state
+                archiveMinTime = null;
+                isLoadingOlderCandles = false;
                 loadLiveMarketData();
                 subscribeToMarket(currentMarket);
             });
             if (periodSelector) periodSelector.addEventListener('change', (e) => {
                 currentMarketPeriod = e.target.value;
                 formingCandle = null; // Reset forming candle on period change
+                earliestCandleTime = null; // Reset lazy loading state
+                isLoadingOlderCandles = false;
                 loadPriceData();
             });
             if (refreshBtn) refreshBtn.addEventListener('click', loadLiveMarketData);
