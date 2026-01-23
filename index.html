@@ -3002,7 +3002,26 @@
                     const badge = document.getElementById('metrics-badge');
                     if (badge) badge.textContent = '🔴 LIVE';
 
-                    console.log('[LiveTest] Performance Metrics refreshed:', metrics.total_trades, 'trades, P&L:', metrics.total_pnl);
+                    // Update equity curve status from live test data
+                    const equityStatus = document.getElementById('equity-status');
+                    if (equityStatus && data.equity_curve) {
+                        equityStatus.textContent = data.equity_curve.length + ' data points';
+                    }
+
+                    // Update Trade Activity badge
+                    const tradesBadge = document.getElementById('trades-badge');
+                    if (tradesBadge && data.trades) {
+                        const exitCount = data.trades.filter(t => t.exit_time_unix && t.exit_price).length;
+                        tradesBadge.textContent = `${data.trades.length} entries / ${exitCount} exits`;
+                    }
+
+                    // Refresh equity curve chart if in strategy mode
+                    if (typeof currentDashboardMode !== 'undefined' && currentDashboardMode === 'strategy') {
+                        await loadEquityCurve();
+                        await loadTradeOverlays();
+                    }
+
+                    console.log('[LiveTest] Refreshed - trades:', metrics.total_trades, 'P&L:', metrics.total_pnl, 'Equity points:', data.equity_curve?.length || 0);
                 }
             } catch (err) {
                 console.warn('[LiveTest] Failed to refresh Performance Metrics:', err.message);
