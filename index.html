@@ -6062,14 +6062,22 @@
 
         // Pro bot controls initialization
         function initProBotControls() {
+            console.log('[initProBotControls] >>> FUNCTION CALLED <<<');
             const strategyPro = document.getElementById('strategy-selector-pro');
             const startPro = document.getElementById('btn-start-test-pro');
             const stopPro = document.getElementById('btn-stop-backtest-pro');
+            console.log(`[initProBotControls] Elements found - strategyPro: ${!!strategyPro}, startPro: ${!!startPro}, stopPro: ${!!stopPro}`);
 
             if (strategyPro) {
+                console.log('[initProBotControls] Adding change listener to strategy-selector-pro');
+                // Add both change and input listeners for debugging
+                strategyPro.addEventListener('input', (e) => {
+                    console.log(`[Pro Controls INPUT] Value: ${e.target.value}`);
+                });
                 strategyPro.addEventListener('change', async (e) => {
                     const strategy = e.target.value;
-                    console.log(`[Pro Controls] >>> Strategy changed to: ${strategy} <<<`);
+                    console.log(`[Pro Controls CHANGE] >>> Strategy changed to: ${strategy} <<<`);
+                    console.log(`[Pro Controls CHANGE] Event type: ${e.type}, target: ${e.target.id}`);
                     // Sync with legacy selector
                     const legacySelector = document.getElementById('strategy-selector');
                     if (legacySelector) legacySelector.value = strategy;
