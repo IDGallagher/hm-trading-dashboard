@@ -158,6 +158,60 @@
         .period-option:hover { background: #21262d; }
         .period-option.active { color: #00d4ff; }
 
+        /* === OHLC DISPLAY === */
+        .ohlc-display {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 4px 12px;
+            background: #0d1117;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .ohlc-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .ohlc-label {
+            color: #8b949e;
+        }
+        .ohlc-value {
+            color: #c9d1d9;
+        }
+        .ohlc-value.up { color: #3fb950; }
+        .ohlc-value.down { color: #f85149; }
+
+        /* === BOTTOM PERIOD SELECTOR === */
+        .chart-period-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            padding: 6px 12px;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+        }
+        .chart-period-btn {
+            padding: 4px 10px;
+            background: transparent;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #8b949e;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .chart-period-btn:hover {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        .chart-period-btn.active {
+            background: #238636;
+            border-color: #238636;
+            color: #ffffff;
+        }
+
         .chart-container-pro {
             flex: 1;
             min-height: 0;
@@ -1673,8 +1727,39 @@
                     <span class="instrument-badge" id="live-indicator">● LIVE</span>
                 </div>
             </div>
+            <!-- OHLC Display -->
+            <div class="ohlc-display">
+                <div class="ohlc-item">
+                    <span class="ohlc-label">O</span>
+                    <span class="ohlc-value" id="ohlc-open">--</span>
+                </div>
+                <div class="ohlc-item">
+                    <span class="ohlc-label">H</span>
+                    <span class="ohlc-value" id="ohlc-high">--</span>
+                </div>
+                <div class="ohlc-item">
+                    <span class="ohlc-label">L</span>
+                    <span class="ohlc-value" id="ohlc-low">--</span>
+                </div>
+                <div class="ohlc-item">
+                    <span class="ohlc-label">C</span>
+                    <span class="ohlc-value" id="ohlc-close">--</span>
+                </div>
+                <div class="ohlc-item" style="margin-left: 12px;">
+                    <span class="ohlc-label">Vol</span>
+                    <span class="ohlc-value" id="ohlc-volume">--</span>
+                </div>
+            </div>
             <div class="chart-container-pro">
                 <div id="live-price-chart-container"></div>
+            </div>
+            <!-- Bottom Period Selector -->
+            <div class="chart-period-bar">
+                <button class="chart-period-btn" data-range="1y">1y</button>
+                <button class="chart-period-btn" data-range="1m">1m</button>
+                <button class="chart-period-btn" data-range="5d">5d</button>
+                <button class="chart-period-btn active" data-range="1d">1d</button>
+                <button class="chart-period-btn" data-range="5h">5h</button>
             </div>
         </div>
 
@@ -3104,6 +3189,9 @@
             resizeObserver.observe(container);
         }
 
+        // Volume series for live market chart
+        let liveMarketVolumeSeries = null;
+
         // Initialize live market chart
         function initLiveMarketChart() {
             const container = document.getElementById('live-price-chart-container');
@@ -3113,13 +3201,31 @@
                 layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8892b0' },
                 grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
-                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true, scaleMargins: { top: 0.1, bottom: 0.1 } },
+                rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true, scaleMargins: { top: 0.1, bottom: 0.25 } },
                 crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
             });
 
             liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
                 upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
                 wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+            });
+
+            // Add volume histogram series below the candlesticks
+            liveMarketVolumeSeries = liveMarketChart.addHistogramSeries({
+                color: '#26a69a',
+                priceFormat: { type: 'volume' },
+                priceScaleId: 'volume',
+            });
+
+            // Configure volume scale to appear at the bottom
+            liveMarketChart.priceScale('volume').applyOptions({
+                scaleMargins: { top: 0.85, bottom: 0 },
+                borderVisible: false,
+            });
+
+            // Subscribe to crosshair move for OHLC display
+            liveMarketChart.subscribeCrosshairMove((param) => {
+                updateOHLCDisplay(param);
             });
 
             const resizeObserver = new ResizeObserver(() => {
@@ -3140,6 +3246,89 @@
                     loadOlderCandles();
                 }
             });
+        }
+
+        // Update OHLC display on crosshair move
+        function updateOHLCDisplay(param) {
+            const openEl = document.getElementById('ohlc-open');
+            const highEl = document.getElementById('ohlc-high');
+            const lowEl = document.getElementById('ohlc-low');
+            const closeEl = document.getElementById('ohlc-close');
+            const volumeEl = document.getElementById('ohlc-volume');
+
+            if (!openEl || !highEl || !lowEl || !closeEl) return;
+
+            if (!param || !param.time || !param.seriesData) {
+                // Reset to latest candle when crosshair is not on chart
+                if (lastCandleData && lastCandleData.length > 0) {
+                    const latest = lastCandleData[lastCandleData.length - 1];
+                    openEl.textContent = formatPrice(latest.open);
+                    highEl.textContent = formatPrice(latest.high);
+                    lowEl.textContent = formatPrice(latest.low);
+                    closeEl.textContent = formatPrice(latest.close);
+                    if (volumeEl) volumeEl.textContent = formatVolume(latest.volume || 0);
+
+                    // Set colors based on candle direction
+                    const isUp = latest.close >= latest.open;
+                    const color = isUp ? 'up' : 'down';
+                    [openEl, highEl, lowEl, closeEl].forEach(el => {
+                        el.classList.remove('up', 'down');
+                        el.classList.add(color);
+                    });
+                }
+                return;
+            }
+
+            // Get candle data at crosshair position
+            const candleData = param.seriesData.get(liveMarketCandleSeries);
+            if (candleData) {
+                openEl.textContent = formatPrice(candleData.open);
+                highEl.textContent = formatPrice(candleData.high);
+                lowEl.textContent = formatPrice(candleData.low);
+                closeEl.textContent = formatPrice(candleData.close);
+
+                // Get volume data
+                const volumeData = param.seriesData.get(liveMarketVolumeSeries);
+                if (volumeEl && volumeData) {
+                    volumeEl.textContent = formatVolume(volumeData.value || 0);
+                }
+
+                // Set colors based on candle direction
+                const isUp = candleData.close >= candleData.open;
+                const color = isUp ? 'up' : 'down';
+                [openEl, highEl, lowEl, closeEl].forEach(el => {
+                    el.classList.remove('up', 'down');
+                    el.classList.add(color);
+                });
+            }
+        }
+
+        // Format price for OHLC display
+        function formatPrice(price) {
+            if (price >= 10000) return price.toFixed(1);
+            if (price >= 1000) return price.toFixed(2);
+            if (price >= 1) return price.toFixed(4);
+            return price.toFixed(6);
+        }
+
+        // Format volume for OHLC display
+        function formatVolume(volume) {
+            if (volume >= 1000000) return (volume / 1000000).toFixed(2) + 'M';
+            if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K';
+            return volume.toFixed(0);
+        }
+
+        // Update volume series with candle data
+        function updateVolumeSeries(candles) {
+            if (!liveMarketVolumeSeries || !candles || candles.length === 0) return;
+
+            const volumeData = candles.map(c => ({
+                time: c.time,
+                value: c.volume || 0,
+                color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+            }));
+
+            liveMarketVolumeSeries.setData(volumeData);
         }
 
         // Load older candles when user scrolls left
@@ -3182,7 +3371,8 @@
 
                 if (data.success && data.candles && data.candles.length > 0) {
                     const olderCandles = data.candles.map(c => ({
-                        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close
+                        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
+                        volume: c.volume || 0
                     }));
 
                     // Filter out any duplicates (candles we already have)
@@ -3200,6 +3390,9 @@
 
                         // Update chart with all data
                         liveMarketCandleSeries.setData(lastCandleData);
+
+                        // Update volume series
+                        updateVolumeSeries(lastCandleData);
 
                         // Re-calculate and update indicators with new data
                         updateChartIndicators(currentStrategyIndicators);
@@ -3274,10 +3467,19 @@
                 if (!response.ok) throw new Error('Failed to fetch prices');
                 const data = await response.json();
                 if (data.success && data.candles && data.candles.length > 0) {
-                    const candles = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
+                    const candles = data.candles.map(c => ({
+                        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
+                        volume: c.volume || 0
+                    }));
                     lastCandleData = candles; // Store for reference
                     earliestCandleTime = candles[0].time; // Track earliest for lazy loading
                     liveMarketCandleSeries.setData(candles);
+
+                    // Update volume series
+                    updateVolumeSeries(candles);
+
+                    // Update OHLC display with latest candle
+                    updateOHLCDisplay(null);
 
                     // Fetch archive info for lazy loading bounds (don't await, do in background)
                     fetchArchiveInfo(currentMarket);
@@ -3592,6 +3794,42 @@
                     isLoadingOlderCandles = false;
                     clearIndicators();
                     loadPriceData();
+                });
+            });
+        }
+
+        // Initialize bottom period selector (time range buttons)
+        function initChartPeriodBar() {
+            const buttons = document.querySelectorAll('.chart-period-btn');
+            if (!buttons.length) return;
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const range = btn.dataset.range;
+                    if (!range || !lastCandleData || lastCandleData.length === 0) return;
+
+                    // Update active state
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Calculate time range based on selection
+                    const lastTime = lastCandleData[lastCandleData.length - 1].time;
+                    let hoursBack;
+
+                    switch (range) {
+                        case '1y': hoursBack = 24 * 365; break;
+                        case '1m': hoursBack = 24 * 30; break;
+                        case '5d': hoursBack = 24 * 5; break;
+                        case '1d': hoursBack = 24; break;
+                        case '5h': hoursBack = 5; break;
+                        default: hoursBack = 24;
+                    }
+
+                    const visibleFrom = lastTime - (hoursBack * 3600);
+                    liveMarketChart.timeScale().setVisibleRange({
+                        from: visibleFrom,
+                        to: lastTime + 300
+                    });
                 });
             });
         }
@@ -5742,6 +5980,7 @@
         initViewToggle(); // Enable view toggle between Backtest and Live Market
         initLiveMarketControls(); // Setup live market data controls
         initPeriodDropdown(); // Setup professional period dropdown
+        initChartPeriodBar(); // Setup bottom time range buttons
         initTabBar(); // Setup bottom tab bar navigation
         initProBotControls(); // Setup pro bot controls
 
