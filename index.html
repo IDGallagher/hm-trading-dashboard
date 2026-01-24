@@ -3022,11 +3022,17 @@
 
         // Load and display trade overlays on the live market chart
         async function loadTradeOverlays() {
+            console.log('[Trade Overlays] >>> loadTradeOverlays() CALLED <<<');
+            console.log(`[Trade Overlays] liveMarketCandleSeries exists: ${!!liveMarketCandleSeries}`);
+            console.log(`[Trade Overlays] lastCandleData length: ${lastCandleData?.length || 0}`);
+            console.log(`[Trade Overlays] currentStrategy: ${currentStrategy}`);
+
             if (!liveMarketCandleSeries || !lastCandleData.length) {
-                console.log('[Trade Overlays] No candle series or candle data available');
+                console.log('[Trade Overlays] ABORT: No candle series or candle data available');
                 return;
             }
             if (currentStrategy === 'none') {
+                console.log('[Trade Overlays] ABORT: Strategy is none, clearing overlays');
                 clearTradeOverlays();
                 return;
             }
@@ -6063,6 +6069,7 @@
             if (strategyPro) {
                 strategyPro.addEventListener('change', async (e) => {
                     const strategy = e.target.value;
+                    console.log(`[Pro Controls] >>> Strategy changed to: ${strategy} <<<`);
                     // Sync with legacy selector
                     const legacySelector = document.getElementById('strategy-selector');
                     if (legacySelector) legacySelector.value = strategy;
@@ -6074,12 +6081,17 @@
                     currentStrategy = strategy;
                     // Load trade overlays and metrics if strategy selected
                     if (strategy !== 'none') {
+                        console.log('[Pro Controls] Loading indicators, metrics, trade overlays, and trade logs...');
                         updateChartIndicators(strategy);
                         loadProMetrics(strategy);
                         // Load trade overlays on the chart
+                        console.log('[Pro Controls] Calling loadTradeOverlays()...');
                         await loadTradeOverlays();
+                        console.log('[Pro Controls] loadTradeOverlays() completed');
                         // Load trade logs for the Your Bots tab
+                        console.log('[Pro Controls] Calling loadBotsTabTradeLogs()...');
                         await loadBotsTabTradeLogs();
+                        console.log('[Pro Controls] loadBotsTabTradeLogs() completed');
                     } else {
                         clearTradeOverlays();
                     }
@@ -6128,32 +6140,38 @@
 
         // Load trade logs for the Your Bots tab
         async function loadBotsTabTradeLogs() {
+            console.log('[loadBotsTabTradeLogs] >>> CALLED <<<');
             try {
                 // Try backtest session first
+                console.log(`[loadBotsTabTradeLogs] Fetching from: ${CONTROL_API_URL}/session/backtest`);
                 const response = await fetch(`${CONTROL_API_URL}/session/backtest`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
+                console.log(`[loadBotsTabTradeLogs] Response status: ${response.status}`);
                 if (!response.ok) {
-                    console.log('[loadBotsTabTradeLogs] No backtest data available');
+                    console.log('[loadBotsTabTradeLogs] ABORT: No backtest data available');
                     return;
                 }
 
                 const data = await response.json();
+                console.log(`[loadBotsTabTradeLogs] Data received - success: ${data.success}, trades: ${data.trades?.length || 0}`);
                 if (!data.success || !data.trades || data.trades.length === 0) {
-                    console.log('[loadBotsTabTradeLogs] No trades in backtest');
+                    console.log('[loadBotsTabTradeLogs] ABORT: No trades in backtest data');
                     return;
                 }
 
                 const trades = data.trades;
-                console.log(`[loadBotsTabTradeLogs] Loaded ${trades.length} trades`);
+                console.log(`[loadBotsTabTradeLogs] Processing ${trades.length} trades`);
 
                 // Update the backtest trade log in Your Bots tab
                 const backtestLogEl = document.getElementById('backtest-trades-log');
                 const backtestCountEl = document.getElementById('backtest-trades-count');
+                console.log(`[loadBotsTabTradeLogs] DOM elements - backtestLogEl: ${!!backtestLogEl}, backtestCountEl: ${!!backtestCountEl}`);
 
                 if (backtestCountEl) {
                     backtestCountEl.textContent = `${trades.length} trades`;
+                    console.log(`[loadBotsTabTradeLogs] Updated count to: ${trades.length} trades`);
                 }
 
                 if (backtestLogEl) {
