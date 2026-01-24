@@ -8,28 +8,258 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
+            font-family: 'Roboto Mono', -apple-system, BlinkMacSystemFont, monospace;
+            background: #0d1117;
+            color: #c9d1d9;
             min-height: 100vh;
-            padding: 20px;
+            font-size: 12px;
             -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        header {
+
+        /* === PROFESSIONAL TRADING HEADER === */
+        .trading-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .instrument-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .instrument-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .instrument-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            background: rgba(0,212,255,0.2);
+            color: #00d4ff;
+            border-radius: 3px;
+        }
+        .price-main {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .price-main.up { color: #3fb950; }
+        .price-main.down { color: #f85149; }
+        .price-change-sm {
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .price-change-sm.positive { background: rgba(63,185,80,0.2); color: #3fb950; }
+        .price-change-sm.negative { background: rgba(248,81,73,0.2); color: #f85149; }
+
+        .header-stats {
+            display: flex;
+            gap: 24px;
+            font-size: 11px;
+        }
+        .header-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .header-stat-label {
+            color: #8b949e;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+        .header-stat-value {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+        .header-stat-value.positive { color: #3fb950; }
+        .header-stat-value.negative { color: #f85149; }
+
+        /* === MAIN TRADING LAYOUT === */
+        .trading-main {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            height: calc(100vh - 52px);
+            gap: 1px;
+            background: #30363d;
+        }
+        .chart-section {
+            background: #0d1117;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        .period-dropdown {
+            position: relative;
+        }
+        .period-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .period-btn:hover { background: #30363d; }
+        .period-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            z-index: 1000;
+            display: none;
+            min-width: 100px;
+        }
+        .period-menu.show { display: block; }
+        .period-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .period-option:hover { background: #21262d; }
+        .period-option.active { color: #00d4ff; }
+
+        .chart-container-pro {
+            flex: 1;
+            min-height: 0;
+        }
+        #live-price-chart-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* === RIGHT PANEL (ORDERBOOK + TRADES) === */
+        .right-panel {
+            background: #0d1117;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            border-bottom: 1px solid #30363d;
+        }
+        .panel-section:last-child { border-bottom: none; }
+        .panel-header {
+            padding: 8px 12px;
+            background: #161b22;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        /* === ORDERBOOK STYLES === */
+        .orderbook-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 2px 8px;
+            font-size: 11px;
+            position: relative;
+        }
+        .orderbook-row.header {
+            color: #8b949e;
+            font-weight: 500;
+            padding: 6px 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        .orderbook-row.bid .ob-price { color: #3fb950; }
+        .orderbook-row.ask .ob-price { color: #f85149; }
+        .ob-price { text-align: left; }
+        .ob-size { text-align: right; }
+        .ob-total { text-align: right; color: #8b949e; }
+        .orderbook-row .depth-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            opacity: 0.15;
+        }
+        .orderbook-row.bid .depth-bar { background: #3fb950; }
+        .orderbook-row.ask .depth-bar { background: #f85149; }
+        .spread-row {
             text-align: center;
-            padding: 30px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 30px;
+            padding: 6px;
+            background: #161b22;
+            font-size: 11px;
+            color: #8b949e;
         }
-        h1 {
-            font-size: 2.5rem;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
+
+        /* === RECENT TRADES STYLES === */
+        .trade-row {
+            display: grid;
+            grid-template-columns: 70px 50px 1fr 80px;
+            padding: 3px 8px;
+            font-size: 11px;
         }
-        .subtitle { color: #8892b0; font-size: 1.1rem; }
+        .trade-row.header {
+            color: #8b949e;
+            font-weight: 500;
+            padding: 6px 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        .trade-row.buy .trade-side { color: #3fb950; }
+        .trade-row.sell .trade-side { color: #f85149; }
+        .trade-time { color: #8b949e; }
+        .trade-price { text-align: right; }
+        .trade-size { text-align: right; }
+
+        /* === BOT SECTION (BELOW FOLD) === */
+        .bot-section {
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            padding: 16px;
+        }
+        .bot-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Legacy container styles for compatibility */
+        .container { max-width: 100%; margin: 0; padding: 0; }
+        header { display: none; } /* Hide old header */
+        .subtitle { color: #8b949e; font-size: 11px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .card {
             background: rgba(255,255,255,0.05);
@@ -1228,62 +1458,143 @@
         <div class="error-toast-message" id="error-toast-message">An error occurred</div>
     </div>
 
-    <div class="container">
-        <header>
-            <h1>HM Trading Dashboard</h1>
-            <p class="subtitle">C++ Cryptocurrency Trading System - Live Backtest Results</p>
-            <div style="margin-top: 15px;">
-                <span class="badge badge-real" style="font-size: 0.9rem; padding: 6px 16px;">C++ Backtest Data</span>
+    <!-- Professional Trading Header -->
+    <div class="trading-header">
+        <div class="header-left">
+            <div class="instrument-info">
+                <span class="instrument-name" id="header-instrument">BTC/USD</span>
+                <span class="instrument-badge">PERPETUAL</span>
             </div>
-        </header>
-
-        <!-- Controls Bar -->
-        <div class="controls-bar">
-            <div class="control-group" id="session-control">
-                <span class="control-label">Session:</span>
-                <select id="session-selector" class="control-select">
-                    <option value="backtest">Backtest Session</option>
-                    <option value="test">Test Session</option>
-                    <option value="compare">Compare Both</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <span class="control-label">Bot:</span>
-                <select id="bot-selector" class="control-select">
-                    <option value="DivergeBot">DivergeBot</option>
-                    <option value="SazBot">SazBot</option>
-                    <option value="SDBot">SDBot</option>
-                    <option value="PairTradeBot">PairTradeBot</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <span class="control-label">Period:</span>
-                <select id="date-selector" class="control-select">
-                    <option value="all">All Data</option>
-                    <option value="day1">Day 1 Only</option>
-                    <option value="day2">Day 2 Only</option>
-                    <option value="recent">Most Recent</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <span class="control-label">Candles:</span>
-                <select id="candle-period-selector" class="control-select">
-                    <option value="1m">1 Minute</option>
-                    <option value="5m">5 Minutes</option>
-                    <option value="15m">15 Minutes</option>
-                    <option value="1h">1 Hour</option>
-                    <option value="1d">1 Day</option>
-                </select>
-            </div>
-            <div class="export-buttons">
-                <button class="btn" id="export-csv-btn">
-                    <span class="btn-icon">📊</span> Export CSV
-                </button>
-                <button class="btn" id="export-chart-btn">
-                    <span class="btn-icon">📷</span> Save Chart
-                </button>
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span class="price-main" id="header-price">--</span>
+                <span class="price-change-sm positive" id="header-change">+0.00%</span>
             </div>
         </div>
+        <div class="header-stats">
+            <div class="header-stat">
+                <span class="header-stat-label">Mark</span>
+                <span class="header-stat-value" id="header-mark">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">24h High</span>
+                <span class="header-stat-value positive" id="header-high">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">24h Low</span>
+                <span class="header-stat-value negative" id="header-low">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">24h Vol</span>
+                <span class="header-stat-value" id="header-volume">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">Funding</span>
+                <span class="header-stat-value" id="header-funding">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">Open Int</span>
+                <span class="header-stat-value" id="header-oi">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Trading Layout -->
+    <div class="trading-main">
+        <!-- Chart Section (Left ~70%) -->
+        <div class="chart-section">
+            <div class="chart-toolbar">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <select id="market-selector" class="period-btn" style="min-width: 140px;">
+                        <option value="xbtusd">BTC/USD</option>
+                        <option value="ethusd">ETH/USD</option>
+                        <option value="solusd">SOL/USD</option>
+                        <option value="xrpusd">XRP/USD</option>
+                    </select>
+                    <div class="period-dropdown">
+                        <button class="period-btn" id="period-btn">
+                            <span id="period-label">5m</span>
+                            <span>▼</span>
+                        </button>
+                        <div class="period-menu" id="period-menu">
+                            <div class="period-option" data-period="1m">1m</div>
+                            <div class="period-option active" data-period="5m">5m</div>
+                            <div class="period-option" data-period="15m">15m</div>
+                            <div class="period-option" data-period="1h">1h</div>
+                            <div class="period-option" data-period="4h">4h</div>
+                            <div class="period-option" data-period="1d">1D</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #8b949e; font-size: 11px;" id="candle-count">-- candles</span>
+                    <span class="instrument-badge" id="live-indicator">● LIVE</span>
+                </div>
+            </div>
+            <div class="chart-container-pro">
+                <div id="live-price-chart-container"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel (Orderbook + Trades) -->
+        <div class="right-panel">
+            <!-- Orderbook -->
+            <div class="panel-section" style="flex: 1.2;">
+                <div class="panel-header">
+                    <span>Order Book</span>
+                    <span id="orderbook-spread-header">Spread: --</span>
+                </div>
+                <div class="panel-content" id="orderbook-panel">
+                    <div class="orderbook-row header">
+                        <span class="ob-price">Price</span>
+                        <span class="ob-size">Size</span>
+                        <span class="ob-total">Total</span>
+                    </div>
+                    <div id="orderbook-asks-pro"></div>
+                    <div class="spread-row" id="spread-row">Spread: -- (0.00%)</div>
+                    <div id="orderbook-bids-pro"></div>
+                </div>
+            </div>
+
+            <!-- Recent Trades -->
+            <div class="panel-section" style="flex: 0.8;">
+                <div class="panel-header">
+                    <span>Recent Trades</span>
+                    <span id="trades-count">0</span>
+                </div>
+                <div class="panel-content" id="trades-panel">
+                    <div class="trade-row header">
+                        <span class="trade-time">Time</span>
+                        <span class="trade-side">Side</span>
+                        <span class="trade-price">Price</span>
+                        <span class="trade-size">Size</span>
+                    </div>
+                    <div id="recent-trades-pro"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden legacy controls for JS compatibility -->
+    <div style="display: none;">
+        <select id="session-selector">
+            <option value="backtest">Backtest</option>
+            <option value="test">Test</option>
+        </select>
+        <select id="bot-selector">
+            <option value="DivergeBot">DivergeBot</option>
+        </select>
+        <select id="date-selector">
+            <option value="all">All</option>
+        </select>
+        <select id="candle-period-selector">
+            <option value="5m">5m</option>
+        </select>
+        <select id="market-period-selector">
+            <option value="5m">5m</option>
+        </select>
+    </div>
+
+    <div class="container" style="display: none;">
 
         <!-- Live Test Control Panel -->
         <div class="live-test-panel" id="live-test-panel">
@@ -2711,6 +3022,22 @@
                     const changeValue = document.getElementById('price-change-value');
                     changeValue.textContent = `${change >= 0 ? '+' : ''}${change}%`;
                     changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+
+                    // Update professional trading header
+                    updateTradingHeader(lastCandle.close, parseFloat(change));
+
+                    // Calculate 24h high/low from candles
+                    const high24h = Math.max(...data.candles.map(c => c.high));
+                    const low24h = Math.min(...data.candles.map(c => c.low));
+                    const highEl = document.getElementById('header-high');
+                    const lowEl = document.getElementById('header-low');
+                    if (highEl) highEl.textContent = formatMarketPrice(high24h, currentMarket);
+                    if (lowEl) lowEl.textContent = formatMarketPrice(low24h, currentMarket);
+
+                    // Update candle count in toolbar
+                    const candleCountEl = document.getElementById('candle-count');
+                    if (candleCountEl) candleCountEl.textContent = `${data.candles.length} candles`;
+
                     // Show data source and candle count
                     const sourceLabels = { 'archive': '📦 Archive', 'mysql': '🔴 Live', 'hybrid': '🔀 Combined' };
                     const sourceLabel = sourceLabels[data.source] || data.source;
@@ -2732,18 +3059,19 @@
             spreadEl.textContent = 'Loading...';
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=10`,
+                const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch orderbook');
                 const data = await response.json();
                 if (data.success) {
-                    renderOrderbook(data.bids || [], data.asks || []);
+                    // Use professional orderbook rendering
+                    renderOrderbookPro(data.bids || [], data.asks || []);
                     if (data.bids?.length && data.asks?.length) {
                         const spread = data.asks[0].price - data.bids[0].price;
                         const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
-                        spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                        if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
                     } else {
-                        spreadEl.textContent = 'No data';
+                        if (spreadEl) spreadEl.textContent = 'No data';
                     }
                 }
             } catch (err) {
@@ -2752,10 +3080,16 @@
             }
         }
 
-        // Render orderbook
+        // Render orderbook (legacy + pro)
         function renderOrderbook(bids, asks) {
+            // Render pro orderbook
+            renderOrderbookPro(bids, asks);
+
+            // Legacy orderbook rendering
             const bidsContainer = document.getElementById('orderbook-bids');
             const asksContainer = document.getElementById('orderbook-asks');
+            if (!bidsContainer || !asksContainer) return;
+
             const allAmounts = [...bids, ...asks].map(o => o.amount);
             const maxAmount = Math.max(...allAmounts);
             bidsContainer.innerHTML = bids.slice(0, 10).map(bid => {
@@ -2792,12 +3126,18 @@
 
         // Render live market trades (renamed to avoid collision with backtest renderTrades)
         function renderLiveMarketTrades(trades) {
+            // Update professional trades panel
+            renderTradesPro(trades);
+
+            // Legacy table update
             const tbody = document.getElementById('trades-tbody');
-            tbody.innerHTML = trades.map(trade => {
-                const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
-                const sideClass = trade.side === 'buy' ? 'side-buy' : 'side-sell';
-                return `<tr><td>${time}</td><td class="${sideClass}">${trade.side.toUpperCase()}</td><td>${formatMarketPrice(trade.price, currentMarket)}</td><td>${formatMarketAmount(trade.amount)}</td></tr>`;
-            }).join('');
+            if (tbody) {
+                tbody.innerHTML = trades.map(trade => {
+                    const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
+                    const sideClass = trade.side === 'buy' ? 'side-buy' : 'side-sell';
+                    return `<tr><td>${time}</td><td class="${sideClass}">${trade.side.toUpperCase()}</td><td>${formatMarketPrice(trade.price, currentMarket)}</td><td>${formatMarketAmount(trade.amount)}</td></tr>`;
+                }).join('');
+            }
         }
 
         // Format price based on market
@@ -2812,6 +3152,142 @@
             if (amount >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
             if (amount >= 1000) return (amount / 1000).toFixed(1) + 'K';
             return amount.toString();
+        }
+
+        // === PROFESSIONAL UI FUNCTIONS ===
+
+        // Update header with current price and stats
+        function updateTradingHeader(price, change24h = null) {
+            const priceEl = document.getElementById('header-price');
+            const changeEl = document.getElementById('header-change');
+            const markEl = document.getElementById('header-mark');
+
+            if (priceEl && price) {
+                priceEl.textContent = formatMarketPrice(price, currentMarket);
+                priceEl.className = 'price-main';
+            }
+
+            if (changeEl && change24h !== null) {
+                const changePercent = change24h.toFixed(2);
+                changeEl.textContent = (change24h >= 0 ? '+' : '') + changePercent + '%';
+                changeEl.className = 'price-change-sm ' + (change24h >= 0 ? 'positive' : 'negative');
+            }
+
+            if (markEl && price) {
+                markEl.textContent = formatMarketPrice(price, currentMarket);
+            }
+
+            // Update instrument name based on market
+            const instrumentEl = document.getElementById('header-instrument');
+            if (instrumentEl) {
+                const names = { xbtusd: 'BTC/USD', ethusd: 'ETH/USD', solusd: 'SOL/USD', xrpusd: 'XRP/USD', dogeusd: 'DOGE/USD' };
+                instrumentEl.textContent = names[currentMarket] || 'BTC/USD';
+            }
+        }
+
+        // Render orderbook in professional format
+        function renderOrderbookPro(bids, asks) {
+            const bidsContainer = document.getElementById('orderbook-bids-pro');
+            const asksContainer = document.getElementById('orderbook-asks-pro');
+            const spreadRow = document.getElementById('spread-row');
+            const spreadHeader = document.getElementById('orderbook-spread-header');
+
+            if (!bidsContainer || !asksContainer) return;
+
+            // Calculate totals and max for depth bars
+            let bidTotal = 0, askTotal = 0;
+            const bidRows = bids.slice(0, 12).map(b => { bidTotal += b.amount; return { ...b, total: bidTotal }; });
+            const askRows = asks.slice(0, 12).reverse().map(a => { askTotal += a.amount; return { ...a, total: askTotal }; }).reverse();
+            const maxTotal = Math.max(bidTotal, askTotal);
+
+            // Render asks (sells) - reversed so lowest at bottom
+            asksContainer.innerHTML = askRows.map(ask => {
+                const depth = (ask.total / maxTotal * 100).toFixed(0);
+                return `<div class="orderbook-row ask">
+                    <span class="depth-bar" style="width: ${depth}%"></span>
+                    <span class="ob-price">${formatMarketPrice(ask.price, currentMarket)}</span>
+                    <span class="ob-size">${formatMarketAmount(ask.amount)}</span>
+                    <span class="ob-total">${formatMarketAmount(ask.total)}</span>
+                </div>`;
+            }).join('');
+
+            // Spread
+            if (bids.length && asks.length) {
+                const spread = asks[0].price - bids[0].price;
+                const spreadPercent = (spread / asks[0].price * 100).toFixed(3);
+                if (spreadRow) spreadRow.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPercent}%)`;
+                if (spreadHeader) spreadHeader.textContent = `Spread: ${spreadPercent}%`;
+            }
+
+            // Render bids (buys)
+            bidsContainer.innerHTML = bidRows.map(bid => {
+                const depth = (bid.total / maxTotal * 100).toFixed(0);
+                return `<div class="orderbook-row bid">
+                    <span class="depth-bar" style="width: ${depth}%"></span>
+                    <span class="ob-price">${formatMarketPrice(bid.price, currentMarket)}</span>
+                    <span class="ob-size">${formatMarketAmount(bid.amount)}</span>
+                    <span class="ob-total">${formatMarketAmount(bid.total)}</span>
+                </div>`;
+            }).join('');
+
+            // Also update legacy orderbook if exists
+            const legacyBids = document.getElementById('orderbook-bids');
+            const legacyAsks = document.getElementById('orderbook-asks');
+            if (legacyBids && legacyAsks) {
+                renderOrderbook(bids, asks);
+            }
+        }
+
+        // Render trades in professional format
+        function renderTradesPro(trades) {
+            const container = document.getElementById('recent-trades-pro');
+            const countEl = document.getElementById('trades-count');
+            if (!container) return;
+
+            container.innerHTML = trades.slice(0, 30).map(trade => {
+                const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-US', { hour12: false });
+                const side = trade.side === 'buy' ? 'BUY' : 'SELL';
+                return `<div class="trade-row ${trade.side}">
+                    <span class="trade-time">${time}</span>
+                    <span class="trade-side">${side}</span>
+                    <span class="trade-price">${formatMarketPrice(trade.price, currentMarket)}</span>
+                    <span class="trade-size">${formatMarketAmount(trade.amount)}</span>
+                </div>`;
+            }).join('');
+
+            if (countEl) countEl.textContent = trades.length;
+        }
+
+        // Initialize period dropdown
+        function initPeriodDropdown() {
+            const btn = document.getElementById('period-btn');
+            const menu = document.getElementById('period-menu');
+            const label = document.getElementById('period-label');
+
+            if (!btn || !menu) return;
+
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menu.classList.toggle('show');
+            });
+
+            document.addEventListener('click', () => menu.classList.remove('show'));
+
+            menu.querySelectorAll('.period-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const period = opt.dataset.period;
+                    currentMarketPeriod = period;
+                    if (label) label.textContent = period;
+                    menu.querySelectorAll('.period-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    menu.classList.remove('show');
+                    formingCandle = null;
+                    earliestCandleTime = null;
+                    isLoadingOlderCandles = false;
+                    clearIndicators();
+                    loadPriceData();
+                });
+            });
         }
 
         // Initialize live market controls
@@ -2895,6 +3371,9 @@
                 const priceEl = document.getElementById('current-market-price');
                 if (priceEl) priceEl.textContent = formatMarketPrice(data.price.value, data.market);
 
+                // Update professional trading header
+                updateTradingHeader(data.price.value, data.price.change24h || null);
+
                 // Update forming candle with current price if we have one
                 if (data.price.value && formingCandle) {
                     updateFormingCandle({
@@ -2905,20 +3384,20 @@
                 }
             }
 
-            // Update orderbook
+            // Update orderbook (professional version)
             if (data.orderbook) {
-                renderOrderbook(data.orderbook.bids || [], data.orderbook.asks || []);
+                renderOrderbookPro(data.orderbook.bids || [], data.orderbook.asks || []);
                 if (data.orderbook.bids?.length && data.orderbook.asks?.length) {
                     const spread = data.orderbook.asks[0].price - data.orderbook.bids[0].price;
                     const spreadPct = (spread / data.orderbook.asks[0].price * 100).toFixed(3);
-                    document.getElementById('orderbook-spread').textContent = `Spread: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
+                    const legacySpread = document.getElementById('orderbook-spread');
+                    if (legacySpread) legacySpread.textContent = `Spread: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
                 }
             }
 
             // Update trades and forming candle
             if (data.trades && data.trades.length > 0) {
                 renderLiveMarketTrades(data.trades);
-                document.getElementById('trades-count').textContent = `${data.trades.length} trades`;
 
                 // Update forming candle with the most recent trade
                 const latestTrade = data.trades[0]; // Assuming trades are sorted newest first
@@ -4914,6 +5393,7 @@
         initDashboard();
         initViewToggle(); // Enable view toggle between Backtest and Live Market
         initLiveMarketControls(); // Setup live market data controls
+        initPeriodDropdown(); // Setup professional period dropdown
 
         // Default to Market mode (no strategy selected)
         (async function initLiveMarketView() {
