@@ -17,67 +17,81 @@
             overflow-x: hidden;
         }
 
-        /* === PROFESSIONAL TRADING HEADER === */
+        /* === BITMEX-STYLE HEADER === */
         .trading-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
             padding: 8px 16px;
             background: #161b22;
             border-bottom: 1px solid #30363d;
-            gap: 20px;
+            gap: 16px;
             flex-wrap: wrap;
         }
-        .header-left {
+        .instrument-dropdown {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
         }
-        .instrument-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .instrument-dropdown:hover { background: rgba(255,255,255,0.05); }
         .instrument-name {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: #fff;
         }
-        .instrument-badge {
-            font-size: 10px;
-            padding: 2px 6px;
-            background: rgba(0,212,255,0.2);
-            color: #00d4ff;
-            border-radius: 3px;
+        .instrument-type {
+            font-size: 12px;
+            color: #8b949e;
+            margin-left: 4px;
+        }
+        .instrument-badges {
+            display: flex;
+            gap: 4px;
+            margin-left: 8px;
+        }
+        .badge-sm {
+            font-size: 9px;
+            padding: 2px 5px;
+            border-radius: 2px;
+            font-weight: 600;
+        }
+        .badge-btc { background: #f7931a; color: #000; }
+        .badge-leverage { background: #3fb950; color: #000; }
+        .price-section {
+            display: flex;
+            flex-direction: column;
+            margin-left: 16px;
         }
         .price-main {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
-            color: #fff;
+            color: #3fb950;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
-        .price-main.up { color: #3fb950; }
         .price-main.down { color: #f85149; }
-        .price-change-sm {
+        .price-arrow { font-size: 14px; }
+        .price-change {
             font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 3px;
+            color: #f85149;
         }
-        .price-change-sm.positive { background: rgba(63,185,80,0.2); color: #3fb950; }
-        .price-change-sm.negative { background: rgba(248,81,73,0.2); color: #f85149; }
-
+        .price-change.positive { color: #3fb950; }
         .header-stats {
             display: flex;
-            gap: 24px;
+            gap: 20px;
+            margin-left: auto;
             font-size: 11px;
         }
         .header-stat {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 1px;
         }
         .header-stat-label {
             color: #8b949e;
-            text-transform: uppercase;
             font-size: 10px;
         }
         .header-stat-value {
@@ -240,21 +254,97 @@
         .trade-price { text-align: right; }
         .trade-size { text-align: right; }
 
-        /* === BOT SECTION (BELOW FOLD) === */
-        .bot-section {
+        /* === BOTTOM TAB BAR === */
+        .tab-bar {
+            display: flex;
             background: #161b22;
             border-top: 1px solid #30363d;
-            padding: 16px;
+            border-bottom: 1px solid #30363d;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        .bot-section-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .tab-bar::-webkit-scrollbar { height: 0; }
+        .tab-item {
+            padding: 10px 16px;
+            color: #8b949e;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
         }
+        .tab-item:hover { color: #c9d1d9; background: rgba(255,255,255,0.05); }
+        .tab-item.active { color: #00d4ff; border-bottom-color: #00d4ff; }
+        .tab-content { display: none; background: #0d1117; min-height: 200px; }
+        .tab-content.active { display: block; }
+
+        /* === YOUR BOTS TAB === */
+        .bots-container { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+        .bot-controls-card {
+            display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+            padding: 16px; background: #161b22; border-radius: 8px; border: 1px solid #30363d;
+        }
+        .control-item { display: flex; flex-direction: column; gap: 6px; }
+        .control-item label { font-size: 11px; color: #8b949e; text-transform: uppercase; }
+        .pro-select {
+            background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 8px 12px; border-radius: 4px; font-size: 13px; min-width: 180px;
+        }
+        .button-group { display: flex; gap: 8px; }
+        .btn-pro {
+            padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: 500;
+            cursor: pointer; border: none; transition: all 0.2s;
+        }
+        .btn-start-pro { background: #238636; color: #fff; }
+        .btn-start-pro:hover:not(:disabled) { background: #2ea043; }
+        .btn-start-pro:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-stop-pro { background: #da3633; color: #fff; }
+        .btn-stop-pro:hover:not(:disabled) { background: #f85149; }
+        .btn-stop-pro:disabled { opacity: 0.5; cursor: not-allowed; }
+        .test-stats-row { display: flex; gap: 24px; margin-left: auto; }
+        .test-stat { display: flex; flex-direction: column; align-items: center; }
+        .test-stat .stat-label { font-size: 10px; color: #8b949e; text-transform: uppercase; }
+        .test-stat .stat-value { font-size: 16px; font-weight: 600; color: #c9d1d9; }
+        .test-stat .stat-value.positive { color: #3fb950; }
+        .test-stat .stat-value.negative { color: #f85149; }
+
+        /* Metrics + Equity Row */
+        .metrics-equity-row { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+        @media (max-width: 900px) { .metrics-equity-row { grid-template-columns: 1fr; } }
+        .panel-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px;
+        }
+        .panel-title {
+            font-size: 13px; font-weight: 600; color: #c9d1d9; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .metrics-grid-pro { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .metric-item { display: flex; flex-direction: column; gap: 4px; }
+        .metric-label { font-size: 11px; color: #8b949e; }
+        .metric-value { font-size: 16px; font-weight: 600; color: #c9d1d9; }
+        .metric-value.positive { color: #3fb950; }
+        .metric-value.negative { color: #f85149; }
+        .equity-chart-pro { height: 200px; background: #0d1117; border-radius: 4px; }
+
+        /* Trade Logs */
+        .logs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 768px) { .logs-row { grid-template-columns: 1fr; } }
+        .log-column { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .log-header {
+            padding: 10px 12px; display: flex; justify-content: space-between;
+            align-items: center; font-size: 12px; border-bottom: 1px solid #30363d;
+        }
+        .log-header.test { background: rgba(0,212,255,0.1); }
+        .log-header.backtest { background: rgba(138,43,226,0.1); }
+        .log-badge { padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+        .log-header.test .log-badge { background: #00d4ff; color: #000; }
+        .log-header.backtest .log-badge { background: #8b5cf6; color: #fff; }
+        .log-list { max-height: 250px; overflow-y: auto; padding: 8px; }
+        .log-item { padding: 8px; border-bottom: 1px solid #21262d; font-size: 12px; }
+        .log-item:last-child { border-bottom: none; }
+        .log-item.divergent { background: rgba(248,81,73,0.1); }
+        .no-data { color: #8b949e; text-align: center; padding: 20px; font-size: 12px; }
 
         /* Legacy container styles for compatibility */
         .container { max-width: 100%; margin: 0; padding: 0; }
@@ -1458,41 +1548,51 @@
         <div class="error-toast-message" id="error-toast-message">An error occurred</div>
     </div>
 
-    <!-- Professional Trading Header -->
+    <!-- BitMEX-Style Header -->
     <div class="trading-header">
-        <div class="header-left">
-            <div class="instrument-info">
-                <span class="instrument-name" id="header-instrument">BTC/USD</span>
-                <span class="instrument-badge">PERPETUAL</span>
+        <div class="instrument-dropdown" id="instrument-dropdown">
+            <span class="instrument-name" id="header-instrument">BTCUSD</span>
+            <span class="instrument-type">Perpetual</span>
+            <span style="color: #8b949e;">▼</span>
+        </div>
+        <div class="instrument-badges">
+            <span class="badge-sm badge-btc">BTC</span>
+            <span class="badge-sm badge-leverage">100X</span>
+        </div>
+        <div class="price-section">
+            <div class="price-main" id="header-price">
+                <span id="price-value">--</span>
+                <span class="price-arrow" id="price-arrow">↑</span>
             </div>
-            <div style="display: flex; align-items: baseline; gap: 8px;">
-                <span class="price-main" id="header-price">--</span>
-                <span class="price-change-sm positive" id="header-change">+0.00%</span>
-            </div>
+            <div class="price-change" id="header-change">-0.00%</div>
         </div>
         <div class="header-stats">
             <div class="header-stat">
-                <span class="header-stat-label">Mark</span>
+                <span class="header-stat-label">Mark Price</span>
                 <span class="header-stat-value" id="header-mark">--</span>
             </div>
             <div class="header-stat">
-                <span class="header-stat-label">24h High</span>
-                <span class="header-stat-value positive" id="header-high">--</span>
-            </div>
-            <div class="header-stat">
-                <span class="header-stat-label">24h Low</span>
-                <span class="header-stat-value negative" id="header-low">--</span>
-            </div>
-            <div class="header-stat">
-                <span class="header-stat-label">24h Vol</span>
+                <span class="header-stat-label">24H Volume</span>
                 <span class="header-stat-value" id="header-volume">--</span>
             </div>
             <div class="header-stat">
-                <span class="header-stat-label">Funding</span>
+                <span class="header-stat-label">Funding Rate</span>
                 <span class="header-stat-value" id="header-funding">--</span>
             </div>
             <div class="header-stat">
-                <span class="header-stat-label">Open Int</span>
+                <span class="header-stat-label">Next Funding</span>
+                <span class="header-stat-value" id="header-next-funding">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">High Price</span>
+                <span class="header-stat-value positive" id="header-high">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">Low Price</span>
+                <span class="header-stat-value negative" id="header-low">--</span>
+            </div>
+            <div class="header-stat">
+                <span class="header-stat-label">Open Interest</span>
                 <span class="header-stat-value" id="header-oi">--</span>
             </div>
         </div>
@@ -1572,6 +1672,148 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <div class="tab-bar">
+        <div class="tab-item active" data-tab="overview">Overview</div>
+        <div class="tab-item" data-tab="positions">Positions</div>
+        <div class="tab-item" data-tab="closed">Closed Positions</div>
+        <div class="tab-item" data-tab="orders">Active Orders</div>
+        <div class="tab-item" data-tab="stops">Stops</div>
+        <div class="tab-item" data-tab="bots">Your Bots</div>
+        <div class="tab-item" data-tab="fills">Fills</div>
+        <div class="tab-item" data-tab="history">Order History</div>
+    </div>
+
+    <!-- Tab Contents -->
+    <div id="tab-overview" class="tab-content active">
+        <div class="no-data">No open positions</div>
+    </div>
+    <div id="tab-positions" class="tab-content">
+        <div class="no-data">No open positions</div>
+    </div>
+    <div id="tab-closed" class="tab-content">
+        <div class="no-data">No closed positions</div>
+    </div>
+    <div id="tab-orders" class="tab-content">
+        <div class="no-data">No active orders</div>
+    </div>
+    <div id="tab-stops" class="tab-content">
+        <div class="no-data">No stop orders</div>
+    </div>
+
+    <!-- YOUR BOTS TAB -->
+    <div id="tab-bots" class="tab-content">
+        <div class="bots-container">
+            <!-- Bot Controls -->
+            <div class="bot-controls-card">
+                <div class="control-item">
+                    <label>Strategy</label>
+                    <select id="strategy-selector-pro" class="pro-select">
+                        <option value="none" selected>📈 Live Market Only</option>
+                        <option value="TestBot">TestBot</option>
+                        <option value="DivergeBot">DivergeBot</option>
+                        <option value="SazBot">SazBot</option>
+                        <option value="SDBot">SDBot</option>
+                        <option value="PairTradeBot">PairTradeBot</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label>Actions</label>
+                    <div class="button-group">
+                        <button id="btn-start-test-pro" class="btn-pro btn-start-pro" disabled>▶ Start Test</button>
+                        <button id="btn-stop-backtest-pro" class="btn-pro btn-stop-pro" disabled>■ Stop & Backtest</button>
+                    </div>
+                </div>
+                <div class="test-stats-row" id="test-stats-pro" style="display: none;">
+                    <div class="test-stat">
+                        <span class="stat-label">Duration</span>
+                        <span class="stat-value" id="test-duration-pro">00:00:00</span>
+                    </div>
+                    <div class="test-stat">
+                        <span class="stat-label">Trades</span>
+                        <span class="stat-value" id="test-trades-pro">0</span>
+                    </div>
+                    <div class="test-stat">
+                        <span class="stat-label">P&L</span>
+                        <span class="stat-value" id="test-pnl-pro">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metrics + Equity Row -->
+            <div class="metrics-equity-row">
+                <div class="panel-card">
+                    <div class="panel-title">📊 Performance Metrics</div>
+                    <div class="metrics-grid-pro">
+                        <div class="metric-item">
+                            <span class="metric-label">Win Rate</span>
+                            <span class="metric-value" id="metric-winrate">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Profit Factor</span>
+                            <span class="metric-value" id="metric-pf">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Total P&L</span>
+                            <span class="metric-value" id="metric-pnl">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Total Trades</span>
+                            <span class="metric-value" id="metric-trades">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Trade</span>
+                            <span class="metric-value" id="metric-avgtrade">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Max Drawdown</span>
+                            <span class="metric-value" id="metric-dd">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-title">📈 Equity Curve</div>
+                    <div id="equity-curve-pro" class="equity-chart-pro"></div>
+                </div>
+            </div>
+
+            <!-- Trade Logs Comparison -->
+            <div class="panel-card">
+                <div class="panel-title">
+                    📋 Trade Logs Comparison
+                    <span class="divergence-badge" id="divergence-badge-pro" style="display: none; margin-left: auto; background: #f85149; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0 divergences</span>
+                </div>
+                <div class="logs-row">
+                    <div class="log-column">
+                        <div class="log-header test">
+                            <span class="log-badge">LIVE TEST</span>
+                            <span id="test-log-count">0 trades</span>
+                        </div>
+                        <div class="log-list" id="test-log-list">
+                            <div class="no-data">No live test data</div>
+                        </div>
+                    </div>
+                    <div class="log-column">
+                        <div class="log-header backtest">
+                            <span class="log-badge">BACKTEST</span>
+                            <span id="backtest-log-count">0 trades</span>
+                        </div>
+                        <div class="log-list" id="backtest-log-list">
+                            <div class="no-data">No backtest data</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-fills" class="tab-content">
+        <div class="no-data">No fills</div>
+    </div>
+    <div id="tab-history" class="tab-content">
+        <div class="no-data">No order history</div>
     </div>
 
     <!-- Hidden legacy controls for JS compatibility -->
@@ -5438,6 +5680,90 @@
         initViewToggle(); // Enable view toggle between Backtest and Live Market
         initLiveMarketControls(); // Setup live market data controls
         initPeriodDropdown(); // Setup professional period dropdown
+        initTabBar(); // Setup bottom tab bar navigation
+        initProBotControls(); // Setup pro bot controls
+
+        // Tab bar navigation
+        function initTabBar() {
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active from all tabs and contents
+                    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    // Activate clicked tab and its content
+                    tab.classList.add('active');
+                    const tabId = 'tab-' + tab.dataset.tab;
+                    const content = document.getElementById(tabId);
+                    if (content) content.classList.add('active');
+                });
+            });
+        }
+
+        // Pro bot controls initialization
+        function initProBotControls() {
+            const strategyPro = document.getElementById('strategy-selector-pro');
+            const startPro = document.getElementById('btn-start-test-pro');
+            const stopPro = document.getElementById('btn-stop-backtest-pro');
+
+            if (strategyPro) {
+                strategyPro.addEventListener('change', (e) => {
+                    const strategy = e.target.value;
+                    // Sync with legacy selector
+                    const legacySelector = document.getElementById('strategy-selector');
+                    if (legacySelector) legacySelector.value = strategy;
+                    // Enable/disable start button
+                    if (startPro) {
+                        startPro.disabled = (strategy === 'none');
+                    }
+                    // Update current strategy
+                    currentStrategy = strategy;
+                    // Load trade overlays if strategy selected
+                    if (strategy !== 'none') {
+                        updateChartIndicators(strategy);
+                        loadProMetrics(strategy);
+                    }
+                });
+            }
+
+            if (startPro) {
+                startPro.addEventListener('click', () => {
+                    if (typeof startLiveTest === 'function') {
+                        startLiveTest();
+                        document.getElementById('test-stats-pro').style.display = 'flex';
+                    }
+                });
+            }
+
+            if (stopPro) {
+                stopPro.addEventListener('click', () => {
+                    if (typeof stopAndBacktest === 'function') {
+                        stopAndBacktest();
+                    }
+                });
+            }
+        }
+
+        // Load metrics for pro panel
+        async function loadProMetrics(strategy) {
+            try {
+                const data = await loadBacktestData(strategy);
+                if (data && data.metrics) {
+                    const m = data.metrics;
+                    const setMetric = (id, val) => {
+                        const el = document.getElementById(id);
+                        if (el) el.textContent = val;
+                    };
+                    setMetric('metric-winrate', (m.win_rate || 0).toFixed(1) + '%');
+                    setMetric('metric-pf', (m.profit_factor || 0).toFixed(2));
+                    setMetric('metric-pnl', '$' + (m.total_pnl || 0).toFixed(2));
+                    setMetric('metric-trades', m.total_trades || 0);
+                    setMetric('metric-avgtrade', '$' + ((m.total_pnl || 0) / (m.total_trades || 1)).toFixed(2));
+                    setMetric('metric-dd', (m.max_drawdown_percent || 0).toFixed(1) + '%');
+                }
+            } catch (err) {
+                console.error('[loadProMetrics] Error:', err);
+            }
+        }
 
         // Default to Market mode (no strategy selected)
         (async function initLiveMarketView() {
