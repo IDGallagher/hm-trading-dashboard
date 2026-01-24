@@ -5458,12 +5458,14 @@
             }
 
             // Update strategy display
-            document.getElementById('live-strategy').textContent = 'None';
+            const liveStrategyEl = document.getElementById('live-strategy');
+            if (liveStrategyEl) liveStrategyEl.textContent = 'None';
             updateStrategyDescription('none');
 
             // Hide backtest controls (but keep live-test-panel visible)
             document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
-            document.querySelector('.export-buttons').style.display = 'none';
+            const exportButtons = document.querySelector('.export-buttons');
+            if (exportButtons) exportButtons.style.display = 'none';
             const liveTradeFeed = document.getElementById('live-trade-feed');
             if (liveTradeFeed) liveTradeFeed.style.display = 'none';
 
