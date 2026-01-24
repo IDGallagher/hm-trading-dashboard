@@ -2542,10 +2542,14 @@
 
             if (mode === 'market') {
                 // Mode A: No strategy selected - show live market view
-                dashboardContent.style.display = 'none';
-                dashboardContent.classList.add('hidden');
-                liveMarketContent.classList.add('active');
-                liveMarketContent.style.display = 'block';
+                if (dashboardContent) {
+                    dashboardContent.style.display = 'none';
+                    dashboardContent.classList.add('hidden');
+                }
+                if (liveMarketContent) {
+                    liveMarketContent.classList.add('active');
+                    liveMarketContent.style.display = 'block';
+                }
 
                 // Hide backtest controls
                 document.querySelectorAll('.control-group').forEach(el => el.style.display = 'none');
@@ -2569,10 +2573,14 @@
 
             } else if (mode === 'strategy') {
                 // Mode B: Strategy selected - show price chart with trade overlays + equity curve
-                dashboardContent.style.display = 'none';
-                dashboardContent.classList.add('hidden');
-                liveMarketContent.classList.add('active');
-                liveMarketContent.style.display = 'block';
+                if (dashboardContent) {
+                    dashboardContent.style.display = 'none';
+                    dashboardContent.classList.add('hidden');
+                }
+                if (liveMarketContent) {
+                    liveMarketContent.classList.add('active');
+                    liveMarketContent.style.display = 'block';
+                }
 
                 // Keep live market chart but add trade overlays
                 if (!liveMarketChart) initLiveMarketChart();
@@ -4700,22 +4708,27 @@
             const contentEl = document.getElementById('dashboard-content');
 
             try {
-                loadingEl.style.display = 'block';
-                loadingEl.innerHTML = '<div class="loading">Loading backtest data...</div>';
-                contentEl.style.display = 'none';
+                if (loadingEl) {
+                    loadingEl.style.display = 'block';
+                    loadingEl.innerHTML = '<div class="loading">Loading backtest data...</div>';
+                }
+                if (contentEl) contentEl.style.display = 'none';
 
                 let data = await loadBacktestData(botName);
                 data = filterDataByPeriod(data, period);
                 currentData = data;
 
                 // Hide loading, show content
-                loadingEl.style.display = 'none';
-                contentEl.style.display = 'block';
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
 
-                // Update status indicators
-                document.getElementById('json-status').textContent = 'Loaded successfully';
-                document.getElementById('metrics-status').textContent = '14 metrics calculated';
-                document.getElementById('equity-status').textContent = data.equity_curve.length + ' data points';
+                // Update status indicators (with null checks)
+                const jsonStatus = document.getElementById('json-status');
+                const metricsStatus = document.getElementById('metrics-status');
+                const equityStatus = document.getElementById('equity-status');
+                if (jsonStatus) jsonStatus.textContent = 'Loaded successfully';
+                if (metricsStatus) metricsStatus.textContent = '14 metrics calculated';
+                if (equityStatus) equityStatus.textContent = data.equity_curve.length + ' data points';
 
                 // Render all components
                 renderMetrics(data.metrics);
@@ -4723,18 +4736,22 @@
                 renderCharts(data);
                 renderTrades(data.trades);
 
-                // Update titles and badges
+                // Update titles and badges (with null checks)
                 const candlePeriodLabel = currentCandlePeriod === '1m' ? '1m' : currentCandlePeriod;
-                document.getElementById('chart-title').textContent =
-                    `${data.metadata.pair} Price (${candlePeriodLabel}) & ${data.metadata.bot_name} P&L`;
-                document.getElementById('bot-name-title').textContent =
-                    `${data.metadata.bot_name} Configuration`;
-                document.getElementById('bot-badge').textContent = data.metadata.exchange.toUpperCase();
-                const exitCount = data.trades.filter(t => t.exit_time_unix && t.exit_price).length;
-                document.getElementById('trades-badge').textContent = `${data.trades.length} entries / ${exitCount} exits`;
+                const chartTitle = document.getElementById('chart-title');
+                const botNameTitle = document.getElementById('bot-name-title');
+                const botBadge = document.getElementById('bot-badge');
+                const tradesBadge = document.getElementById('trades-badge');
+                const timestamp = document.getElementById('timestamp');
 
-                // Update timestamp
-                document.getElementById('timestamp').textContent =
+                if (chartTitle) chartTitle.textContent =
+                    `${data.metadata.pair} Price (${candlePeriodLabel}) & ${data.metadata.bot_name} P&L`;
+                if (botNameTitle) botNameTitle.textContent =
+                    `${data.metadata.bot_name} Configuration`;
+                if (botBadge) botBadge.textContent = data.metadata.exchange.toUpperCase();
+                const exitCount = data.trades.filter(t => t.exit_time_unix && t.exit_price).length;
+                if (tradesBadge) tradesBadge.textContent = `${data.trades.length} entries / ${exitCount} exits`;
+                if (timestamp) timestamp.textContent =
                     `Last updated: ${new Date().toLocaleString()} | Data: ${data.metadata.bot_name} on ${data.metadata.exchange} ${data.metadata.pair}`;
 
                 // Update active bot card
@@ -4744,17 +4761,19 @@
                 animateCards();
 
             } catch (error) {
-                loadingEl.innerHTML = `
-                    <div class="error-message">
-                        <h3>Failed to load backtest data</h3>
-                        <p>${error.message}</p>
-                        <p style="margin-top: 10px; font-size: 0.9rem;">
-                            Make sure backtest_results.json exists and the page is served via HTTP server.
-                        </p>
-                    </div>
-                `;
-                loadingEl.style.display = 'block';
-                contentEl.style.display = 'none';
+                if (loadingEl) {
+                    loadingEl.innerHTML = `
+                        <div class="error-message">
+                            <h3>Failed to load backtest data</h3>
+                            <p>${error.message}</p>
+                            <p style="margin-top: 10px; font-size: 0.9rem;">
+                                Make sure backtest_results.json exists and the page is served via HTTP server.
+                            </p>
+                        </div>
+                    `;
+                    loadingEl.style.display = 'block';
+                }
+                if (contentEl) contentEl.style.display = 'none';
             }
         }
 
