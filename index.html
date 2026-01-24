@@ -6035,14 +6035,23 @@
         }
 
         // Initialize on page load
+        console.log('[INIT] Starting initialization sequence...');
         setupEventListeners();
+        console.log('[INIT] setupEventListeners done');
         initDashboard();
+        console.log('[INIT] initDashboard done');
         initViewToggle(); // Enable view toggle between Backtest and Live Market
+        console.log('[INIT] initViewToggle done');
         initLiveMarketControls(); // Setup live market data controls
+        console.log('[INIT] initLiveMarketControls done');
         initPeriodDropdown(); // Setup professional period dropdown
+        console.log('[INIT] initPeriodDropdown done');
         initChartPeriodBar(); // Setup bottom time range buttons
+        console.log('[INIT] initChartPeriodBar done');
         initTabBar(); // Setup bottom tab bar navigation
+        console.log('[INIT] initTabBar done');
         initProBotControls(); // Setup pro bot controls
+        console.log('[INIT] initProBotControls done - ALL INIT COMPLETE');
 
         // Tab bar navigation
         function initTabBar() {
