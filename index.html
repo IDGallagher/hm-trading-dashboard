@@ -114,6 +114,8 @@
             display: flex;
             flex-direction: column;
             height: 420px; /* Same height as orderbook+trades combined */
+            overflow: hidden; /* Clip chart canvas to prevent overlap with tab bar */
+            position: relative;
         }
         .chart-toolbar {
             display: flex;
@@ -320,6 +322,8 @@
             border-bottom: 1px solid #30363d;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            position: relative;
+            z-index: 100; /* Ensure tab bar is above chart canvas */
         }
         .tab-bar::-webkit-scrollbar { height: 0; }
         .tab-item {
