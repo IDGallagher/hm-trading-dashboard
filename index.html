@@ -1967,6 +1967,14 @@
         .btn-session-stop:hover {
             background: rgba(248,81,73,0.15);
         }
+        .btn-session-restart {
+            background: transparent;
+            border-color: #f0883e;
+            color: #f0883e;
+        }
+        .btn-session-restart:hover {
+            background: rgba(240,136,62,0.15);
+        }
         .btn-session-view {
             background: transparent;
             border-color: #30363d;
@@ -3340,11 +3348,13 @@
             let actionsHtml = '';
             if (panelType === 'running' || panelType === 'scrapers') {
                 actionsHtml = `
+                    <button class="btn-session-action btn-session-restart" onclick="restartSession('${session.id}')">Restart</button>
                     <button class="btn-session-action btn-session-stop" onclick="stopSession('${session.id}')">Stop</button>
                     <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
                 `;
             } else {
                 actionsHtml = `
+                    <button class="btn-session-action btn-session-restart" onclick="restartSession('${session.id}')">Restart</button>
                     <button class="btn-session-action btn-session-clone" onclick="cloneSession('${session.id}')">Clone</button>
                     <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
                     <button class="btn-session-action btn-session-delete" onclick="deleteSession('${session.id}')">×</button>
@@ -3613,6 +3623,26 @@
             }
         }
 
+        // Restart a session
+        async function restartSession(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/restart`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to restart session');
+                }
+                const result = await response.json();
+                console.log('[Sessions] Session restarted:', result);
+                await fetchSessions();
+            } catch (error) {
+                console.error('[Sessions] Failed to restart session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
         // Clone a session
         async function cloneSession(sessionId) {
             try {
@@ -3655,11 +3685,132 @@
             }
         }
 
-        // View session details (placeholder)
-        function viewSession(sessionId) {
+        // Currently viewed session
+        let currentViewedSessionId = null;
+
+        // View session - load trades and display on chart
+        async function viewSession(sessionId) {
             console.log('[Sessions] View session:', sessionId);
-            // TODO: Implement session details view
-            alert('Session details view coming soon!');
+            currentViewedSessionId = sessionId;
+
+            try {
+                // Fetch session trades
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to load session trades');
+                }
+
+                const data = await response.json();
+                console.log(`[Sessions] Loaded ${data.count} trades for session ${data.session_name}`);
+
+                // Display trades on chart
+                displaySessionTrades(data);
+
+                // Show notification
+                if (data.count > 0) {
+                    showSessionNotification(`Showing ${data.count} trades from "${data.session_name}" on chart`);
+                } else {
+                    showSessionNotification(`No trades yet for "${data.session_name}"`);
+                }
+
+            } catch (error) {
+                console.error('[Sessions] Failed to load trades:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // Display session trades as markers on the chart
+        function displaySessionTrades(tradeData) {
+            if (!liveMarketCandleSeries || !lastCandleData || lastCandleData.length === 0) {
+                console.log('[Sessions] Cannot display trades - chart not ready');
+                return;
+            }
+
+            const trades = tradeData.trades || [];
+            if (trades.length === 0) {
+                liveMarketCandleSeries.setMarkers([]);
+                return;
+            }
+
+            const markers = [];
+
+            // Helper to find closest candle to a timestamp (timestamp in ms)
+            const findClosestCandle = (timestampMs) => {
+                const timestampSec = Math.floor(timestampMs / 1000);
+                return lastCandleData.reduce((prev, curr) => {
+                    return Math.abs(curr.time - timestampSec) < Math.abs(prev.time - timestampSec) ? curr : prev;
+                });
+            };
+
+            // Group trades by timestamp to pair OPEN/CLOSE
+            const tradesByTime = {};
+            trades.forEach(trade => {
+                const key = trade.timestamp;
+                if (!tradesByTime[key]) tradesByTime[key] = [];
+                tradesByTime[key].push(trade);
+            });
+
+            trades.forEach(trade => {
+                const candle = findClosestCandle(trade.timestamp);
+                const isEntry = trade.action === 'OPEN';
+                const isLong = trade.side === 'BUY';
+
+                if (isEntry) {
+                    // Entry marker - arrow
+                    markers.push({
+                        time: candle.time,
+                        position: isLong ? 'belowBar' : 'aboveBar',
+                        color: isLong ? '#2196F3' : '#FF9800', // Blue for long, orange for short
+                        shape: isLong ? 'arrowUp' : 'arrowDown',
+                        text: `${trade.side} @ ${trade.price.toFixed(1)}`
+                    });
+                } else {
+                    // Exit marker - circle
+                    const pnl = trade.pnl || 0;
+                    markers.push({
+                        time: candle.time,
+                        position: !isLong ? 'belowBar' : 'aboveBar', // Opposite of entry
+                        color: pnl >= 0 ? '#00c853' : '#ff5252', // Green for profit, red for loss
+                        shape: 'circle',
+                        text: pnl !== 0 ? `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}` : ''
+                    });
+                }
+            });
+
+            // Sort markers by time (required by Lightweight Charts)
+            markers.sort((a, b) => a.time - b.time);
+            liveMarketCandleSeries.setMarkers(markers);
+            console.log(`[Sessions] Displayed ${markers.length} trade markers on chart`);
+        }
+
+        // Clear session trade markers
+        function clearSessionTrades() {
+            currentViewedSessionId = null;
+            if (liveMarketCandleSeries) {
+                liveMarketCandleSeries.setMarkers([]);
+            }
+        }
+
+        // Show session notification toast
+        function showSessionNotification(message) {
+            // Reuse error toast with different styling
+            const toast = document.getElementById('error-toast');
+            const titleEl = document.getElementById('error-toast-title');
+            const messageEl = document.getElementById('error-toast-message');
+
+            titleEl.textContent = '📊 Session Trades';
+            messageEl.textContent = message;
+            toast.style.borderColor = '#58a6ff';
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.style.borderColor = '';
+            }, 3000);
         }
 
         // Start session polling
