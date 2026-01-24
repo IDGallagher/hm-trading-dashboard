@@ -3258,7 +3258,13 @@
             const container = document.getElementById('live-price-chart-container');
             if (!container) return;
 
+            // Get initial dimensions from container
+            const initialWidth = container.clientWidth || 800;
+            const initialHeight = container.clientHeight || 400;
+
             liveMarketChart = LightweightCharts.createChart(container, {
+                width: initialWidth,
+                height: initialHeight,
                 layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8892b0' },
                 grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
@@ -3289,10 +3295,26 @@
                 updateOHLCDisplay(param);
             });
 
-            const resizeObserver = new ResizeObserver(() => {
-                liveMarketChart.applyOptions({ width: container.clientWidth });
+            // ResizeObserver to handle container size changes - update BOTH width AND height
+            const resizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    const { width, height } = entry.contentRect;
+                    if (width > 0 && height > 0) {
+                        liveMarketChart.applyOptions({ width, height });
+                    }
+                }
             });
             resizeObserver.observe(container);
+
+            // Initial resize to fill container
+            setTimeout(() => {
+                if (container.clientWidth > 0 && container.clientHeight > 0) {
+                    liveMarketChart.applyOptions({
+                        width: container.clientWidth,
+                        height: container.clientHeight
+                    });
+                }
+            }, 100);
 
             // Subscribe to visible range changes for lazy loading
             liveMarketChart.timeScale().subscribeVisibleLogicalRangeChange((logicalRange) => {
