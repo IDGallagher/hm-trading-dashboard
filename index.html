@@ -105,7 +105,7 @@
         .trading-main {
             display: grid;
             grid-template-columns: 1fr 320px;
-            height: 420px; /* Reduced height to show tabs above fold */
+            height: 75vh; /* 75% of viewport height */
             gap: 1px;
             background: #30363d;
         }
@@ -113,7 +113,7 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            height: 420px; /* Same height as orderbook+trades combined */
+            height: 75vh; /* 75% of viewport height */
             overflow: hidden; /* Clip chart canvas to prevent overlap with tab bar */
             position: relative;
         }
@@ -231,7 +231,7 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            height: 420px; /* Same height as chart - reduced to 75% of original */
+            height: 75vh; /* 75% of viewport height - same as chart */
             overflow: hidden;
         }
         .panel-section {
@@ -1832,35 +1832,13 @@
 
     <!-- Bottom Tab Bar -->
     <div class="tab-bar">
-        <div class="tab-item active" data-tab="overview">Overview <span class="tab-count">[0]</span></div>
-        <div class="tab-item" data-tab="positions">Positions <span class="tab-count">[0]</span></div>
-        <div class="tab-item" data-tab="closed">Closed Positions</div>
-        <div class="tab-item" data-tab="orders">Active Orders <span class="tab-count">[0]</span></div>
-        <div class="tab-item" data-tab="stops">Stops <span class="tab-count">[0]</span></div>
-        <div class="tab-item" data-tab="bots">Your Bots</div>
-        <div class="tab-item" data-tab="fills">Fills</div>
-        <div class="tab-item" data-tab="history">Order History</div>
+        <div class="tab-item active" data-tab="bots">Your Bots</div>
     </div>
 
     <!-- Tab Contents -->
-    <div id="tab-overview" class="tab-content active">
-        <div class="no-data">No open positions</div>
-    </div>
-    <div id="tab-positions" class="tab-content">
-        <div class="no-data">No open positions</div>
-    </div>
-    <div id="tab-closed" class="tab-content">
-        <div class="no-data">No closed positions</div>
-    </div>
-    <div id="tab-orders" class="tab-content">
-        <div class="no-data">No active orders</div>
-    </div>
-    <div id="tab-stops" class="tab-content">
-        <div class="no-data">No stop orders</div>
-    </div>
 
     <!-- YOUR BOTS TAB -->
-    <div id="tab-bots" class="tab-content">
+    <div id="tab-bots" class="tab-content active">
         <div class="bots-container">
             <!-- Bots Table Header -->
             <div class="bots-table">
@@ -1972,13 +1950,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <div id="tab-fills" class="tab-content">
-        <div class="no-data">No fills</div>
-    </div>
-    <div id="tab-history" class="tab-content">
-        <div class="no-data">No order history</div>
     </div>
 
     <!-- Hidden legacy controls for JS compatibility -->
@@ -4095,20 +4066,39 @@
         // Update live stats display
         function updateLiveStats(data) {
             // Use tradeCount from API (not trades)
-            document.getElementById('live-trades').textContent = data.tradeCount || 0;
+            const tradeCount = data.tradeCount || 0;
+            const liveTrades = document.getElementById('live-trades');
+            if (liveTrades) liveTrades.textContent = tradeCount;
+            // Also update pro UI
+            const testTradesPro = document.getElementById('test-trades-pro');
+            if (testTradesPro) testTradesPro.textContent = tradeCount;
 
             // Use totalPnl from API (not pnl)
             const pnl = data.totalPnl || 0;
             const pnlElement = document.getElementById('live-pnl');
-            pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
-            pnlElement.className = 'live-stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
+            if (pnlElement) {
+                pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+                pnlElement.className = 'live-stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
+            }
+            // Also update pro UI
+            const testPnlPro = document.getElementById('test-pnl-pro');
+            if (testPnlPro) {
+                testPnlPro.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+                testPnlPro.className = pnl >= 0 ? 'stat-value positive' : 'stat-value negative';
+            }
 
             if (liveTestStartTime) {
                 const duration = Date.now() - liveTestStartTime;
-                document.getElementById('live-duration').textContent = formatDuration(duration);
+                const durationStr = formatDuration(duration);
+                const liveDuration = document.getElementById('live-duration');
+                if (liveDuration) liveDuration.textContent = durationStr;
+                // Also update pro UI
+                const testDurationPro = document.getElementById('test-duration-pro');
+                if (testDurationPro) testDurationPro.textContent = durationStr;
             }
 
-            document.getElementById('live-strategy').textContent = currentStrategy;
+            const liveStrategy = document.getElementById('live-strategy');
+            if (liveStrategy) liveStrategy.textContent = currentStrategy;
         }
 
         // Flag to prevent double-clicking during API call
