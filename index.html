@@ -6084,34 +6084,53 @@
                     console.log(`[Pro Controls INPUT] Value: ${e.target.value}`);
                 });
                 strategyPro.addEventListener('change', async (e) => {
+                    console.log('[CHANGE] ========== HANDLER ENTERED ==========');
                     const strategy = e.target.value;
-                    console.log(`[Pro Controls CHANGE] >>> Strategy changed to: ${strategy} <<<`);
-                    console.log(`[Pro Controls CHANGE] Event type: ${e.type}, target: ${e.target.id}`);
+                    console.log(`[CHANGE] Step 1: strategy value = "${strategy}"`);
+
                     // Sync with legacy selector
                     const legacySelector = document.getElementById('strategy-selector');
                     if (legacySelector) legacySelector.value = strategy;
+                    console.log('[CHANGE] Step 2: synced legacy selector');
+
                     // Enable/disable start button
                     if (startPro) {
                         startPro.disabled = (strategy === 'none');
+                        console.log(`[CHANGE] Step 3: button disabled = ${strategy === 'none'}`);
                     }
+
                     // Update current strategy
                     currentStrategy = strategy;
+                    console.log(`[CHANGE] Step 4: currentStrategy set to "${currentStrategy}"`);
+
                     // Load trade overlays and metrics if strategy selected
+                    console.log(`[CHANGE] Step 5: checking if strategy !== 'none': ${strategy !== 'none'}`);
                     if (strategy !== 'none') {
-                        console.log('[Pro Controls] Loading indicators, metrics, trade overlays, and trade logs...');
-                        updateChartIndicators(strategy);
-                        loadProMetrics(strategy);
-                        // Load trade overlays on the chart
-                        console.log('[Pro Controls] Calling loadTradeOverlays()...');
-                        await loadTradeOverlays();
-                        console.log('[Pro Controls] loadTradeOverlays() completed');
-                        // Load trade logs for the Your Bots tab
-                        console.log('[Pro Controls] Calling loadBotsTabTradeLogs()...');
-                        await loadBotsTabTradeLogs();
-                        console.log('[Pro Controls] loadBotsTabTradeLogs() completed');
+                        console.log('[CHANGE] Step 6: INSIDE if block - will call functions');
+                        try {
+                            console.log('[CHANGE] Step 7: calling updateChartIndicators...');
+                            updateChartIndicators(strategy);
+                            console.log('[CHANGE] Step 8: updateChartIndicators done');
+
+                            console.log('[CHANGE] Step 9: calling loadProMetrics...');
+                            loadProMetrics(strategy);
+                            console.log('[CHANGE] Step 10: loadProMetrics started (async)');
+
+                            console.log('[CHANGE] Step 11: calling loadTradeOverlays...');
+                            await loadTradeOverlays();
+                            console.log('[CHANGE] Step 12: loadTradeOverlays DONE');
+
+                            console.log('[CHANGE] Step 13: calling loadBotsTabTradeLogs...');
+                            await loadBotsTabTradeLogs();
+                            console.log('[CHANGE] Step 14: loadBotsTabTradeLogs DONE');
+                        } catch (err) {
+                            console.error('[CHANGE] ERROR in handler:', err);
+                        }
                     } else {
+                        console.log('[CHANGE] Step 6b: strategy is none, clearing overlays');
                         clearTradeOverlays();
                     }
+                    console.log('[CHANGE] ========== HANDLER COMPLETE ==========');
                 });
             }
 
