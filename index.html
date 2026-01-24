@@ -105,7 +105,7 @@
         .trading-main {
             display: grid;
             grid-template-columns: 1fr 320px;
-            height: 75vh; /* 75% of viewport height */
+            height: 55vh; /* Reduced to fit better */
             gap: 1px;
             background: #30363d;
         }
@@ -113,7 +113,7 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            height: 75vh; /* 75% of viewport height */
+            height: 55vh; /* Match trading-main height */
             overflow: hidden; /* Clip chart canvas to prevent overlap with tab bar */
             position: relative;
         }
@@ -231,16 +231,20 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            height: 75vh; /* 75% of viewport height - same as chart */
+            height: 55vh; /* Match chart height */
             overflow: hidden;
         }
         .panel-section {
-            flex: 1;
             display: flex;
             flex-direction: column;
             min-height: 0;
             border-bottom: 1px solid #30363d;
-            max-height: 50%; /* Split evenly between orderbook and trades */
+        }
+        .panel-section:first-child {
+            flex: 2; /* Order book gets 2/3 of space */
+        }
+        .panel-section:last-child {
+            flex: 1; /* Trades gets 1/3 of space */
         }
         .panel-section:last-child { border-bottom: none; }
         .panel-header {
@@ -259,6 +263,10 @@
             flex: 1;
             overflow-y: auto;
             padding: 4px;
+        }
+        /* Order book should show all rows without scrollbar */
+        .panel-section:first-child .panel-content {
+            overflow-y: visible;
         }
 
         /* === ORDERBOOK STYLES === */
