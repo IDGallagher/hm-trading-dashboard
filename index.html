@@ -5282,34 +5282,44 @@
         function setupEventListeners() {
             console.log('[setupEventListeners] Setting up event listeners');
 
-            // Live Test Control buttons
+            // Live Test Control buttons (with null checks)
             const startBtn = document.getElementById('btn-start-test');
             console.log('[setupEventListeners] Start button found:', !!startBtn);
-            startBtn.addEventListener('click', (e) => {
-                console.log('[btn-start-test] CLICK EVENT FIRED');
-                e.preventDefault();
-                startLiveTest();
-            });
-            document.getElementById('btn-stop-backtest').addEventListener('click', stopAndBacktest);
+            if (startBtn) {
+                startBtn.addEventListener('click', (e) => {
+                    console.log('[btn-start-test] CLICK EVENT FIRED');
+                    e.preventDefault();
+                    startLiveTest();
+                });
+            }
+            const stopBtn = document.getElementById('btn-stop-backtest');
+            if (stopBtn) stopBtn.addEventListener('click', stopAndBacktest);
 
             // Session selector dropdown
-            document.getElementById('session-selector').addEventListener('change', (e) => {
-                console.log(`[session-selector] Change event fired, value: ${e.target.value}`);
-                handleSessionChange(e.target.value);
-            });
+            const sessionSelector = document.getElementById('session-selector');
+            if (sessionSelector) {
+                sessionSelector.addEventListener('change', (e) => {
+                    console.log(`[session-selector] Change event fired, value: ${e.target.value}`);
+                    handleSessionChange(e.target.value);
+                });
+            }
 
             // Bot selector dropdown
-            document.getElementById('bot-selector').addEventListener('change', (e) => {
-                currentBot = e.target.value;
-                if (currentSession === 'compare') {
-                    handleSessionChange('compare');
-                } else {
-                    initDashboard(currentBot, currentPeriod);
-                }
-            });
+            const botSelector = document.getElementById('bot-selector');
+            if (botSelector) {
+                botSelector.addEventListener('change', (e) => {
+                    currentBot = e.target.value;
+                    if (currentSession === 'compare') {
+                        handleSessionChange('compare');
+                    } else {
+                        initDashboard(currentBot, currentPeriod);
+                    }
+                });
+            }
 
             // Strategy selector for live test - drives dashboard mode
-            document.getElementById('strategy-selector').addEventListener('change', async (e) => {
+            const strategySelector = document.getElementById('strategy-selector');
+            if (strategySelector) strategySelector.addEventListener('change', async (e) => {
                 currentStrategy = e.target.value;
 
                 // Switch dashboard mode based on strategy selection
@@ -5343,49 +5353,65 @@
             });
 
             // Date range selector
-            document.getElementById('date-selector').addEventListener('change', (e) => {
-                currentPeriod = e.target.value;
-                if (currentSession !== 'compare') {
-                    initDashboard(currentBot, currentPeriod);
-                }
-            });
+            const dateSelector = document.getElementById('date-selector');
+            if (dateSelector) {
+                dateSelector.addEventListener('change', (e) => {
+                    currentPeriod = e.target.value;
+                    if (currentSession !== 'compare') {
+                        initDashboard(currentBot, currentPeriod);
+                    }
+                });
+            }
 
             // Candle period selector
-            document.getElementById('candle-period-selector').addEventListener('change', (e) => {
-                currentCandlePeriod = e.target.value;
-                console.log(`[Period Change] Selected: ${currentCandlePeriod}, has data: ${!!currentData}, candles: ${currentData?.candles?.length || 0}`);
-                if (currentSession !== 'compare' && currentData) {
-                    renderCharts(currentData);
-                    // Update chart title with new period - use currentStrategy if test is running
-                    const candlePeriodLabel = currentCandlePeriod;
-                    const sessionLabel = currentSession === 'test' ? ' (TEST)' : '';
-                    const botName = (liveTestRunning && currentStrategy && currentStrategy !== 'none')
-                        ? currentStrategy
-                        : currentData.metadata.bot_name;
-                    document.getElementById('chart-title').textContent =
-                        `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${botName} P&L${sessionLabel}`;
-                }
-            });
+            const candlePeriodSelector = document.getElementById('candle-period-selector');
+            if (candlePeriodSelector) {
+                candlePeriodSelector.addEventListener('change', (e) => {
+                    currentCandlePeriod = e.target.value;
+                    console.log(`[Period Change] Selected: ${currentCandlePeriod}, has data: ${!!currentData}, candles: ${currentData?.candles?.length || 0}`);
+                    if (currentSession !== 'compare' && currentData) {
+                        renderCharts(currentData);
+                        // Update chart title with new period - use currentStrategy if test is running
+                        const candlePeriodLabel = currentCandlePeriod;
+                        const sessionLabel = currentSession === 'test' ? ' (TEST)' : '';
+                        const botName = (liveTestRunning && currentStrategy && currentStrategy !== 'none')
+                            ? currentStrategy
+                            : currentData.metadata.bot_name;
+                        const chartTitle = document.getElementById('chart-title');
+                        if (chartTitle) {
+                            chartTitle.textContent =
+                                `${currentData.metadata.pair} Price (${candlePeriodLabel}) & ${botName} P&L${sessionLabel}`;
+                        }
+                    }
+                });
+            }
 
             // Bot cards click
             document.querySelectorAll('.bot-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const botName = card.dataset.bot;
-                    document.getElementById('bot-selector').value = botName;
+                    const botSelectorEl = document.getElementById('bot-selector');
+                    if (botSelectorEl) botSelectorEl.value = botName;
                     currentBot = botName;
                     initDashboard(currentBot, currentPeriod);
                 });
             });
 
             // Export CSV button
-            document.getElementById('export-csv-btn').addEventListener('click', () => {
-                exportToCSV(currentData);
-            });
+            const exportCsvBtn = document.getElementById('export-csv-btn');
+            if (exportCsvBtn) {
+                exportCsvBtn.addEventListener('click', () => {
+                    exportToCSV(currentData);
+                });
+            }
 
             // Export Chart button
-            document.getElementById('export-chart-btn').addEventListener('click', () => {
-                exportChartAsImage();
-            });
+            const exportChartBtn = document.getElementById('export-chart-btn');
+            if (exportChartBtn) {
+                exportChartBtn.addEventListener('click', () => {
+                    exportChartAsImage();
+                });
+            }
         }
 
         // Initialize on page load
