@@ -3332,8 +3332,13 @@
             let runtime = '--';
             if (session.started_at) {
                 const startTime = new Date(session.started_at).getTime();
-                const endTime = session.stopped_at ? new Date(session.stopped_at).getTime() : Date.now();
-                runtime = formatDuration(endTime - startTime);
+                // For running sessions, always use current time (ignore stopped_at from previous run)
+                const endTime = (session.status === 'running' || !session.stopped_at)
+                    ? Date.now()
+                    : new Date(session.stopped_at).getTime();
+                const durationMs = endTime - startTime;
+                // Guard against negative duration (can happen with clock skew or bad data)
+                runtime = durationMs >= 0 ? formatDuration(durationMs) : '00:00:00';
             }
 
             // Format PnL
