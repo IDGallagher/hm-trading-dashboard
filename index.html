@@ -368,6 +368,16 @@
             background: #161b22;
             border-top: 1px solid #30363d;
         }
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
         .running-bot-stats {
             display: flex;
             gap: 24px;
@@ -387,6 +397,14 @@
         .pro-select {
             background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
             padding: 8px 12px; border-radius: 4px; font-size: 13px; min-width: 180px;
+            cursor: pointer;
+            -webkit-appearance: menulist;
+            -moz-appearance: menulist;
+            appearance: menulist;
+        }
+        .pro-select:focus {
+            outline: 2px solid #00d4ff;
+            outline-offset: 1px;
         }
         .button-group { display: flex; gap: 8px; }
         .btn-pro {
@@ -1850,7 +1868,8 @@
 
             <!-- Add New Bot Row -->
             <div class="add-bot-row">
-                <select id="strategy-selector-pro" class="pro-select">
+                <label for="strategy-selector-pro" class="visually-hidden">Select trading strategy</label>
+                <select id="strategy-selector-pro" class="pro-select" aria-label="Select trading strategy" title="Select a trading strategy">
                     <option value="none" selected>Select Strategy...</option>
                     <option value="TestBot">TestBot</option>
                     <option value="DivergeBot">DivergeBot</option>
@@ -1858,7 +1877,7 @@
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
                 </select>
-                <button id="btn-start-test-pro" class="btn-pro btn-start-pro" disabled>▶ Start Bot</button>
+                <button id="btn-start-test-pro" class="btn-pro btn-start-pro" disabled aria-label="Start selected bot">▶ Start Bot</button>
             </div>
 
             <!-- Running Bot Stats (shown when test running) -->
@@ -3003,31 +3022,51 @@
 
         // Load and display trade overlays on the live market chart
         async function loadTradeOverlays() {
-            if (!liveMarketCandleSeries || !lastCandleData.length) return;
+            if (!liveMarketCandleSeries || !lastCandleData.length) {
+                console.log('[Trade Overlays] No candle series or candle data available');
+                return;
+            }
             if (currentStrategy === 'none') {
                 clearTradeOverlays();
                 return;
             }
 
+            let trades = [];
+
             try {
-                // Fetch trades from the session/test endpoint
-                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
+                // Try live test session first
+                const testResponse = await fetch(`${CONTROL_API_URL}/session/test`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
-                if (!response.ok) {
-                    console.log('[Trade Overlays] No test session data available');
-                    return;
+                if (testResponse.ok) {
+                    const testData = await testResponse.json();
+                    if (testData.success && testData.trades && testData.trades.length > 0) {
+                        trades = testData.trades;
+                        console.log(`[Trade Overlays] Loaded ${trades.length} trades from live test session`);
+                    }
                 }
 
-                const data = await response.json();
-                if (!data.success || !data.trades || data.trades.length === 0) {
-                    console.log('[Trade Overlays] No trades to display');
+                // If no live test trades, try backtest session
+                if (trades.length === 0) {
+                    const backtestResponse = await fetch(`${CONTROL_API_URL}/session/backtest`, {
+                        headers: { 'x-api-key': CONTROL_API_KEY }
+                    });
+                    if (backtestResponse.ok) {
+                        const backtestData = await backtestResponse.json();
+                        if (backtestData.success && backtestData.trades && backtestData.trades.length > 0) {
+                            trades = backtestData.trades;
+                            console.log(`[Trade Overlays] Loaded ${trades.length} trades from backtest session`);
+                        }
+                    }
+                }
+
+                if (trades.length === 0) {
+                    console.log('[Trade Overlays] No trades to display from any source');
                     clearTradeOverlays();
                     return;
                 }
 
                 const markers = [];
-                const trades = data.trades;
 
                 // Helper to find closest candle to a timestamp
                 const findClosestCandle = (timestamp) => {
