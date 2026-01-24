@@ -113,7 +113,7 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            height: 55vh; /* Match trading-main height */
+            min-height: 0; /* Allow flex children to shrink */
             overflow: hidden; /* Clip chart canvas to prevent overlap with tab bar */
             position: relative;
         }
@@ -218,10 +218,16 @@
         }
 
         .chart-container-pro {
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 0;
+            position: relative;
         }
         #live-price-chart-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
         }
@@ -239,15 +245,17 @@
             flex-direction: column;
             min-height: 0;
             border-bottom: 1px solid #30363d;
+            overflow: hidden; /* Prevent content from overflowing */
         }
         .panel-section:first-child {
-            flex: 2; /* Order book gets 2/3 of space */
+            flex: 0 0 60%; /* Order book: fixed at 60% height, no grow/shrink */
         }
         .panel-section:last-child {
-            flex: 1; /* Trades gets 1/3 of space */
+            flex: 1 1 auto; /* Trades: fills remaining space */
+            border-bottom: none;
         }
-        .panel-section:last-child { border-bottom: none; }
         .panel-header {
+            flex-shrink: 0; /* Header never shrinks */
             padding: 8px 12px;
             background: #161b22;
             font-size: 11px;
@@ -260,13 +268,11 @@
             align-items: center;
         }
         .panel-content {
-            flex: 1;
+            flex: 1 1 auto;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 4px;
-        }
-        /* Order book should show all rows without scrollbar */
-        .panel-section:first-child .panel-content {
-            overflow-y: visible;
+            min-height: 0; /* Allow content to shrink */
         }
 
         /* === ORDERBOOK STYLES === */
