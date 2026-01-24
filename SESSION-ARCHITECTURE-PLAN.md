@@ -35,6 +35,7 @@ CREATE TABLE sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   started_at TIMESTAMP NULL,
   stopped_at TIMESTAMP NULL,
+  last_updated TIMESTAMP NULL,            -- Heartbeat: updated by running bot every N seconds
 
   -- Results (updated as session runs)
   trade_count INT DEFAULT 0,
@@ -135,8 +136,16 @@ CREATE TABLE session_events (
 | `GET` | `/sessions/:id/metrics` | Get detailed metrics |
 | `GET` | `/sessions/:id/equity` | Get equity curve data |
 | `GET` | `/sessions/:id/logs` | Get bot output logs |
+| `WS` | `/sessions/:id/logs/stream` | **Real-time tick-by-tick log streaming** |
 
-### 2.4 Reference Data
+### 2.4 Heartbeat & Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/sessions/:id/heartbeat` | Bot calls this periodically (updates last_updated) |
+| `GET` | `/sessions/health` | Get all running sessions with stale detection |
+
+### 2.5 Reference Data
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -144,7 +153,7 @@ CREATE TABLE session_events (
 | `GET` | `/strategies/:id` | Get strategy details with param schema |
 | `GET` | `/markets` | List available markets |
 
-### 2.5 Endpoint Details
+### 2.6 Endpoint Details
 
 #### GET /sessions
 ```
@@ -245,27 +254,106 @@ Response:
 }
 ```
 
+#### POST /sessions/:id/heartbeat
+```
+Called by running bot every 10 seconds to indicate it's alive.
+
+Response:
+{
+  "success": true,
+  "last_updated": 1706000200
+}
+```
+
+#### GET /sessions/health
+```
+Returns all running sessions with stale detection.
+A session is "stale" if last_updated > 30 seconds ago.
+
+Response:
+{
+  "success": true,
+  "sessions": [
+    {
+      "id": "uuid",
+      "name": "BTC Test #1",
+      "status": "running",
+      "last_updated": 1706000200,
+      "seconds_since_update": 5,
+      "is_stale": false
+    },
+    {
+      "id": "uuid2",
+      "name": "ETH Test",
+      "status": "running",
+      "last_updated": 1706000100,
+      "seconds_since_update": 105,
+      "is_stale": true,          // No heartbeat for >30s
+      "stale_action": "manual"   // User must manually stop/restart
+    }
+  ]
+}
+```
+
+#### WS /sessions/:id/logs/stream
+```
+WebSocket endpoint for real-time tick-by-tick log streaming.
+Streams bot output as it happens (trades, decisions, errors).
+
+Client connects:
+  ws://server/sessions/{id}/logs/stream
+
+Server sends messages:
+{
+  "type": "log",
+  "timestamp": 1706000205,
+  "level": "info",           // info, warn, error, trade
+  "message": "Signal detected: BUY at 89450"
+}
+
+{
+  "type": "trade",
+  "timestamp": 1706000210,
+  "data": {
+    "side": "LONG",
+    "entry_price": 89450,
+    "size": 100
+  }
+}
+
+{
+  "type": "heartbeat",
+  "timestamp": 1706000215
+}
+```
+
 ---
 
 ## 3. UI Wireframe - Your Bots Section
 
-### 3.1 Main Layout
+### 3.1 Main Layout (Running Sessions Tab - Trading Bots Only)
+
+**NOTE:** Scrapers are NOT shown here - they have their own [Scrapers] tab.
+This tab shows only test and backtest sessions.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  [Running Sessions]  [Scrapers]  [History]                    [+ New Session]│
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  RUNNING SESSIONS (3)                                                       │
+│  RUNNING SESSIONS (2)                                                       │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │ ● BTC Test #1          TestBot    XBTUSD    00:45:32   15 trades    │   │
-│  │   PnL: +$245.50 (60% win)                              [Stop] [View]│   │
+│  │   PnL: +$245.50 (60% win)    ♡ 2s ago                 [Stop] [View]│   │
 │  ├─────────────────────────────────────────────────────────────────────┤   │
 │  │ ● ETH Backtest         PairBot    ETHUSD    Backtesting 45%...      │   │
-│  │   Progress: 1,234 / 2,500 candles                      [Stop] [View]│   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │ ● Market Scraper       Scraper    XBTUSD    02:15:00   Recording... │   │
-│  │   Data points: 8,432                                   [Stop] [View]│   │
+│  │   Progress: 1,234 / 2,500 candles    ♡ 1s ago         [Stop] [View]│   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  STALE SESSIONS (no heartbeat > 30s) - may need restart                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ ⚠ SOL Test #3          TestBot    SOLUSD    ♡ 2m 15s ago  STALE    │   │
+│  │   Last known: 5 trades, +$12.00                   [Restart] [Stop] │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  PENDING / CREATED (1)                                                      │
@@ -275,6 +363,9 @@ Response:
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+Legend: ● = running, ○ = created/pending, ⚠ = stale (no heartbeat)
+        ♡ Ns ago = time since last heartbeat
 ```
 
 ### 3.2 Create New Session Modal
@@ -349,8 +440,10 @@ Legend: [↻] = Clone  [👁] = View Details
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  BTC Test #12                                              [Clone] [Close]  │
-│  TestBot • XBTUSD • Completed                                              │
+│  TestBot • XBTUSD • Running ● (last heartbeat: 2s ago)                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Metrics]  [Trades]  [Live Logs]  [Parameters]                            │
 │                                                                             │
 │  ┌─── METRICS ─────────────────────────────────────────────────────────┐   │
 │  │                                                                      │   │
@@ -377,12 +470,53 @@ Legend: [↻] = Clone  [👁] = View Details
 │  │  ...                                                                │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  [Parameters]  [Logs]                                                       │
-│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.5 Scrapers Tab
+### 3.5 Live Logs Tab (Real-time Streaming)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  BTC Test #12                                              [Clone] [Close]  │
+│  TestBot • XBTUSD • Running ● (last heartbeat: 2s ago)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Metrics]  [Trades]  [Live Logs]  [Parameters]                            │
+│                                                                             │
+│  ┌─── TICK-BY-TICK LOGS (streaming) ──────────────────────────────────┐   │
+│  │  Filter: [All ▼]  [Auto-scroll: ✓]                      [Clear]   │   │
+│  ├──────────────────────────────────────────────────────────────────────┤   │
+│  │  14:32:10.234  INFO   Position closed at 89,520 | PnL: +$70.00     │   │
+│  │  14:32:10.100  TRADE  EXIT LONG @ 89,520 (100 contracts)           │   │
+│  │  14:32:05.891  INFO   Take-profit triggered at 89,520              │   │
+│  │  14:32:05.234  INFO   Monitoring position... current: 89,510       │   │
+│  │  14:31:55.123  TRADE  ENTRY LONG @ 89,450 (100 contracts)          │   │
+│  │  14:31:55.001  INFO   BUY signal detected - threshold: 0.52        │   │
+│  │  14:31:50.445  INFO   Analyzing spread... value: 0.48              │   │
+│  │  14:31:45.332  INFO   Market data received - bid: 89,448 ask: 89,452│   │
+│  │  14:31:40.221  ♡      Heartbeat                                     │   │
+│  │  14:31:35.112  INFO   Calculating indicators...                     │   │
+│  │  ...                                                                │   │
+│  │                                                                      │   │
+│  │  ▼ (live - new logs appear here)                                    │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Connection: ● Connected via WebSocket                                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Log level colors:
+  INFO  = gray
+  TRADE = green (entries) / blue (exits)
+  WARN  = yellow
+  ERROR = red
+  ♡     = heartbeat (dim gray)
+```
+
+### 3.6 Scrapers Tab (Separate from Running Sessions)
+
+**NOTE:** Scrapers have their own dedicated tab and are NOT mixed with Running Sessions.
+This keeps trading bots separate from data collection bots.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -460,14 +594,41 @@ Legend: [↻] = Clone  [👁] = View Details
 
 ---
 
-## 6. Open Questions
+## 6. CEO Decisions (Confirmed)
 
-1. **Session Limits:** Max concurrent sessions per type? (recommend: 3 test, 1 backtest, 5 scrapers)
-2. **Auto-cleanup:** Delete sessions older than X days? Archive to cold storage?
-3. **Permissions:** Any auth/user system planned? Or single-user?
-4. **Notifications:** WebSocket push for session status changes? Trade alerts?
+| Question | Decision |
+|----------|----------|
+| **Session Limits** | **Unlimited** - No restrictions on concurrent sessions |
+| **Auto-cleanup** | **None** - Manual delete only with "Are you sure?" confirmation popup |
+| **User System** | **Single user** - No authentication required |
+| **Notifications** | **WebSocket streaming** - Real-time tick-by-tick logs via WS `/sessions/:id/logs/stream` |
+
+---
+
+## 7. Summary of Key Features
+
+### Heartbeat System
+- Bots call `POST /sessions/:id/heartbeat` every 10 seconds
+- `last_updated` field tracks when session was last active
+- UI shows "♡ Ns ago" indicator for each running session
+- Sessions with no heartbeat > 30s marked as "STALE"
+- User can manually restart or stop stale sessions
+
+### Tick-by-Tick Logs
+- Each session has a "Live Logs" tab in detail view
+- Real-time streaming via WebSocket connection
+- Shows bot decisions, signals, trades, errors as they happen
+- Filterable by log level (INFO, TRADE, WARN, ERROR)
+- Auto-scroll with manual override
+
+### Separate Scrapers Tab
+- Market scrapers are NOT mixed with trading sessions
+- Dedicated [Scrapers] tab shows only data collection bots
+- [Running Sessions] tab shows only test/backtest sessions
+- [History] tab shows all completed sessions (all types)
 
 ---
 
 *Plan created: 2024-01-24*
-*Ready for review and approval before implementation*
+*Updated: 2024-01-24 - Added heartbeat system, tick-by-tick logs, separated scrapers tab, CEO decisions confirmed*
+*Status: APPROVED FOR IMPLEMENTATION*
