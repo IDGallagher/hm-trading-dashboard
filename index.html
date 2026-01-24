@@ -105,7 +105,7 @@
         .trading-main {
             display: grid;
             grid-template-columns: 1fr 320px;
-            height: calc(100vh - 52px);
+            height: 420px; /* Reduced height to show tabs above fold */
             gap: 1px;
             background: #30363d;
         }
@@ -113,6 +113,7 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
+            height: 420px; /* Same height as orderbook+trades combined */
         }
         .chart-toolbar {
             display: flex;
@@ -226,6 +227,8 @@
             background: #0d1117;
             display: flex;
             flex-direction: column;
+            height: 420px; /* Same height as chart - reduced to 75% of original */
+            overflow: hidden;
         }
         .panel-section {
             flex: 1;
@@ -233,6 +236,7 @@
             flex-direction: column;
             min-height: 0;
             border-bottom: 1px solid #30363d;
+            max-height: 50%; /* Split evenly between orderbook and trades */
         }
         .panel-section:last-child { border-bottom: none; }
         .panel-header {
@@ -3041,28 +3045,36 @@
 
             try {
                 // Try live test session first
+                console.log(`[Trade Overlays] Fetching: ${CONTROL_API_URL}/session/test`);
                 const testResponse = await fetch(`${CONTROL_API_URL}/session/test`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
+                console.log(`[Trade Overlays] /session/test status: ${testResponse.status}`);
                 if (testResponse.ok) {
                     const testData = await testResponse.json();
                     if (testData.success && testData.trades && testData.trades.length > 0) {
                         trades = testData.trades;
                         console.log(`[Trade Overlays] Loaded ${trades.length} trades from live test session`);
                     }
+                } else if (testResponse.status === 401) {
+                    console.warn('[Trade Overlays] /session/test 401 - API key may be invalid');
                 }
 
                 // If no live test trades, try backtest session
                 if (trades.length === 0) {
+                    console.log(`[Trade Overlays] Fetching: ${CONTROL_API_URL}/session/backtest`);
                     const backtestResponse = await fetch(`${CONTROL_API_URL}/session/backtest`, {
                         headers: { 'x-api-key': CONTROL_API_KEY }
                     });
+                    console.log(`[Trade Overlays] /session/backtest status: ${backtestResponse.status}`);
                     if (backtestResponse.ok) {
                         const backtestData = await backtestResponse.json();
                         if (backtestData.success && backtestData.trades && backtestData.trades.length > 0) {
                             trades = backtestData.trades;
                             console.log(`[Trade Overlays] Loaded ${trades.length} trades from backtest session`);
                         }
+                    } else if (backtestResponse.status === 401) {
+                        console.warn('[Trade Overlays] /session/backtest 401 - API key may be invalid');
                     }
                 }
 
@@ -6186,6 +6198,9 @@
 
                 console.log(`[loadBotsTabTradeLogs] Response status: ${response.status}`);
                 if (!response.ok) {
+                    if (response.status === 401) {
+                        console.warn('[loadBotsTabTradeLogs] 401 - API key may be invalid or expired');
+                    }
                     console.log('[loadBotsTabTradeLogs] ABORT: No backtest data available');
                     return;
                 }
