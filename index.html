@@ -1685,6 +1685,502 @@
             background: rgba(255,82,82,0.2);
             color: #ff5252;
         }
+
+        /* === SESSION MANAGEMENT UI === */
+
+        /* Sub-tabs within Your Bots */
+        .session-sub-tabs {
+            display: flex;
+            gap: 0;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 0 16px;
+        }
+        .session-sub-tab {
+            padding: 12px 20px;
+            color: #8b949e;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .session-sub-tab:hover {
+            color: #c9d1d9;
+            background: rgba(255,255,255,0.03);
+        }
+        .session-sub-tab.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+        }
+        .session-sub-tab .tab-count-badge {
+            background: #30363d;
+            color: #8b949e;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .session-sub-tab.active .tab-count-badge {
+            background: rgba(0,212,255,0.2);
+            color: #00d4ff;
+        }
+
+        /* Session content panels */
+        .session-panel {
+            display: none;
+            padding: 16px;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 300px;
+        }
+        .session-panel.active {
+            display: flex;
+        }
+
+        /* Session toolbar */
+        .session-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+        .session-filters {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .session-filter-select {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .btn-new-session {
+            background: #238636;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-new-session:hover {
+            background: #2ea043;
+        }
+
+        /* Session cards/rows */
+        .session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .session-card {
+            display: grid;
+            grid-template-columns: 1fr 120px 100px 100px 80px 140px;
+            gap: 16px;
+            align-items: center;
+            padding: 12px 16px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .session-card:hover {
+            background: #1c2128;
+            border-color: #444c56;
+        }
+        .session-card.stale-warning {
+            border-color: #d29922;
+            background: rgba(210,153,34,0.08);
+        }
+        .session-card.stale-danger {
+            border-color: #f85149;
+            background: rgba(248,81,73,0.08);
+        }
+
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .session-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #c9d1d9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .session-meta {
+            font-size: 11px;
+            color: #8b949e;
+            display: flex;
+            gap: 12px;
+        }
+        .session-strategy {
+            color: #8b949e;
+            font-size: 12px;
+        }
+        .session-market {
+            font-size: 12px;
+            color: #58a6ff;
+        }
+        .session-runtime {
+            font-size: 12px;
+            color: #8b949e;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Heartbeat indicator */
+        .heartbeat-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #8b949e;
+        }
+        .heartbeat-icon {
+            font-size: 12px;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+        .heartbeat-indicator.healthy .heartbeat-icon {
+            color: #3fb950;
+        }
+        .heartbeat-indicator.warning .heartbeat-icon {
+            color: #d29922;
+            animation: heartbeat-warning 0.8s ease-in-out infinite;
+        }
+        .heartbeat-indicator.stale .heartbeat-icon {
+            color: #f85149;
+            animation: heartbeat-danger 0.5s ease-in-out infinite;
+        }
+        .heartbeat-indicator.dead .heartbeat-icon {
+            color: #484f58;
+            animation: none;
+        }
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        @keyframes heartbeat-warning {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+        }
+        @keyframes heartbeat-danger {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.6; }
+        }
+
+        /* Session status badge */
+        .session-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        .session-status.running {
+            background: rgba(63,185,80,0.15);
+            color: #3fb950;
+        }
+        .session-status.stopped {
+            background: rgba(139,148,158,0.15);
+            color: #8b949e;
+        }
+        .session-status.completed {
+            background: rgba(88,166,255,0.15);
+            color: #58a6ff;
+        }
+        .session-status.failed {
+            background: rgba(248,81,73,0.15);
+            color: #f85149;
+        }
+        .session-status.created {
+            background: rgba(210,153,34,0.15);
+            color: #d29922;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .session-status.running .status-dot {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Session metrics */
+        .session-metrics {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+        }
+        .session-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .metric-label {
+            color: #8b949e;
+            font-size: 10px;
+        }
+        .metric-value {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+        .metric-value.positive { color: #3fb950; }
+        .metric-value.negative { color: #f85149; }
+
+        /* Session actions */
+        .session-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-session-action {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid;
+            transition: all 0.2s;
+        }
+        .btn-session-stop {
+            background: transparent;
+            border-color: #f85149;
+            color: #f85149;
+        }
+        .btn-session-stop:hover {
+            background: rgba(248,81,73,0.15);
+        }
+        .btn-session-view {
+            background: transparent;
+            border-color: #30363d;
+            color: #8b949e;
+        }
+        .btn-session-view:hover {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        .btn-session-clone {
+            background: transparent;
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        .btn-session-clone:hover {
+            background: rgba(88,166,255,0.15);
+        }
+        .btn-session-start {
+            background: transparent;
+            border-color: #3fb950;
+            color: #3fb950;
+        }
+        .btn-session-start:hover {
+            background: rgba(63,185,80,0.15);
+        }
+        .btn-session-delete {
+            background: transparent;
+            border-color: #484f58;
+            color: #8b949e;
+        }
+        .btn-session-delete:hover {
+            background: rgba(248,81,73,0.15);
+            border-color: #f85149;
+            color: #f85149;
+        }
+
+        /* Empty state */
+        .session-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #8b949e;
+            text-align: center;
+        }
+        .session-empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        .session-empty-text {
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #30363d;
+        }
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: #c9d1d9;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 20px;
+            border-top: 1px solid #30363d;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .form-hint {
+            font-size: 11px;
+            color: #8b949e;
+            margin-top: 4px;
+        }
+
+        /* Strategy params container */
+        .strategy-params {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+        .strategy-params-title {
+            font-size: 11px;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        /* Button styles for modal */
+        .btn-modal {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-modal-cancel {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        .btn-modal-cancel:hover {
+            background: #30363d;
+        }
+        .btn-modal-create {
+            background: #238636;
+            color: #fff;
+        }
+        .btn-modal-create:hover {
+            background: #2ea043;
+        }
+        .btn-modal-create:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive adjustments for session cards */
+        @media (max-width: 900px) {
+            .session-card {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .session-actions {
+                grid-column: span 2;
+                justify-content: flex-end;
+            }
+        }
+        @media (max-width: 600px) {
+            .session-card {
+                grid-template-columns: 1fr;
+            }
+            .session-actions {
+                grid-column: span 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1861,37 +2357,114 @@
 
     <!-- YOUR BOTS TAB -->
     <div id="tab-bots" class="tab-content active">
-        <div class="bots-container">
-            <!-- Bots Table Header -->
-            <div class="bots-table">
-                <div class="bots-table-header">
-                    <span class="col-account">Account</span>
-                    <span class="col-name">Name</span>
-                    <span class="col-strategy">Strategy</span>
-                    <span class="col-status">Status</span>
-                    <span class="col-action">Action</span>
+        <!-- Sub-tabs for Running Sessions / Scrapers / History -->
+        <div class="session-sub-tabs">
+            <div class="session-sub-tab active" data-panel="running">
+                🤖 Running Sessions
+                <span class="tab-count-badge" id="running-count">0</span>
+            </div>
+            <div class="session-sub-tab" data-panel="scrapers">
+                📡 Scrapers
+                <span class="tab-count-badge" id="scrapers-count">0</span>
+            </div>
+            <div class="session-sub-tab" data-panel="history">
+                📜 History
+                <span class="tab-count-badge" id="history-count">0</span>
+            </div>
+        </div>
+
+        <!-- RUNNING SESSIONS PANEL -->
+        <div id="panel-running" class="session-panel active">
+            <div class="session-toolbar">
+                <div class="session-filters">
+                    <select class="session-filter-select" id="filter-market-running">
+                        <option value="">All Markets</option>
+                        <option value="XBTUSD">XBTUSD</option>
+                        <option value="ETHUSD">ETHUSD</option>
+                        <option value="SOLUSD">SOLUSD</option>
+                    </select>
+                    <select class="session-filter-select" id="filter-strategy-running">
+                        <option value="">All Strategies</option>
+                    </select>
                 </div>
-                <div class="bots-table-body" id="bots-table-body">
-                    <!-- Bot rows will be inserted here -->
+                <button class="btn-new-session" id="btn-new-session">
+                    + New Session
+                </button>
+            </div>
+
+            <div class="session-list" id="running-sessions-list">
+                <!-- Running sessions will be populated here -->
+                <div class="session-empty" id="running-empty">
+                    <div class="session-empty-icon">🤖</div>
+                    <div class="session-empty-text">No running sessions</div>
+                    <button class="btn-new-session" onclick="openNewSessionModal()">+ Start a Session</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCRAPERS PANEL -->
+        <div id="panel-scrapers" class="session-panel">
+            <div class="session-toolbar">
+                <div class="session-filters">
+                    <select class="session-filter-select" id="filter-market-scrapers">
+                        <option value="">All Markets</option>
+                        <option value="XBTUSD">XBTUSD</option>
+                        <option value="ETHUSD">ETHUSD</option>
+                        <option value="SOLUSD">SOLUSD</option>
+                    </select>
+                </div>
+                <button class="btn-new-session" onclick="openNewSessionModal('scraper')">
+                    + New Scraper
+                </button>
+            </div>
+
+            <div class="session-list" id="scrapers-list">
+                <!-- Scrapers will be populated here -->
+                <div class="session-empty" id="scrapers-empty">
+                    <div class="session-empty-icon">📡</div>
+                    <div class="session-empty-text">No active scrapers</div>
+                    <button class="btn-new-session" onclick="openNewSessionModal('scraper')">+ Start a Scraper</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY PANEL -->
+        <div id="panel-history" class="session-panel">
+            <div class="session-toolbar">
+                <div class="session-filters">
+                    <select class="session-filter-select" id="filter-type-history">
+                        <option value="">All Types</option>
+                        <option value="test">Test</option>
+                        <option value="backtest">Backtest</option>
+                        <option value="scraper">Scraper</option>
+                    </select>
+                    <select class="session-filter-select" id="filter-market-history">
+                        <option value="">All Markets</option>
+                        <option value="XBTUSD">XBTUSD</option>
+                        <option value="ETHUSD">ETHUSD</option>
+                        <option value="SOLUSD">SOLUSD</option>
+                    </select>
+                    <select class="session-filter-select" id="filter-status-history">
+                        <option value="">All Statuses</option>
+                        <option value="completed">Completed</option>
+                        <option value="stopped">Stopped</option>
+                        <option value="failed">Failed</option>
+                    </select>
                 </div>
             </div>
 
-            <!-- Add New Bot Row -->
-            <div class="add-bot-row">
-                <label for="strategy-selector-pro" class="visually-hidden">Select trading strategy</label>
-                <select id="strategy-selector-pro" class="pro-select" aria-label="Select trading strategy" title="Select a trading strategy">
-                    <option value="none" selected>Select Strategy...</option>
-                    <option value="TestBot">TestBot</option>
-                    <option value="DivergeBot">DivergeBot</option>
-                    <option value="SazBot">SazBot</option>
-                    <option value="SDBot">SDBot</option>
-                    <option value="PairTradeBot">PairTradeBot</option>
-                </select>
-                <button id="btn-start-test-pro" class="btn-pro btn-start-pro" disabled aria-label="Start selected bot">▶ Start Bot</button>
+            <div class="session-list" id="history-list">
+                <!-- History will be populated here -->
+                <div class="session-empty" id="history-empty">
+                    <div class="session-empty-icon">📜</div>
+                    <div class="session-empty-text">No session history</div>
+                </div>
             </div>
+        </div>
 
-            <!-- Running Bot Stats (shown when test running) -->
-            <div class="running-bot-stats" id="test-stats-pro" style="display: none;">
+        <!-- Legacy compatibility: keep old elements hidden -->
+        <div style="display: none;">
+            <div class="running-bot-stats" id="test-stats-pro">
                 <div class="test-stat">
                     <span class="stat-label">Duration</span>
                     <span class="stat-value" id="test-duration-pro">00:00:00</span>
@@ -1904,72 +2477,89 @@
                     <span class="stat-label">P&L</span>
                     <span class="stat-value" id="test-pnl-pro">$0.00</span>
                 </div>
-                <button id="btn-stop-backtest-pro" class="btn-pro btn-stop-pro">■ Stop & Backtest</button>
             </div>
+            <select id="strategy-selector-pro">
+                <option value="none">Select Strategy...</option>
+            </select>
+            <button id="btn-start-test-pro"></button>
+            <button id="btn-stop-backtest-pro"></button>
+            <div id="metric-winrate">--</div>
+            <div id="metric-pf">--</div>
+            <div id="metric-pnl">--</div>
+            <div id="metric-trades">--</div>
+            <div id="metric-avgtrade">--</div>
+            <div id="metric-dd">--</div>
+            <div id="equity-curve-pro"></div>
+            <div id="divergence-badge-pro"></div>
+            <div id="test-log-count">0 trades</div>
+            <div id="test-log-list"></div>
+            <div id="backtest-log-count">0 trades</div>
+            <div id="backtest-log-list"></div>
+        </div>
+    </div>
 
-            <!-- Metrics + Equity Row -->
-            <div class="metrics-equity-row">
-                <div class="panel-card">
-                    <div class="panel-title">📊 Performance Metrics</div>
-                    <div class="metrics-grid-pro">
-                        <div class="metric-item">
-                            <span class="metric-label">Win Rate</span>
-                            <span class="metric-value" id="metric-winrate">--</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Profit Factor</span>
-                            <span class="metric-value" id="metric-pf">--</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Total P&L</span>
-                            <span class="metric-value" id="metric-pnl">--</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Total Trades</span>
-                            <span class="metric-value" id="metric-trades">--</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Avg Trade</span>
-                            <span class="metric-value" id="metric-avgtrade">--</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Max Drawdown</span>
-                            <span class="metric-value" id="metric-dd">--</span>
-                        </div>
+    <!-- CREATE NEW SESSION MODAL -->
+    <div class="modal-overlay" id="new-session-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Session</h3>
+                <button class="modal-close" onclick="closeNewSessionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Session Type</label>
+                    <select class="form-select" id="new-session-type">
+                        <option value="test">Live Test</option>
+                        <option value="backtest">Backtest</option>
+                        <option value="scraper">Scraper</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Market</label>
+                        <select class="form-select" id="new-session-market">
+                            <option value="XBTUSD">XBTUSD</option>
+                            <option value="ETHUSD">ETHUSD</option>
+                            <option value="SOLUSD">SOLUSD</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Strategy</label>
+                        <select class="form-select" id="new-session-strategy">
+                            <!-- Populated dynamically -->
+                        </select>
                     </div>
                 </div>
-                <div class="panel-card">
-                    <div class="panel-title">📈 Equity Curve</div>
-                    <div id="equity-curve-pro" class="equity-chart-pro"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Session Name (optional)</label>
+                    <input type="text" class="form-input" id="new-session-name" placeholder="Auto-generated if empty">
+                </div>
+
+                <!-- Backtest date range (shown only for backtest type) -->
+                <div class="form-row" id="backtest-range-fields" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input type="datetime-local" class="form-input" id="new-session-start">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date</label>
+                        <input type="datetime-local" class="form-input" id="new-session-end">
+                    </div>
+                </div>
+
+                <!-- Strategy params (dynamic based on strategy) -->
+                <div id="strategy-params-container" class="strategy-params" style="display: none;">
+                    <div class="strategy-params-title">Strategy Parameters</div>
+                    <div id="strategy-params-fields">
+                        <!-- Populated dynamically -->
+                    </div>
                 </div>
             </div>
-
-            <!-- Trade Logs Comparison -->
-            <div class="panel-card">
-                <div class="panel-title">
-                    📋 Trade Logs Comparison
-                    <span class="divergence-badge" id="divergence-badge-pro" style="display: none; margin-left: auto; background: #f85149; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0 divergences</span>
-                </div>
-                <div class="logs-row">
-                    <div class="log-column">
-                        <div class="log-header test">
-                            <span class="log-badge">LIVE TEST</span>
-                            <span id="test-log-count">0 trades</span>
-                        </div>
-                        <div class="log-list" id="test-log-list">
-                            <div class="no-data">No live test data</div>
-                        </div>
-                    </div>
-                    <div class="log-column">
-                        <div class="log-header backtest">
-                            <span class="log-badge">BACKTEST</span>
-                            <span id="backtest-log-count">0 trades</span>
-                        </div>
-                        <div class="log-list" id="backtest-log-list">
-                            <div class="no-data">No backtest data</div>
-                        </div>
-                    </div>
-                </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeNewSessionModal()">Cancel</button>
+                <button class="btn-modal btn-modal-create" id="btn-create-session" onclick="createSession()">Create Session</button>
             </div>
         </div>
     </div>
@@ -2566,6 +3156,549 @@
         // Live Test Control State
         const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
+
+        // ==========================================
+        // SESSION MANAGEMENT (Phase 2)
+        // ==========================================
+
+        // Session state
+        let sessionsData = {
+            running: [],
+            scrapers: [],
+            history: []
+        };
+        let strategiesData = [];
+        let sessionPollingInterval = null;
+        const SESSION_POLL_INTERVAL = 5000; // 5 seconds
+
+        // Fetch strategies from API
+        async function fetchStrategies() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/strategies`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    strategiesData = data.strategies || [];
+                    populateStrategyDropdowns();
+                }
+            } catch (error) {
+                console.error('[Sessions] Failed to fetch strategies:', error);
+            }
+        }
+
+        // Populate strategy dropdowns
+        function populateStrategyDropdowns() {
+            const dropdowns = [
+                document.getElementById('new-session-strategy'),
+                document.getElementById('filter-strategy-running')
+            ];
+
+            dropdowns.forEach(dropdown => {
+                if (!dropdown) return;
+                const isFilter = dropdown.id.includes('filter');
+                dropdown.innerHTML = isFilter ? '<option value="">All Strategies</option>' : '';
+
+                strategiesData.forEach(strategy => {
+                    const option = document.createElement('option');
+                    option.value = strategy.id;
+                    option.textContent = strategy.name;
+                    dropdown.appendChild(option);
+                });
+            });
+        }
+
+        // Fetch all sessions from API
+        async function fetchSessions() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions?limit=100`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                const sessions = data.sessions || [];
+
+                // Categorize sessions
+                sessionsData.running = sessions.filter(s =>
+                    s.status === 'running' && (s.type === 'test' || s.type === 'backtest')
+                );
+                sessionsData.scrapers = sessions.filter(s =>
+                    s.type === 'scraper' && s.status === 'running'
+                );
+                sessionsData.history = sessions.filter(s =>
+                    s.status !== 'running' && s.status !== 'created'
+                );
+
+                // Also fetch health status for running sessions
+                await fetchSessionHealth();
+
+                renderAllSessions();
+                updateTabCounts();
+            } catch (error) {
+                console.error('[Sessions] Failed to fetch sessions:', error);
+            }
+        }
+
+        // Fetch session health status
+        async function fetchSessionHealth() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/health`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const healthMap = {};
+                    (data.sessions || []).forEach(s => {
+                        healthMap[s.id] = {
+                            health_status: s.health_status,
+                            seconds_since_update: s.seconds_since_update
+                        };
+                    });
+
+                    // Merge health data into running sessions
+                    sessionsData.running.forEach(session => {
+                        if (healthMap[session.id]) {
+                            session.health_status = healthMap[session.id].health_status;
+                            session.seconds_since_update = healthMap[session.id].seconds_since_update;
+                        }
+                    });
+                    sessionsData.scrapers.forEach(session => {
+                        if (healthMap[session.id]) {
+                            session.health_status = healthMap[session.id].health_status;
+                            session.seconds_since_update = healthMap[session.id].seconds_since_update;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('[Sessions] Failed to fetch health:', error);
+            }
+        }
+
+        // Update tab count badges
+        function updateTabCounts() {
+            document.getElementById('running-count').textContent = sessionsData.running.length;
+            document.getElementById('scrapers-count').textContent = sessionsData.scrapers.length;
+            document.getElementById('history-count').textContent = sessionsData.history.length;
+        }
+
+        // Render all session lists
+        function renderAllSessions() {
+            renderSessionList('running-sessions-list', sessionsData.running, 'running');
+            renderSessionList('scrapers-list', sessionsData.scrapers, 'scrapers');
+            renderSessionList('history-list', sessionsData.history, 'history');
+        }
+
+        // Render a session list
+        function renderSessionList(containerId, sessions, panelType) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const emptyId = containerId.replace('-list', '-empty').replace('-sessions', '');
+            const emptyEl = document.getElementById(emptyId);
+
+            if (sessions.length === 0) {
+                container.innerHTML = '';
+                if (emptyEl) {
+                    container.appendChild(emptyEl);
+                    emptyEl.style.display = 'flex';
+                }
+                return;
+            }
+
+            // Hide empty state
+            if (emptyEl) emptyEl.style.display = 'none';
+
+            // Render session cards
+            container.innerHTML = sessions.map(session => renderSessionCard(session, panelType)).join('');
+        }
+
+        // Render a single session card
+        function renderSessionCard(session, panelType) {
+            const isRunning = session.status === 'running';
+            const healthClass = getHealthClass(session);
+            const cardClass = getCardHealthClass(session);
+
+            // Calculate runtime
+            let runtime = '--';
+            if (session.started_at) {
+                const startTime = new Date(session.started_at).getTime();
+                const endTime = session.stopped_at ? new Date(session.stopped_at).getTime() : Date.now();
+                runtime = formatDuration(endTime - startTime);
+            }
+
+            // Format PnL
+            const pnl = parseFloat(session.total_pnl || 0);
+            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+            const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+
+            // Get heartbeat display
+            const heartbeatHtml = isRunning ? renderHeartbeat(session) : '';
+
+            // Actions based on panel type
+            let actionsHtml = '';
+            if (panelType === 'running' || panelType === 'scrapers') {
+                actionsHtml = `
+                    <button class="btn-session-action btn-session-stop" onclick="stopSession('${session.id}')">Stop</button>
+                    <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
+                `;
+            } else {
+                actionsHtml = `
+                    <button class="btn-session-action btn-session-clone" onclick="cloneSession('${session.id}')">Clone</button>
+                    <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
+                    <button class="btn-session-action btn-session-delete" onclick="deleteSession('${session.id}')">×</button>
+                `;
+            }
+
+            return `
+                <div class="session-card ${cardClass}" data-session-id="${session.id}">
+                    <div class="session-info">
+                        <div class="session-name">
+                            ${session.name || `${session.strategy} - ${session.market}`}
+                            <span class="session-market">${session.market}</span>
+                        </div>
+                        <div class="session-meta">
+                            <span class="session-strategy">${session.strategy}</span>
+                            <span>${session.type}</span>
+                        </div>
+                    </div>
+                    <div class="session-status ${session.status}">
+                        <span class="status-dot"></span>
+                        ${session.status}
+                    </div>
+                    <div class="session-runtime">${runtime}</div>
+                    ${isRunning ? `
+                        <div class="heartbeat-indicator ${healthClass}">
+                            <span class="heartbeat-icon">♡</span>
+                            <span>${session.seconds_since_update || 0}s ago</span>
+                        </div>
+                    ` : `
+                        <div class="session-metric">
+                            <span class="metric-label">Trades</span>
+                            <span class="metric-value">${session.trade_count || 0}</span>
+                        </div>
+                    `}
+                    <div class="session-metric">
+                        <span class="metric-label">P&L</span>
+                        <span class="metric-value ${pnlClass}">${pnlFormatted}</span>
+                    </div>
+                    <div class="session-actions">
+                        ${actionsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get health class for heartbeat indicator
+        function getHealthClass(session) {
+            if (!session.health_status) return 'healthy';
+            return session.health_status; // healthy, warning, stale, dead
+        }
+
+        // Get card class for stale warnings
+        function getCardHealthClass(session) {
+            if (session.status !== 'running') return '';
+            if (session.health_status === 'stale' || session.health_status === 'dead') {
+                return 'stale-danger';
+            }
+            if (session.health_status === 'warning') {
+                return 'stale-warning';
+            }
+            return '';
+        }
+
+        // Render heartbeat indicator
+        function renderHeartbeat(session) {
+            const healthClass = getHealthClass(session);
+            const seconds = session.seconds_since_update || 0;
+            return `
+                <div class="heartbeat-indicator ${healthClass}">
+                    <span class="heartbeat-icon">♡</span>
+                    <span>${seconds}s ago</span>
+                </div>
+            `;
+        }
+
+        // Format duration from milliseconds
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Sub-tab switching
+        function initSessionSubTabs() {
+            document.querySelectorAll('.session-sub-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Update active tab
+                    document.querySelectorAll('.session-sub-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    // Update active panel
+                    const panelId = tab.dataset.panel;
+                    document.querySelectorAll('.session-panel').forEach(p => p.classList.remove('active'));
+                    document.getElementById(`panel-${panelId}`).classList.add('active');
+                });
+            });
+        }
+
+        // Modal functions
+        function openNewSessionModal(type = 'test') {
+            document.getElementById('new-session-modal').classList.add('active');
+            document.getElementById('new-session-type').value = type;
+            updateNewSessionForm();
+        }
+
+        function closeNewSessionModal() {
+            document.getElementById('new-session-modal').classList.remove('active');
+            // Reset form
+            document.getElementById('new-session-name').value = '';
+        }
+
+        // Update form based on session type
+        function updateNewSessionForm() {
+            const type = document.getElementById('new-session-type').value;
+            const backtestFields = document.getElementById('backtest-range-fields');
+            const strategySelect = document.getElementById('new-session-strategy');
+
+            // Show/hide backtest date range
+            backtestFields.style.display = type === 'backtest' ? 'grid' : 'none';
+
+            // Filter strategies by type
+            strategySelect.innerHTML = '';
+            strategiesData.filter(s => {
+                const types = s.supported_types || [];
+                return types.includes(type);
+            }).forEach(strategy => {
+                const option = document.createElement('option');
+                option.value = strategy.id;
+                option.textContent = strategy.name;
+                strategySelect.appendChild(option);
+            });
+
+            updateStrategyParams();
+        }
+
+        // Update strategy params form
+        function updateStrategyParams() {
+            const strategyId = document.getElementById('new-session-strategy').value;
+            const strategy = strategiesData.find(s => s.id === strategyId);
+            const container = document.getElementById('strategy-params-container');
+            const fieldsContainer = document.getElementById('strategy-params-fields');
+
+            if (!strategy || !strategy.default_params) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            fieldsContainer.innerHTML = '';
+
+            const params = strategy.default_params;
+            Object.keys(params).forEach(key => {
+                const value = params[key];
+                const inputType = typeof value === 'number' ? 'number' : 'text';
+                fieldsContainer.innerHTML += `
+                    <div class="form-group">
+                        <label class="form-label">${key}</label>
+                        <input type="${inputType}" class="form-input strategy-param"
+                               data-param="${key}" value="${value}">
+                    </div>
+                `;
+            });
+        }
+
+        // Create a new session
+        async function createSession() {
+            const type = document.getElementById('new-session-type').value;
+            const market = document.getElementById('new-session-market').value;
+            const strategy = document.getElementById('new-session-strategy').value;
+            const name = document.getElementById('new-session-name').value;
+
+            // Collect strategy params
+            const strategyParams = {};
+            document.querySelectorAll('.strategy-param').forEach(input => {
+                const param = input.dataset.param;
+                let value = input.value;
+                // Convert to number if needed
+                if (input.type === 'number') {
+                    value = parseFloat(value);
+                }
+                strategyParams[param] = value;
+            });
+
+            // Build request body
+            const body = {
+                type,
+                market,
+                strategy,
+                strategy_params: strategyParams
+            };
+            if (name) body.name = name;
+
+            // Add date range for backtest
+            if (type === 'backtest') {
+                const startDate = document.getElementById('new-session-start').value;
+                const endDate = document.getElementById('new-session-end').value;
+                if (startDate) body.range_start = Math.floor(new Date(startDate).getTime() / 1000);
+                if (endDate) body.range_end = Math.floor(new Date(endDate).getTime() / 1000);
+            }
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CONTROL_API_KEY
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create session');
+                }
+
+                const data = await response.json();
+                closeNewSessionModal();
+
+                // Start the session immediately
+                await startSession(data.session.id);
+
+                // Refresh sessions list
+                await fetchSessions();
+
+            } catch (error) {
+                console.error('[Sessions] Failed to create session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // Start a session
+        async function startSession(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/start`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to start session');
+                }
+                await fetchSessions();
+            } catch (error) {
+                console.error('[Sessions] Failed to start session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // Stop a session
+        async function stopSession(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/stop`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to stop session');
+                }
+                await fetchSessions();
+            } catch (error) {
+                console.error('[Sessions] Failed to stop session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // Clone a session
+        async function cloneSession(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/clone`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to clone session');
+                }
+                await fetchSessions();
+            } catch (error) {
+                console.error('[Sessions] Failed to clone session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // Delete a session
+        async function deleteSession(sessionId) {
+            if (!confirm('Are you sure you want to delete this session?')) return;
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CONTROL_API_KEY
+                    },
+                    body: JSON.stringify({ confirm: true })
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete session');
+                }
+                await fetchSessions();
+            } catch (error) {
+                console.error('[Sessions] Failed to delete session:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
+        // View session details (placeholder)
+        function viewSession(sessionId) {
+            console.log('[Sessions] View session:', sessionId);
+            // TODO: Implement session details view
+            alert('Session details view coming soon!');
+        }
+
+        // Start session polling
+        function startSessionPolling() {
+            // Initial fetch
+            fetchStrategies();
+            fetchSessions();
+
+            // Poll every 5 seconds
+            sessionPollingInterval = setInterval(() => {
+                fetchSessions();
+            }, SESSION_POLL_INTERVAL);
+        }
+
+        // Stop session polling
+        function stopSessionPolling() {
+            if (sessionPollingInterval) {
+                clearInterval(sessionPollingInterval);
+                sessionPollingInterval = null;
+            }
+        }
+
+        // Initialize session management on page load
+        function initSessionManagement() {
+            initSessionSubTabs();
+
+            // Set up event listeners
+            document.getElementById('btn-new-session')?.addEventListener('click', () => openNewSessionModal());
+            document.getElementById('new-session-type')?.addEventListener('change', updateNewSessionForm);
+            document.getElementById('new-session-strategy')?.addEventListener('change', updateStrategyParams);
+
+            // Start polling
+            startSessionPolling();
+        }
+
+        // ==========================================
+        // END SESSION MANAGEMENT
+        // ==========================================
+
         let liveTestRunning = false;
         let liveTestPollingInterval = null;
         let liveTestStartTime = null;
@@ -6103,7 +7236,9 @@
         initTabBar(); // Setup bottom tab bar navigation
         console.log('[INIT] initTabBar done');
         initProBotControls(); // Setup pro bot controls
-        console.log('[INIT] initProBotControls done - ALL INIT COMPLETE');
+        console.log('[INIT] initProBotControls done');
+        initSessionManagement(); // Setup session management (Phase 2)
+        console.log('[INIT] initSessionManagement done - ALL INIT COMPLETE');
 
         // Tab bar navigation
         function initTabBar() {
