@@ -539,6 +539,168 @@
             }
         }
 
+        /* Trade Logs Comparison Styles */
+        .trade-logs-comparison {
+            margin-top: 30px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .trade-logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .trade-logs-title {
+            font-size: 1.2rem;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .trade-logs-filters {
+            display: flex;
+            gap: 10px;
+        }
+        .filter-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: #8892b0;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .filter-btn.active {
+            background: rgba(0,212,255,0.2);
+            border-color: rgba(0,212,255,0.5);
+            color: #00d4ff;
+        }
+        .trade-logs-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .trade-log-column {
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .trade-log-column.test {
+            border-color: rgba(0,212,255,0.3);
+        }
+        .trade-log-column.backtest {
+            border-color: rgba(123,44,191,0.3);
+        }
+        .trade-log-header {
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .trade-log-header .badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+        }
+        .trade-log-header .count {
+            margin-left: auto;
+            color: #8892b0;
+            font-size: 0.85rem;
+        }
+        .trade-log-list {
+            max-height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        .trade-log-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .trade-log-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .trade-log-list::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+        .trade-log-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .trade-log-item:last-child {
+            border-bottom: none;
+        }
+        .trade-log-item.divergent {
+            background: rgba(255,82,82,0.1);
+            border-left: 3px solid #ff5252;
+        }
+        .trade-log-item.matching {
+            background: rgba(0,200,83,0.05);
+            border-left: 3px solid rgba(0,200,83,0.3);
+        }
+        .trade-log-time {
+            font-size: 0.8rem;
+            color: #8892b0;
+        }
+        .trade-log-action {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .trade-log-action .side-long {
+            color: #2196F3;
+        }
+        .trade-log-action .side-short {
+            color: #FF9800;
+        }
+        .trade-log-action .exit {
+            color: #8892b0;
+        }
+        .trade-log-details {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            color: #8892b0;
+        }
+        .trade-log-details .pnl-positive {
+            color: #00c853;
+        }
+        .trade-log-details .pnl-negative {
+            color: #ff5252;
+        }
+        .divergence-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            background: rgba(255,82,82,0.2);
+            color: #ff5252;
+        }
+        .no-trades-msg {
+            padding: 30px;
+            text-align: center;
+            color: #8892b0;
+        }
+        @media (max-width: 768px) {
+            .trade-logs-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* Live Test Control Panel Styles */
         .live-test-panel {
             background: rgba(0,0,0,0.3);
@@ -1261,6 +1423,45 @@
                     <div class="summary-item">
                         <div id="parity-percent" class="number positive">0%</div>
                         <div class="label">Parity Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side-by-Side Trade Logs Comparison -->
+            <div class="trade-logs-comparison">
+                <div class="trade-logs-header">
+                    <div class="trade-logs-title">
+                        📋 Trade Decision Logs
+                        <span id="divergence-count" class="divergence-indicator" style="display: none;">0 divergences</span>
+                    </div>
+                    <div class="trade-logs-filters">
+                        <button class="filter-btn active" data-filter="all">All Trades</button>
+                        <button class="filter-btn" data-filter="divergent">Divergences Only</button>
+                        <button class="filter-btn" data-filter="matching">Matching Only</button>
+                    </div>
+                </div>
+                <div class="trade-logs-container">
+                    <!-- Test Trades Column -->
+                    <div class="trade-log-column test">
+                        <div class="trade-log-header">
+                            <span class="badge badge-info">TEST</span>
+                            <span>Live Test Trades</span>
+                            <span id="test-trades-count" class="count">0 trades</span>
+                        </div>
+                        <div id="test-trades-log" class="trade-log-list">
+                            <div class="no-trades-msg">No trades available</div>
+                        </div>
+                    </div>
+                    <!-- Backtest Trades Column -->
+                    <div class="trade-log-column backtest">
+                        <div class="trade-log-header">
+                            <span class="badge badge-real">BACKTEST</span>
+                            <span>Backtest Trades</span>
+                            <span id="backtest-trades-count" class="count">0 trades</span>
+                        </div>
+                        <div id="backtest-trades-log" class="trade-log-list">
+                            <div class="no-trades-msg">No trades available</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3525,6 +3726,154 @@
             return val1 === val2;
         }
 
+        // Format trade time for display
+        function formatTradeTime(timestamp) {
+            return new Date(timestamp * 1000).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        }
+
+        // Render a single trade log item
+        function renderTradeLogItem(trade, divergenceType = null) {
+            const entryTime = formatTradeTime(trade.timestamp_unix);
+            const sideClass = trade.side === 'long' ? 'side-long' : 'side-short';
+            const sideIcon = trade.side === 'long' ? '▲' : '▼';
+            const sideLabel = trade.side === 'long' ? 'Long' : 'Short';
+
+            let exitHtml = '';
+            if (trade.exit_time_unix && trade.exit_price) {
+                const exitTime = formatTradeTime(trade.exit_time_unix);
+                const pnlClass = (trade.pnl ?? 0) >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const pnlSign = (trade.pnl ?? 0) >= 0 ? '+' : '';
+                exitHtml = `
+                    <div class="trade-log-action">
+                        <span class="exit">● Exit @ $${(trade.exit_price ?? 0).toFixed(1)}</span>
+                        <span class="${pnlClass}">${pnlSign}$${(trade.pnl ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div class="trade-log-time">${exitTime}</div>
+                `;
+            }
+
+            const divergenceClass = divergenceType === 'divergent' ? 'divergent' :
+                                    divergenceType === 'matching' ? 'matching' : '';
+
+            return `
+                <div class="trade-log-item ${divergenceClass}" data-divergence="${divergenceType || 'none'}">
+                    <div class="trade-log-time">${entryTime}</div>
+                    <div class="trade-log-action">
+                        <span class="${sideClass}">${sideIcon} ${sideLabel} Entry</span>
+                        <span>@ $${(trade.price ?? 0).toFixed(1)}</span>
+                        <span style="color: #8892b0;">qty: ${trade.quantity ?? 0}</span>
+                    </div>
+                    ${exitHtml}
+                </div>
+            `;
+        }
+
+        // Compare trades between test and backtest to find divergences
+        function findTradeDivergences(testTrades, backtestTrades) {
+            const tolerance = 60; // 60 seconds tolerance for matching trades
+            const priceTolerance = 0.001; // 0.1% price tolerance
+
+            const testWithStatus = testTrades.map(t => ({ ...t, matched: false, divergenceType: 'divergent' }));
+            const backtestWithStatus = backtestTrades.map(t => ({ ...t, matched: false, divergenceType: 'divergent' }));
+
+            // Try to match trades
+            testWithStatus.forEach(testTrade => {
+                const matchingBacktest = backtestWithStatus.find(btTrade => {
+                    if (btTrade.matched) return false;
+
+                    const timeDiff = Math.abs(testTrade.timestamp_unix - btTrade.timestamp_unix);
+                    const sideMatch = testTrade.side === btTrade.side;
+                    const priceMatch = Math.abs(testTrade.price - btTrade.price) / testTrade.price < priceTolerance;
+
+                    return timeDiff <= tolerance && sideMatch && priceMatch;
+                });
+
+                if (matchingBacktest) {
+                    testTrade.matched = true;
+                    testTrade.divergenceType = 'matching';
+                    matchingBacktest.matched = true;
+                    matchingBacktest.divergenceType = 'matching';
+                }
+            });
+
+            return {
+                testTrades: testWithStatus,
+                backtestTrades: backtestWithStatus,
+                divergenceCount: testWithStatus.filter(t => !t.matched).length +
+                                 backtestWithStatus.filter(t => !t.matched).length
+            };
+        }
+
+        // Render side-by-side trade logs comparison
+        function renderTradeLogsComparison(testData, backtestData) {
+            const testTrades = testData.trades || [];
+            const backtestTrades = backtestData.trades || [];
+
+            // Find divergences
+            const { testTrades: testWithStatus, backtestTrades: backtestWithStatus, divergenceCount } =
+                findTradeDivergences(testTrades, backtestTrades);
+
+            // Update counts
+            document.getElementById('test-trades-count').textContent = `${testTrades.length} trades`;
+            document.getElementById('backtest-trades-count').textContent = `${backtestTrades.length} trades`;
+
+            // Update divergence indicator
+            const divergenceIndicator = document.getElementById('divergence-count');
+            if (divergenceCount > 0) {
+                divergenceIndicator.textContent = `${divergenceCount} divergence${divergenceCount > 1 ? 's' : ''}`;
+                divergenceIndicator.style.display = 'inline-flex';
+            } else {
+                divergenceIndicator.style.display = 'none';
+            }
+
+            // Render test trades
+            const testLogEl = document.getElementById('test-trades-log');
+            if (testWithStatus.length === 0) {
+                testLogEl.innerHTML = '<div class="no-trades-msg">No trades in test session</div>';
+            } else {
+                testLogEl.innerHTML = testWithStatus.map(t => renderTradeLogItem(t, t.divergenceType)).join('');
+            }
+
+            // Render backtest trades
+            const backtestLogEl = document.getElementById('backtest-trades-log');
+            if (backtestWithStatus.length === 0) {
+                backtestLogEl.innerHTML = '<div class="no-trades-msg">No trades in backtest session</div>';
+            } else {
+                backtestLogEl.innerHTML = backtestWithStatus.map(t => renderTradeLogItem(t, t.divergenceType)).join('');
+            }
+
+            // Setup filter buttons
+            setupTradeLogFilters();
+        }
+
+        // Setup filter button handlers for trade logs
+        function setupTradeLogFilters() {
+            const filterBtns = document.querySelectorAll('.trade-logs-filters .filter-btn');
+            filterBtns.forEach(btn => {
+                btn.onclick = () => {
+                    // Update active state
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const filter = btn.dataset.filter;
+
+                    // Filter both columns
+                    document.querySelectorAll('.trade-log-item').forEach(item => {
+                        const divergence = item.dataset.divergence;
+                        if (filter === 'all') {
+                            item.style.display = '';
+                        } else if (filter === 'divergent') {
+                            item.style.display = divergence === 'divergent' ? '' : 'none';
+                        } else if (filter === 'matching') {
+                            item.style.display = divergence === 'matching' ? '' : 'none';
+                        }
+                    });
+                };
+            });
+        }
+
         // Render comparison view
         function renderComparisonView(testData, backtestData) {
             const testMetrics = testData.metrics;
@@ -3600,6 +3949,9 @@
                 parityStatus.textContent = '✗ MISMATCH';
                 parityStatus.className = 'parity-badge mismatch';
             }
+
+            // Render side-by-side trade logs comparison
+            renderTradeLogsComparison(testData, backtestData);
         }
 
         // Handle session change
