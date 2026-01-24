@@ -6236,28 +6236,27 @@
                 }
 
                 if (backtestLogEl) {
-                        // Render each trade
-                        backtestLogEl.innerHTML = trades.map(trade => {
-                            const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString();
-                            const exitTime = trade.exit_time_unix ? new Date(trade.exit_time_unix * 1000).toLocaleTimeString() : '--';
-                            const pnl = trade.pnl || 0;
-                            const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
-                            const sideClass = trade.side === 'long' ? 'side-long' : 'side-short';
+                    // Render each trade
+                    backtestLogEl.innerHTML = trades.map(trade => {
+                        const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString();
+                        const exitTime = trade.exit_time_unix ? new Date(trade.exit_time_unix * 1000).toLocaleTimeString() : '--';
+                        const pnl = trade.pnl || 0;
+                        const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                        const sideClass = trade.side === 'long' ? 'side-long' : 'side-short';
 
-                            return `
-                                <div class="trade-log-item">
-                                    <div class="trade-log-time">${entryTime}</div>
-                                    <div class="trade-log-action">
-                                        <span class="${sideClass}">${trade.side?.toUpperCase() || 'UNKNOWN'}</span>
-                                        @ ${trade.entry_price?.toFixed(1) || '--'}
-                                    </div>
-                                    <div class="trade-log-details">
-                                        <span class="${pnlClass}">$${pnl.toFixed(2)}</span>
-                                    </div>
+                        return `
+                            <div class="trade-log-item">
+                                <div class="trade-log-time">${entryTime}</div>
+                                <div class="trade-log-action">
+                                    <span class="${sideClass}">${trade.side?.toUpperCase() || 'UNKNOWN'}</span>
+                                    @ ${trade.entry_price?.toFixed(1) || '--'}
                                 </div>
-                            `;
-                        }).join('');
-                    }
+                                <div class="trade-log-details">
+                                    <span class="${pnlClass}">$${pnl.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
                 }
             } catch (err) {
                 console.error('[loadBotsTabTradeLogs] Error:', err);
