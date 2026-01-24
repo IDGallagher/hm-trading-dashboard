@@ -3079,7 +3079,7 @@
                 }
 
                 if (trades.length === 0) {
-                    console.log('[Trade Overlays] No trades to display from any source');
+                    console.log('[Trade Overlays] No active session - run a backtest to see trade arrows on chart');
                     clearTradeOverlays();
                     return;
                 }
@@ -6207,28 +6207,35 @@
 
                 const data = await response.json();
                 console.log(`[loadBotsTabTradeLogs] Data received - success: ${data.success}, trades: ${data.trades?.length || 0}`);
-                if (!data.success || !data.trades || data.trades.length === 0) {
-                    console.log('[loadBotsTabTradeLogs] ABORT: No trades in backtest data');
-                    return;
-                }
-
-                const trades = data.trades;
-                console.log(`[loadBotsTabTradeLogs] Processing ${trades.length} trades`);
 
                 // Update the backtest trade log in Your Bots tab
                 const backtestLogEl = document.getElementById('backtest-trades-log');
                 const backtestCountEl = document.getElementById('backtest-trades-count');
                 console.log(`[loadBotsTabTradeLogs] DOM elements - backtestLogEl: ${!!backtestLogEl}, backtestCountEl: ${!!backtestCountEl}`);
 
+                // Handle no session data - show helpful message
+                if (!data.success || !data.trades || data.trades.length === 0) {
+                    console.log('[loadBotsTabTradeLogs] No active session data');
+                    if (backtestCountEl) {
+                        backtestCountEl.textContent = 'No session';
+                        backtestCountEl.style.color = '#8b949e';
+                    }
+                    if (backtestLogEl) {
+                        backtestLogEl.innerHTML = '<div class="no-session-msg" style="color: #8b949e; padding: 12px; text-align: center; font-size: 11px;">No active session<br><span style="color: #58a6ff;">Run a backtest to see trade data</span></div>';
+                    }
+                    return;
+                }
+
+                const trades = data.trades;
+                console.log(`[loadBotsTabTradeLogs] Processing ${trades.length} trades`);
+
                 if (backtestCountEl) {
                     backtestCountEl.textContent = `${trades.length} trades`;
+                    backtestCountEl.style.color = '#3fb950';
                     console.log(`[loadBotsTabTradeLogs] Updated count to: ${trades.length} trades`);
                 }
 
                 if (backtestLogEl) {
-                    if (trades.length === 0) {
-                        backtestLogEl.innerHTML = '<div class="no-trades-msg">No trades in backtest session</div>';
-                    } else {
                         // Render each trade
                         backtestLogEl.innerHTML = trades.map(trade => {
                             const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString();
