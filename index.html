@@ -3237,13 +3237,7 @@
                     <span class="ob-total">${formatMarketAmount(bid.total)}</span>
                 </div>`;
             }).join('');
-
-            // Also update legacy orderbook if exists
-            const legacyBids = document.getElementById('orderbook-bids');
-            const legacyAsks = document.getElementById('orderbook-asks');
-            if (legacyBids && legacyAsks) {
-                renderOrderbook(bids, asks);
-            }
+            // Note: Don't call renderOrderbook here - it already calls us (avoid circular call)
         }
 
         // Render trades in professional format
