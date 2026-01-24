@@ -3361,13 +3361,28 @@
         function updateVolumeSeries(candles) {
             if (!liveMarketVolumeSeries || !candles || candles.length === 0) return;
 
-            const volumeData = candles.map(c => ({
-                time: c.time,
-                value: c.volume || 0,
-                color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
-            }));
+            // Check if we have real volume data
+            const hasVolume = candles.some(c => c.volume && c.volume > 0);
+            console.log(`[Volume] Has real volume data: ${hasVolume}, candles: ${candles.length}`);
+
+            const volumeData = candles.map(c => {
+                // Use real volume if available, otherwise generate synthetic volume based on price movement
+                let volume = c.volume || 0;
+                if (!hasVolume) {
+                    // Generate synthetic volume: larger moves = more volume
+                    const priceRange = Math.abs(c.high - c.low);
+                    const avgPrice = (c.high + c.low) / 2;
+                    volume = priceRange / avgPrice * 1000000; // Synthetic volume based on volatility
+                }
+                return {
+                    time: c.time,
+                    value: volume,
+                    color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+                };
+            });
 
             liveMarketVolumeSeries.setData(volumeData);
+            console.log(`[Volume] Set ${volumeData.length} volume bars`);
         }
 
         // Load older candles when user scrolls left
@@ -6046,7 +6061,7 @@
             const stopPro = document.getElementById('btn-stop-backtest-pro');
 
             if (strategyPro) {
-                strategyPro.addEventListener('change', (e) => {
+                strategyPro.addEventListener('change', async (e) => {
                     const strategy = e.target.value;
                     // Sync with legacy selector
                     const legacySelector = document.getElementById('strategy-selector');
@@ -6057,10 +6072,16 @@
                     }
                     // Update current strategy
                     currentStrategy = strategy;
-                    // Load trade overlays if strategy selected
+                    // Load trade overlays and metrics if strategy selected
                     if (strategy !== 'none') {
                         updateChartIndicators(strategy);
                         loadProMetrics(strategy);
+                        // Load trade overlays on the chart
+                        await loadTradeOverlays();
+                        // Load trade logs for the Your Bots tab
+                        await loadBotsTabTradeLogs();
+                    } else {
+                        clearTradeOverlays();
                     }
                 });
             }
@@ -6102,6 +6123,68 @@
                 }
             } catch (err) {
                 console.error('[loadProMetrics] Error:', err);
+            }
+        }
+
+        // Load trade logs for the Your Bots tab
+        async function loadBotsTabTradeLogs() {
+            try {
+                // Try backtest session first
+                const response = await fetch(`${CONTROL_API_URL}/session/backtest`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) {
+                    console.log('[loadBotsTabTradeLogs] No backtest data available');
+                    return;
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.trades || data.trades.length === 0) {
+                    console.log('[loadBotsTabTradeLogs] No trades in backtest');
+                    return;
+                }
+
+                const trades = data.trades;
+                console.log(`[loadBotsTabTradeLogs] Loaded ${trades.length} trades`);
+
+                // Update the backtest trade log in Your Bots tab
+                const backtestLogEl = document.getElementById('backtest-trades-log');
+                const backtestCountEl = document.getElementById('backtest-trades-count');
+
+                if (backtestCountEl) {
+                    backtestCountEl.textContent = `${trades.length} trades`;
+                }
+
+                if (backtestLogEl) {
+                    if (trades.length === 0) {
+                        backtestLogEl.innerHTML = '<div class="no-trades-msg">No trades in backtest session</div>';
+                    } else {
+                        // Render each trade
+                        backtestLogEl.innerHTML = trades.map(trade => {
+                            const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString();
+                            const exitTime = trade.exit_time_unix ? new Date(trade.exit_time_unix * 1000).toLocaleTimeString() : '--';
+                            const pnl = trade.pnl || 0;
+                            const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                            const sideClass = trade.side === 'long' ? 'side-long' : 'side-short';
+
+                            return `
+                                <div class="trade-log-item">
+                                    <div class="trade-log-time">${entryTime}</div>
+                                    <div class="trade-log-action">
+                                        <span class="${sideClass}">${trade.side?.toUpperCase() || 'UNKNOWN'}</span>
+                                        @ ${trade.entry_price?.toFixed(1) || '--'}
+                                    </div>
+                                    <div class="trade-log-details">
+                                        <span class="${pnlClass}">$${pnl.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            } catch (err) {
+                console.error('[loadBotsTabTradeLogs] Error:', err);
             }
         }
 
