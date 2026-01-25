@@ -1858,6 +1858,20 @@
             font-size: 12px;
             color: #58a6ff;
         }
+        .live-data-badge {
+            font-size: 10px;
+            background: rgba(56, 139, 253, 0.15);
+            color: #58a6ff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 600;
+            animation: pulse-live 2s infinite;
+        }
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
         .session-runtime {
             font-size: 12px;
             color: #8b949e;
@@ -4154,12 +4168,19 @@
                 `;
             }
 
+            // Show "LIVE DATA" badge for running test sessions with healthy heartbeat (providing market data)
+            const isProvidingLiveData = isRunning && session.type === 'test' &&
+                session.seconds_since_update !== undefined && session.seconds_since_update < 30;
+            const liveDataBadge = isProvidingLiveData ?
+                '<span class="live-data-badge" title="This session is providing live market data">📡 LIVE</span>' : '';
+
             return `
                 <div class="session-card clickable ${cardClass}" data-session-id="${session.id}" onclick="showInlineDetail('${session.id}', '${panelType}')">
                     <div class="session-info">
                         <div class="session-name">
                             ${session.name || `${session.strategy} - ${session.market}`}
                             <span class="session-market">${session.market}</span>
+                            ${liveDataBadge}
                         </div>
                         <div class="session-meta">
                             <span class="session-strategy">${session.strategy}</span>
