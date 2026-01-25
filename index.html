@@ -4239,6 +4239,7 @@
                     // ALWAYS hide inline detail when switching tabs (fixes contamination bug)
                     document.getElementById('inline-session-detail').style.display = 'none';
                     currentInlineSessionId = null;
+                    currentSessionTradeData = null; // Clear stored trade data
 
                     // Clear chart markers when leaving detail view
                     if (liveMarketCandleSeries) {
@@ -4499,6 +4500,7 @@
         let currentViewedSessionId = null;
         let currentInlineSessionId = null;
         let previousPanelId = null;
+        let currentSessionTradeData = null; // Store trade data for re-rendering on period change
 
         // Show inline session detail view
         async function showInlineDetail(sessionId, panelType) {
@@ -4581,6 +4583,7 @@
                 document.getElementById(previousPanelId).style.display = 'flex';
             }
             currentInlineSessionId = null;
+            currentSessionTradeData = null; // Clear stored trade data
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
@@ -4757,6 +4760,9 @@
 
         // Display session trades as markers on the chart
         function displaySessionTrades(tradeData) {
+            // Store trade data for re-rendering when period changes
+            currentSessionTradeData = tradeData;
+
             if (!liveMarketCandleSeries || !lastCandleData || lastCandleData.length === 0) {
                 console.log('[Sessions] Cannot display trades - chart not ready');
                 return;
@@ -6312,6 +6318,11 @@
 
                     // Update OHLC display with latest candle
                     updateOHLCDisplay(null);
+
+                    // Re-render trade markers with new candle data (if viewing a session)
+                    if (currentSessionTradeData) {
+                        displaySessionTrades(currentSessionTradeData);
+                    }
 
                     // Fetch archive info for lazy loading bounds (don't await, do in background)
                     fetchArchiveInfo(currentMarket);
