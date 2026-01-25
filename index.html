@@ -109,13 +109,31 @@
             gap: 1px;
             background: #30363d;
         }
+        /* Mobile: Stack chart and panel vertically */
+        @media (max-width: 768px) {
+            .trading-main {
+                grid-template-columns: 1fr;
+                grid-template-rows: 300px auto;
+                height: auto;
+                min-height: calc(100vh - 120px);
+            }
+        }
         .chart-section {
             background: #0d1117;
             display: flex;
             flex-direction: column;
+            max-height: 350px; /* Reduced height so bots are above fold */
             min-height: 0;
             overflow: hidden;
             position: relative;
+        }
+        /* Mobile: Ensure chart section has explicit height */
+        @media (max-width: 768px) {
+            .chart-section {
+                min-height: 250px;
+                height: 300px;
+                max-height: 300px;
+            }
         }
         .chart-toolbar {
             flex-shrink: 0;
@@ -224,6 +242,13 @@
             flex: 1 1 auto;
             min-height: 0;
             position: relative;
+        }
+        /* Mobile: Ensure chart container has explicit dimensions */
+        @media (max-width: 768px) {
+            .chart-container-pro {
+                min-height: 300px;
+                height: 300px;
+            }
         }
         #live-price-chart-container {
             position: absolute;
@@ -2031,6 +2056,38 @@
             margin-bottom: 16px;
         }
 
+        /* History pagination */
+        .history-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border-top: 1px solid #30363d;
+            background: #161b22;
+        }
+        .history-pagination .pagination-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .history-pagination .pagination-btn:hover:not(:disabled) {
+            background: #30363d;
+        }
+        .history-pagination .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .history-pagination .pagination-info {
+            color: #8b949e;
+            font-size: 13px;
+        }
+
         /* Modal styles */
         .modal-overlay {
             position: fixed;
@@ -2170,6 +2227,282 @@
             cursor: not-allowed;
         }
 
+        /* Session Detail Modal Styles */
+        .modal-large {
+            max-width: 900px;
+        }
+        .modal-header-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .detail-session-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .detail-badge {
+            background: #21262d;
+            color: #8b949e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .detail-status {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .detail-status.running { background: rgba(63,185,80,0.2); color: #3fb950; }
+        .detail-status.stopped { background: rgba(139,148,158,0.2); color: #8b949e; }
+        .detail-status.completed { background: rgba(88,166,255,0.2); color: #58a6ff; }
+        .detail-status.failed { background: rgba(248,81,73,0.2); color: #f85149; }
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #30363d;
+            padding: 0 20px;
+        }
+        .modal-tab {
+            background: none;
+            border: none;
+            color: #8b949e;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        .modal-tab:hover { color: #c9d1d9; }
+        .modal-tab.active {
+            color: #58a6ff;
+            border-bottom-color: #58a6ff;
+        }
+        .modal-body-tabs {
+            min-height: 400px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .detail-tab-content {
+            display: none;
+        }
+        .detail-tab-content.active {
+            display: block;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .detail-section {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .detail-section-wide {
+            grid-column: span 2;
+        }
+        .detail-section-title {
+            font-size: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+        .detail-label { color: #8b949e; }
+        .detail-value { color: #c9d1d9; font-family: monospace; }
+        .detail-params {
+            background: #0d1117;
+            color: #8b949e;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            margin: 0;
+        }
+        .detail-notes {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        .btn-save-notes {
+            margin-top: 8px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-save-notes:hover { background: #30363d; }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .metric-card-label {
+            font-size: 11px;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .metric-card-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #c9d1d9;
+            font-family: monospace;
+        }
+        .metric-card-value.positive { color: #3fb950; }
+        .metric-card-value.negative { color: #f85149; }
+        .equity-chart-section {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        /* Trades table */
+        .trades-table-container {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .trades-table th, .trades-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+        .trades-table th {
+            background: #161b22;
+            color: #8b949e;
+            text-transform: uppercase;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+        .trades-table td { color: #c9d1d9; }
+        .trades-table .no-data { text-align: center; color: #8b949e; padding: 30px; }
+        .trades-table .buy { color: #3fb950; }
+        .trades-table .sell { color: #f85149; }
+        .trades-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            border-top: 1px solid #30363d;
+        }
+        .pagination-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .pagination-btn:hover { background: #30363d; }
+        .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination-info { color: #8b949e; font-size: 12px; }
+
+        /* Logs viewer */
+        .logs-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #30363d;
+            margin-bottom: 12px;
+        }
+        .logs-filter {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .logs-autoscroll {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #8b949e;
+            font-size: 12px;
+        }
+        .btn-logs-stream {
+            background: #238636;
+            border: none;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        .btn-logs-stream.streaming { background: #f85149; }
+        .logs-container {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 8px;
+        }
+        .log-line {
+            padding: 2px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-line.log-info { color: #8b949e; }
+        .log-line.log-trade { color: #58a6ff; }
+        .log-line.log-warn { color: #d29922; }
+        .log-line.log-error { color: #f85149; }
+
+        /* Modal action buttons */
+        .btn-modal-action {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        .btn-modal-action:hover { background: #30363d; }
+        .btn-modal-clone {
+            background: #1f6feb;
+            color: #fff;
+        }
+        .btn-modal-clone:hover { background: #388bfd; }
+
         /* Responsive adjustments for session cards */
         @media (max-width: 900px) {
             .session-card {
@@ -2188,6 +2521,140 @@
             .session-actions {
                 grid-column: span 1;
             }
+        }
+
+        /* === INLINE SESSION DETAIL VIEW === */
+        .btn-back-to-list {
+            background: transparent;
+            border: 1px solid #30363d;
+            color: #58a6ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-back-to-list:hover {
+            background: #21262d;
+        }
+        .inline-detail-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .inline-detail-content {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .inline-detail-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .inline-detail-header h3 {
+            margin: 0;
+            color: #f0f6fc;
+            font-size: 16px;
+        }
+        .inline-session-status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .inline-session-status.running { background: #238636; color: #fff; }
+        .inline-session-status.stopped { background: #6e7681; color: #fff; }
+        .inline-session-status.completed { background: #1f6feb; color: #fff; }
+        .inline-session-status.failed { background: #da3633; color: #fff; }
+        .inline-detail-meta {
+            display: flex;
+            gap: 16px;
+            color: #8b949e;
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+        .inline-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .inline-metric {
+            background: #21262d;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .inline-metric-label {
+            display: block;
+            color: #8b949e;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .inline-metric-value {
+            display: block;
+            color: #f0f6fc;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .inline-metric-value.positive { color: #3fb950; }
+        .inline-metric-value.negative { color: #f85149; }
+        .inline-detail-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 8px;
+        }
+        .inline-tab {
+            background: transparent;
+            border: none;
+            color: #8b949e;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        .inline-tab:hover { background: #21262d; }
+        .inline-tab.active {
+            background: #21262d;
+            color: #f0f6fc;
+        }
+        .inline-tab-content {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .inline-trades-list, .inline-logs-list {
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .inline-trade-row {
+            display: grid;
+            grid-template-columns: 80px 50px 80px 60px 80px;
+            gap: 8px;
+            padding: 6px 8px;
+            border-bottom: 1px solid #21262d;
+        }
+        .inline-trade-row:nth-child(even) { background: #161b22; }
+        .inline-log-row {
+            padding: 4px 8px;
+            border-bottom: 1px solid #21262d;
+        }
+        .inline-log-row.error { color: #f85149; }
+        .inline-log-row.warn { color: #d29922; }
+        .inline-empty {
+            color: #6e7681;
+            text-align: center;
+            padding: 24px;
+        }
+        /* Make session cards clickable */
+        .session-card.clickable {
+            cursor: pointer;
+        }
+        .session-card.clickable:hover {
+            border-color: #58a6ff;
         }
     </style>
 </head>
@@ -2468,6 +2935,81 @@
                     <div class="session-empty-text">No session history</div>
                 </div>
             </div>
+            <div class="history-pagination" id="history-pagination">
+                <button class="pagination-btn" id="history-prev-btn" onclick="loadHistoryPage('prev')">&laquo; Previous</button>
+                <span class="pagination-info" id="history-page-info">Page 1 of 1</span>
+                <button class="pagination-btn" id="history-next-btn" onclick="loadHistoryPage('next')">Next &raquo;</button>
+            </div>
+        </div>
+
+        <!-- INLINE SESSION DETAIL VIEW -->
+        <div id="inline-session-detail" class="session-panel" style="display: none;">
+            <div class="session-toolbar">
+                <button class="btn-back-to-list" onclick="hideInlineDetail()">
+                    ← Back to Sessions
+                </button>
+                <div class="inline-detail-actions">
+                    <button class="btn-session-action btn-session-restart" id="inline-restart-btn">Restart</button>
+                    <button class="btn-session-action btn-session-stop" id="inline-stop-btn">Stop</button>
+                </div>
+            </div>
+            <div class="inline-detail-content">
+                <div class="inline-detail-header">
+                    <h3 id="inline-session-name">Session Name</h3>
+                    <span class="inline-session-status" id="inline-session-status">running</span>
+                </div>
+                <div class="inline-detail-meta">
+                    <span id="inline-session-market">XBTUSD</span>
+                    <span id="inline-session-strategy">TestBot</span>
+                    <span id="inline-session-runtime">00:00:00</span>
+                </div>
+
+                <!-- Metrics Summary -->
+                <div class="inline-metrics-grid">
+                    <div class="inline-metric">
+                        <span class="inline-metric-label">Trades</span>
+                        <span class="inline-metric-value" id="inline-trades">0</span>
+                    </div>
+                    <div class="inline-metric">
+                        <span class="inline-metric-label">P&L</span>
+                        <span class="inline-metric-value" id="inline-pnl">$0.00</span>
+                    </div>
+                    <div class="inline-metric">
+                        <span class="inline-metric-label">Win Rate</span>
+                        <span class="inline-metric-value" id="inline-winrate">0%</span>
+                    </div>
+                    <div class="inline-metric">
+                        <span class="inline-metric-label">Max DD</span>
+                        <span class="inline-metric-value" id="inline-maxdd">$0</span>
+                    </div>
+                </div>
+
+                <!-- Tabs for Trades/Logs -->
+                <div class="inline-detail-tabs">
+                    <button class="inline-tab active" data-tab="trades" onclick="switchInlineTab('trades')">Trades</button>
+                    <button class="inline-tab" data-tab="logs" onclick="switchInlineTab('logs')">Logs</button>
+                    <button class="inline-tab" data-tab="equity" onclick="switchInlineTab('equity')">Equity</button>
+                </div>
+
+                <!-- Trades Tab -->
+                <div class="inline-tab-content" id="inline-tab-trades">
+                    <div class="inline-trades-list" id="inline-trades-list">
+                        <div class="inline-empty">No trades yet</div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div class="inline-tab-content" id="inline-tab-logs" style="display: none;">
+                    <div class="inline-logs-list" id="inline-logs-list">
+                        <div class="inline-empty">No logs available</div>
+                    </div>
+                </div>
+
+                <!-- Equity Tab -->
+                <div class="inline-tab-content" id="inline-tab-equity" style="display: none;">
+                    <div id="inline-equity-chart" style="height: 200px;"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Legacy compatibility: keep old elements hidden -->
@@ -2568,6 +3110,153 @@
             <div class="modal-footer">
                 <button class="btn-modal btn-modal-cancel" onclick="closeNewSessionModal()">Cancel</button>
                 <button class="btn-modal btn-modal-create" id="btn-create-session" onclick="createSession()">Create Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SESSION DETAIL MODAL -->
+    <div class="modal-overlay" id="session-detail-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <h3 class="modal-title" id="detail-session-name">Session Details</h3>
+                    <div class="detail-session-meta">
+                        <span class="detail-badge" id="detail-session-type">test</span>
+                        <span class="detail-badge" id="detail-session-market">XBTUSD</span>
+                        <span class="detail-badge" id="detail-session-strategy">DivergeBot</span>
+                        <span class="detail-status" id="detail-session-status">running</span>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeSessionDetailModal()">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="info" onclick="switchDetailTab('info')">Info</button>
+                <button class="modal-tab" data-tab="metrics" onclick="switchDetailTab('metrics')">Metrics</button>
+                <button class="modal-tab" data-tab="trades" onclick="switchDetailTab('trades')">Trades</button>
+                <button class="modal-tab" data-tab="logs" onclick="switchDetailTab('logs')">Logs</button>
+            </div>
+            <div class="modal-body modal-body-tabs">
+                <!-- INFO TAB -->
+                <div class="detail-tab-content active" id="tab-info">
+                    <div class="detail-grid">
+                        <div class="detail-section">
+                            <h4 class="detail-section-title">Session Information</h4>
+                            <div class="detail-row"><span class="detail-label">ID:</span><span class="detail-value" id="detail-id">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Name:</span><span class="detail-value" id="detail-name">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Type:</span><span class="detail-value" id="detail-type">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Market:</span><span class="detail-value" id="detail-market">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Strategy:</span><span class="detail-value" id="detail-strategy">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Status:</span><span class="detail-value" id="detail-status">-</span></div>
+                        </div>
+                        <div class="detail-section">
+                            <h4 class="detail-section-title">Timing</h4>
+                            <div class="detail-row"><span class="detail-label">Created:</span><span class="detail-value" id="detail-created">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Started:</span><span class="detail-value" id="detail-started">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Completed:</span><span class="detail-value" id="detail-completed">-</span></div>
+                            <div class="detail-row"><span class="detail-label">Duration:</span><span class="detail-value" id="detail-duration">-</span></div>
+                        </div>
+                        <div class="detail-section detail-section-wide">
+                            <h4 class="detail-section-title">Strategy Parameters</h4>
+                            <pre class="detail-params" id="detail-params">{}</pre>
+                        </div>
+                        <div class="detail-section detail-section-wide">
+                            <h4 class="detail-section-title">Notes</h4>
+                            <textarea class="detail-notes" id="detail-notes" placeholder="Add notes..."></textarea>
+                            <button class="btn-save-notes" onclick="saveSessionNotes()">Save Notes</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- METRICS TAB -->
+                <div class="detail-tab-content" id="tab-metrics">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-card-label">Total P&L</div>
+                            <div class="metric-card-value" id="metric-pnl">$0.00</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Total Trades</div>
+                            <div class="metric-card-value" id="metric-trades">0</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Win Rate</div>
+                            <div class="metric-card-value" id="metric-winrate">0%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Avg Win</div>
+                            <div class="metric-card-value" id="metric-avgwin">$0.00</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Avg Loss</div>
+                            <div class="metric-card-value" id="metric-avgloss">$0.00</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Max Drawdown</div>
+                            <div class="metric-card-value" id="metric-drawdown">$0.00</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Profit Factor</div>
+                            <div class="metric-card-value" id="metric-pf">0.00</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-card-label">Sharpe Ratio</div>
+                            <div class="metric-card-value" id="metric-sharpe">0.00</div>
+                        </div>
+                    </div>
+                    <div class="equity-chart-section">
+                        <h4 class="detail-section-title">Equity Curve</h4>
+                        <div id="detail-equity-chart" style="height: 250px;"></div>
+                    </div>
+                </div>
+                <!-- TRADES TAB -->
+                <div class="detail-tab-content" id="tab-trades">
+                    <div class="trades-table-container">
+                        <table class="trades-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Side</th>
+                                    <th>Price</th>
+                                    <th>Size</th>
+                                    <th>P&L</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-trades-body">
+                                <tr><td colspan="7" class="no-data">No trades yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="trades-pagination" id="trades-pagination">
+                        <button class="pagination-btn" onclick="loadTradesPage('prev')">&laquo; Prev</button>
+                        <span class="pagination-info" id="trades-page-info">Page 1</span>
+                        <button class="pagination-btn" onclick="loadTradesPage('next')">Next &raquo;</button>
+                    </div>
+                </div>
+                <!-- LOGS TAB -->
+                <div class="detail-tab-content" id="tab-logs">
+                    <div class="logs-controls">
+                        <select class="logs-filter" id="logs-level-filter" onchange="filterLogs()">
+                            <option value="">All Levels</option>
+                            <option value="INFO">INFO</option>
+                            <option value="TRADE">TRADE</option>
+                            <option value="WARN">WARN</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                        <label class="logs-autoscroll">
+                            <input type="checkbox" id="logs-autoscroll-check" checked> Auto-scroll
+                        </label>
+                        <button class="btn-logs-stream" id="btn-logs-stream" onclick="toggleLogStream()">▶ Start Stream</button>
+                    </div>
+                    <div class="logs-container" id="detail-logs-container">
+                        <div class="log-line log-info">Logs will appear here...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeSessionDetailModal()">Close</button>
+                <button class="btn-modal btn-modal-action" onclick="viewSessionOnChart()">View on Chart</button>
+                <button class="btn-modal btn-modal-clone" onclick="cloneCurrentSession()">Clone Session</button>
             </div>
         </div>
     </div>
@@ -3163,6 +3852,7 @@
 
         // Live Test Control State
         const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
+        const CONTROL_WS_URL = 'wss://agent-company.atamatch.com:8443/trades/stream';
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
@@ -3216,6 +3906,12 @@
             });
         }
 
+        // History pagination state
+        let historyCurrentPage = 1;
+        const HISTORY_PER_PAGE = 20;
+        let historyTotalPages = 1;
+        let historyTotal = 0;
+
         // Fetch all sessions from API
         async function fetchSessions() {
             try {
@@ -3232,11 +3928,12 @@
                 sessionsData.running = sessions.filter(s =>
                     s.status === 'running' && (s.type === 'test' || s.type === 'backtest')
                 );
+                // Show all scrapers (any status) so users can see and restart failed ones
                 sessionsData.scrapers = sessions.filter(s =>
-                    s.type === 'scraper' && s.status === 'running'
+                    s.type === 'scraper'
                 );
                 sessionsData.history = sessions.filter(s =>
-                    s.status !== 'running' && s.status !== 'created'
+                    s.status !== 'running' && s.status !== 'created' && s.type !== 'scraper'
                 );
 
                 // Also fetch health status for running sessions
@@ -3244,10 +3941,73 @@
 
                 renderAllSessions();
                 updateTabCounts();
+
+                // Fetch history with pagination
+                await fetchHistoryPage(1);
             } catch (error) {
                 console.error('[Sessions] Failed to fetch sessions:', error);
             }
         }
+
+        // Fetch history sessions with pagination
+        async function fetchHistoryPage(page) {
+            try {
+                const offset = (page - 1) * HISTORY_PER_PAGE;
+                const typeFilter = document.getElementById('filter-type-history')?.value || '';
+                const marketFilter = document.getElementById('filter-market-history')?.value || '';
+                const statusFilter = document.getElementById('filter-status-history')?.value || '';
+
+                let url = `${CONTROL_API_URL}/sessions?status=completed,stopped,failed&limit=${HISTORY_PER_PAGE}&offset=${offset}`;
+                if (typeFilter) url += `&type=${typeFilter}`;
+                if (marketFilter) url += `&market=${marketFilter}`;
+                if (statusFilter) url += `&status=${statusFilter}`;
+
+                const response = await fetch(url, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+                historyCurrentPage = page;
+                historyTotal = data.total || 0;
+                historyTotalPages = Math.ceil(historyTotal / HISTORY_PER_PAGE) || 1;
+
+                // Update history list
+                sessionsData.history = data.sessions || [];
+                renderSessionList('history-list', sessionsData.history, 'history');
+                updateHistoryPagination();
+
+            } catch (error) {
+                console.error('[Sessions] Failed to fetch history page:', error);
+            }
+        }
+
+        // Update history pagination controls
+        function updateHistoryPagination() {
+            document.getElementById('history-page-info').textContent = `Page ${historyCurrentPage} of ${historyTotalPages}`;
+            document.getElementById('history-prev-btn').disabled = historyCurrentPage <= 1;
+            document.getElementById('history-next-btn').disabled = historyCurrentPage >= historyTotalPages;
+            document.getElementById('history-count').textContent = historyTotal;
+        }
+
+        // Load history page (prev/next)
+        function loadHistoryPage(direction) {
+            const newPage = direction === 'next' ? historyCurrentPage + 1 : Math.max(1, historyCurrentPage - 1);
+            if (newPage >= 1 && newPage <= historyTotalPages) {
+                fetchHistoryPage(newPage);
+            }
+        }
+
+        // History filter change handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            ['filter-type-history', 'filter-market-history', 'filter-status-history'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', () => fetchHistoryPage(1));
+                }
+            });
+        });
 
         // Fetch session health status
         async function fetchSessionHealth() {
@@ -3349,25 +4109,23 @@
             // Get heartbeat display
             const heartbeatHtml = isRunning ? renderHeartbeat(session) : '';
 
-            // Actions based on panel type
+            // Actions based on panel type (View button removed - row click navigates)
             let actionsHtml = '';
             if (panelType === 'running' || panelType === 'scrapers') {
                 actionsHtml = `
-                    <button class="btn-session-action btn-session-restart" onclick="restartSession('${session.id}')">Restart</button>
-                    <button class="btn-session-action btn-session-stop" onclick="stopSession('${session.id}')">Stop</button>
-                    <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
+                    <button class="btn-session-action btn-session-restart" onclick="event.stopPropagation(); restartSession('${session.id}')">Restart</button>
+                    <button class="btn-session-action btn-session-stop" onclick="event.stopPropagation(); stopSession('${session.id}')">Stop</button>
                 `;
             } else {
                 actionsHtml = `
-                    <button class="btn-session-action btn-session-restart" onclick="restartSession('${session.id}')">Restart</button>
-                    <button class="btn-session-action btn-session-clone" onclick="cloneSession('${session.id}')">Clone</button>
-                    <button class="btn-session-action btn-session-view" onclick="viewSession('${session.id}')">View</button>
-                    <button class="btn-session-action btn-session-delete" onclick="deleteSession('${session.id}')">×</button>
+                    <button class="btn-session-action btn-session-restart" onclick="event.stopPropagation(); restartSession('${session.id}')">Restart</button>
+                    <button class="btn-session-action btn-session-clone" onclick="event.stopPropagation(); cloneSession('${session.id}')">Clone</button>
+                    <button class="btn-session-action btn-session-delete" onclick="event.stopPropagation(); deleteSession('${session.id}')">×</button>
                 `;
             }
 
             return `
-                <div class="session-card ${cardClass}" data-session-id="${session.id}">
+                <div class="session-card clickable ${cardClass}" data-session-id="${session.id}" onclick="showInlineDetail('${session.id}', '${panelType}')">
                     <div class="session-info">
                         <div class="session-name">
                             ${session.name || `${session.strategy} - ${session.market}`}
@@ -3692,6 +4450,225 @@
 
         // Currently viewed session
         let currentViewedSessionId = null;
+        let currentInlineSessionId = null;
+        let previousPanelId = null;
+
+        // Show inline session detail view
+        async function showInlineDetail(sessionId, panelType) {
+            console.log('[Sessions] Show inline detail for:', sessionId);
+            currentInlineSessionId = sessionId;
+
+            // Find the session data
+            let session = sessionsData.running.find(s => s.id === sessionId) ||
+                          sessionsData.scrapers.find(s => s.id === sessionId) ||
+                          sessionsData.history.find(s => s.id === sessionId);
+
+            if (!session) {
+                console.error('[Sessions] Session not found:', sessionId);
+                return;
+            }
+
+            // Hide current panel and show inline detail
+            previousPanelId = `panel-${panelType === 'running' ? 'running' : panelType === 'scrapers' ? 'scrapers' : 'history'}`;
+            document.getElementById(previousPanelId).style.display = 'none';
+            document.getElementById('inline-session-detail').style.display = 'flex';
+
+            // Populate header info
+            document.getElementById('inline-session-name').textContent = session.name || `${session.strategy} - ${session.market}`;
+            const statusEl = document.getElementById('inline-session-status');
+            statusEl.textContent = session.status;
+            statusEl.className = `inline-session-status ${session.status}`;
+            document.getElementById('inline-session-market').textContent = session.market;
+            document.getElementById('inline-session-strategy').textContent = session.strategy;
+
+            // Calculate runtime
+            let runtime = '--';
+            if (session.started_at) {
+                const startTime = new Date(session.started_at).getTime();
+                const endTime = session.status === 'running' ? Date.now() : (session.stopped_at ? new Date(session.stopped_at).getTime() : Date.now());
+                runtime = formatDuration(endTime - startTime);
+            }
+            document.getElementById('inline-session-runtime').textContent = runtime;
+
+            // Setup action buttons
+            document.getElementById('inline-restart-btn').onclick = () => { restartSession(sessionId); };
+            document.getElementById('inline-stop-btn').onclick = () => { stopSession(sessionId); };
+            document.getElementById('inline-stop-btn').style.display = session.status === 'running' ? 'inline-block' : 'none';
+
+            // Load metrics
+            await loadInlineMetrics(sessionId);
+
+            // Load trades tab by default
+            switchInlineTab('trades');
+            await loadInlineTrades(sessionId);
+
+            // Switch chart to session's market if different
+            const currentMarket = document.getElementById('market-selector').value.toLowerCase();
+            const sessionMarket = session.market.toLowerCase();
+            if (currentMarket !== sessionMarket) {
+                document.getElementById('market-selector').value = sessionMarket;
+                document.getElementById('market-selector').dispatchEvent(new Event('change'));
+            }
+
+            // Load trades onto chart (directly, don't open modal)
+            try {
+                const tradesResponse = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (tradesResponse.ok) {
+                    const tradesData = await tradesResponse.json();
+                    displaySessionTrades(tradesData);
+                }
+            } catch (err) {
+                console.error('[Sessions] Failed to load trades for chart:', err);
+            }
+        }
+
+        // Hide inline detail and return to list
+        function hideInlineDetail() {
+            document.getElementById('inline-session-detail').style.display = 'none';
+            if (previousPanelId) {
+                document.getElementById(previousPanelId).style.display = 'flex';
+            }
+            currentInlineSessionId = null;
+
+            // Clear chart markers
+            if (liveMarketCandleSeries) {
+                liveMarketCandleSeries.setMarkers([]);
+            }
+        }
+
+        // Load metrics for inline detail
+        async function loadInlineMetrics(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/metrics`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const m = data.metrics;
+                    document.getElementById('inline-trades').textContent = m.total_trades || 0;
+                    const pnl = m.total_pnl || 0;
+                    const pnlEl = document.getElementById('inline-pnl');
+                    pnlEl.textContent = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+                    pnlEl.className = `inline-metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+                    document.getElementById('inline-winrate').textContent = `${(m.win_rate || 0).toFixed(1)}%`;
+                    document.getElementById('inline-maxdd').textContent = `$${(m.max_drawdown || 0).toFixed(0)}`;
+                }
+            } catch (err) {
+                console.error('[Sessions] Failed to load metrics:', err);
+            }
+        }
+
+        // Load trades for inline detail
+        async function loadInlineTrades(sessionId) {
+            const container = document.getElementById('inline-trades-list');
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const trades = data.trades || [];
+                    if (trades.length === 0) {
+                        container.innerHTML = '<div class="inline-empty">No trades yet</div>';
+                    } else {
+                        container.innerHTML = trades.slice(-50).reverse().map(t => `
+                            <div class="inline-trade-row">
+                                <span>${new Date(t.timestamp).toLocaleTimeString()}</span>
+                                <span style="color: ${t.side === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
+                                <span>$${parseFloat(t.price).toFixed(2)}</span>
+                                <span>${t.size}</span>
+                                <span class="${(t.pnl || 0) >= 0 ? 'positive' : 'negative'}">${(t.pnl || 0) >= 0 ? '+' : ''}${(t.pnl || 0).toFixed(2)}</span>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (err) {
+                container.innerHTML = '<div class="inline-empty">Failed to load trades</div>';
+            }
+        }
+
+        // Load logs for inline detail
+        async function loadInlineLogs(sessionId) {
+            const container = document.getElementById('inline-logs-list');
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=100`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const logs = data.logs || [];
+                    if (logs.length === 0) {
+                        container.innerHTML = '<div class="inline-empty">No logs available</div>';
+                    } else {
+                        container.innerHTML = logs.slice(-50).reverse().map(l => `
+                            <div class="inline-log-row ${l.level?.toLowerCase()}">
+                                <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                                <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
+                                ${l.message}
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (err) {
+                container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
+            }
+        }
+
+        // Load equity curve for inline detail
+        async function loadInlineEquity(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/equity`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const equity = data.equity || [];
+                    if (equity.length > 0) {
+                        // Create mini equity chart
+                        const container = document.getElementById('inline-equity-chart');
+                        container.innerHTML = '';
+                        const chart = LightweightCharts.createChart(container, {
+                            width: container.clientWidth,
+                            height: 200,
+                            layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+                            grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } }
+                        });
+                        const series = chart.addLineSeries({ color: '#58a6ff', lineWidth: 2 });
+                        series.setData(equity.map(e => ({
+                            time: Math.floor(e.timestamp / 1000),
+                            value: e.equity
+                        })));
+                        chart.timeScale().fitContent();
+                    } else {
+                        document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">No equity data</div>';
+                    }
+                }
+            } catch (err) {
+                document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">Failed to load equity</div>';
+            }
+        }
+
+        // Switch inline detail tabs
+        function switchInlineTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.inline-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.inline-tab[data-tab="${tabName}"]`).classList.add('active');
+
+            // Hide all tabs
+            document.querySelectorAll('.inline-tab-content').forEach(c => c.style.display = 'none');
+
+            // Show selected tab
+            document.getElementById(`inline-tab-${tabName}`).style.display = 'block';
+
+            // Load data for tab
+            if (currentInlineSessionId) {
+                if (tabName === 'trades') loadInlineTrades(currentInlineSessionId);
+                else if (tabName === 'logs') loadInlineLogs(currentInlineSessionId);
+                else if (tabName === 'equity') loadInlineEquity(currentInlineSessionId);
+            }
+        }
 
         // View session - load trades and display on chart
         async function viewSession(sessionId) {
@@ -3817,6 +4794,416 @@
                 toast.style.borderColor = '';
             }, 3000);
         }
+
+        // ============= SESSION DETAIL MODAL =============
+        let currentDetailSessionId = null;
+        let detailEquityChart = null;
+        let logStreamWs = null;
+        let tradesCurrentPage = 1;
+        const TRADES_PER_PAGE = 50;
+
+        // Open session detail modal
+        async function openSessionDetailModal(sessionId) {
+            console.log('[Detail] Opening modal for session:', sessionId);
+            currentDetailSessionId = sessionId;
+
+            // Show modal
+            document.getElementById('session-detail-modal').classList.add('active');
+
+            // Reset to info tab
+            switchDetailTab('info');
+
+            // Load session data
+            await loadSessionDetail(sessionId);
+        }
+
+        // Close session detail modal
+        function closeSessionDetailModal() {
+            document.getElementById('session-detail-modal').classList.remove('active');
+            currentDetailSessionId = null;
+
+            // Stop log streaming if active
+            if (logStreamWs) {
+                logStreamWs.close();
+                logStreamWs = null;
+            }
+
+            // Destroy equity chart
+            if (detailEquityChart) {
+                detailEquityChart.remove();
+                detailEquityChart = null;
+            }
+        }
+
+        // Switch between detail tabs
+        function switchDetailTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.modal-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+
+            // Update tab content
+            document.querySelectorAll('.detail-tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === `tab-${tabName}`);
+            });
+
+            // Load tab-specific data
+            if (currentDetailSessionId) {
+                if (tabName === 'metrics') loadSessionMetrics(currentDetailSessionId);
+                if (tabName === 'trades') loadSessionTrades(currentDetailSessionId, 1);
+                if (tabName === 'logs') loadSessionLogs(currentDetailSessionId);
+            }
+        }
+
+        // Load session detail info
+        async function loadSessionDetail(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error('Failed to load session');
+
+                const data = await response.json();
+                const session = data.session;
+
+                // Update header
+                document.getElementById('detail-session-name').textContent = session.name || `${session.strategy} - ${session.market}`;
+                document.getElementById('detail-session-type').textContent = session.type;
+                document.getElementById('detail-session-market').textContent = session.market;
+                document.getElementById('detail-session-strategy').textContent = session.strategy;
+                const statusEl = document.getElementById('detail-session-status');
+                statusEl.textContent = session.status;
+                statusEl.className = `detail-status ${session.status}`;
+
+                // Update info tab
+                document.getElementById('detail-id').textContent = session.id;
+                document.getElementById('detail-name').textContent = session.name || '-';
+                document.getElementById('detail-type').textContent = session.type;
+                document.getElementById('detail-market').textContent = session.market;
+                document.getElementById('detail-strategy').textContent = session.strategy;
+                document.getElementById('detail-status').textContent = session.status;
+
+                // Timing
+                document.getElementById('detail-created').textContent = formatDateTime(session.created_at);
+                document.getElementById('detail-started').textContent = session.started_at ? formatDateTime(session.started_at) : '-';
+                document.getElementById('detail-completed').textContent = session.completed_at ? formatDateTime(session.completed_at) : '-';
+                document.getElementById('detail-duration').textContent = session.started_at ?
+                    formatDurationFromDates(session.started_at, session.completed_at || new Date().toISOString()) : '-';
+
+                // Strategy params
+                const params = session.strategy_params ? JSON.parse(session.strategy_params) : {};
+                document.getElementById('detail-params').textContent = JSON.stringify(params, null, 2);
+
+                // Notes
+                document.getElementById('detail-notes').value = session.notes || '';
+
+            } catch (error) {
+                console.error('[Detail] Failed to load session:', error);
+                showErrorToast('Error', 'Failed to load session details');
+            }
+        }
+
+        // Format date/time
+        function formatDateTime(isoString) {
+            if (!isoString) return '-';
+            const d = new Date(isoString);
+            return d.toLocaleString();
+        }
+
+        // Format duration from two dates
+        function formatDurationFromDates(start, end) {
+            const ms = new Date(end) - new Date(start);
+            const seconds = Math.floor(ms / 1000);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+            if (minutes > 0) return `${minutes}m ${secs}s`;
+            return `${secs}s`;
+        }
+
+        // Load session metrics
+        async function loadSessionMetrics(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/metrics`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error('Failed to load metrics');
+
+                const data = await response.json();
+                const m = data.metrics || {};
+
+                // Update metric cards
+                const pnl = m.total_pnl || 0;
+                const pnlEl = document.getElementById('metric-pnl');
+                pnlEl.textContent = `$${pnl.toFixed(2)}`;
+                pnlEl.className = `metric-card-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+
+                document.getElementById('metric-trades').textContent = m.total_trades || 0;
+                document.getElementById('metric-winrate').textContent = `${(m.win_rate || 0).toFixed(1)}%`;
+                document.getElementById('metric-avgwin').textContent = `$${(m.avg_win || 0).toFixed(2)}`;
+                document.getElementById('metric-avgloss').textContent = `$${(m.avg_loss || 0).toFixed(2)}`;
+                document.getElementById('metric-drawdown').textContent = `$${(m.max_drawdown || 0).toFixed(2)}`;
+                document.getElementById('metric-pf').textContent = (m.profit_factor || 0).toFixed(2);
+                document.getElementById('metric-sharpe').textContent = (m.sharpe_ratio || 0).toFixed(2);
+
+                // Load equity curve
+                await loadEquityCurve(sessionId);
+
+            } catch (error) {
+                console.error('[Detail] Failed to load metrics:', error);
+            }
+        }
+
+        // Load equity curve chart
+        async function loadEquityCurve(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/equity`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error('Failed to load equity curve');
+
+                const data = await response.json();
+                const points = data.equity || [];
+
+                // Create/update chart
+                const container = document.getElementById('detail-equity-chart');
+                if (!container) return;
+
+                if (detailEquityChart) {
+                    detailEquityChart.remove();
+                }
+
+                detailEquityChart = LightweightCharts.createChart(container, {
+                    width: container.clientWidth,
+                    height: 250,
+                    layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e' },
+                    grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+                    timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.1)' },
+                    rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
+                });
+
+                const lineSeries = detailEquityChart.addLineSeries({
+                    color: '#58a6ff',
+                    lineWidth: 2
+                });
+
+                if (points.length > 0) {
+                    lineSeries.setData(points.map(p => ({
+                        time: Math.floor(p.timestamp / 1000),
+                        value: p.equity
+                    })));
+                }
+
+            } catch (error) {
+                console.error('[Detail] Failed to load equity curve:', error);
+            }
+        }
+
+        // Load session trades with pagination
+        async function loadSessionTrades(sessionId, page = 1) {
+            try {
+                tradesCurrentPage = page;
+                const offset = (page - 1) * TRADES_PER_PAGE;
+
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades?limit=${TRADES_PER_PAGE}&offset=${offset}`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error('Failed to load trades');
+
+                const data = await response.json();
+                const trades = data.trades || [];
+                const total = data.count || 0;
+
+                const tbody = document.getElementById('detail-trades-body');
+                if (trades.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="no-data">No trades yet</td></tr>';
+                } else {
+                    tbody.innerHTML = trades.map(t => `
+                        <tr>
+                            <td>${new Date(t.timestamp).toLocaleString()}</td>
+                            <td>${t.action}</td>
+                            <td class="${t.side.toLowerCase()}">${t.side}</td>
+                            <td>$${t.price.toFixed(2)}</td>
+                            <td>${t.size}</td>
+                            <td class="${(t.pnl || 0) >= 0 ? 'buy' : 'sell'}">${t.pnl ? `$${t.pnl.toFixed(2)}` : '-'}</td>
+                            <td>${t.reason || '-'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Update pagination
+                const totalPages = Math.ceil(total / TRADES_PER_PAGE);
+                document.getElementById('trades-page-info').textContent = `Page ${page} of ${totalPages || 1}`;
+
+            } catch (error) {
+                console.error('[Detail] Failed to load trades:', error);
+            }
+        }
+
+        // Pagination controls
+        function loadTradesPage(direction) {
+            if (!currentDetailSessionId) return;
+            const newPage = direction === 'next' ? tradesCurrentPage + 1 : Math.max(1, tradesCurrentPage - 1);
+            loadSessionTrades(currentDetailSessionId, newPage);
+        }
+
+        // Load session logs
+        async function loadSessionLogs(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=100`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) throw new Error('Failed to load logs');
+
+                const data = await response.json();
+                const logs = data.logs || [];
+
+                const container = document.getElementById('detail-logs-container');
+                if (logs.length === 0) {
+                    container.innerHTML = '<div class="log-line log-info">No logs yet</div>';
+                } else {
+                    container.innerHTML = logs.map(log => {
+                        const levelClass = `log-${(log.level || 'info').toLowerCase()}`;
+                        return `<div class="log-line ${levelClass}">[${new Date(log.timestamp).toLocaleTimeString()}] [${log.level || 'INFO'}] ${log.message}</div>`;
+                    }).join('');
+
+                    // Auto-scroll to bottom
+                    if (document.getElementById('logs-autoscroll-check').checked) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+
+            } catch (error) {
+                console.error('[Detail] Failed to load logs:', error);
+                document.getElementById('detail-logs-container').innerHTML =
+                    '<div class="log-line log-error">Failed to load logs</div>';
+            }
+        }
+
+        // Filter logs by level
+        function filterLogs() {
+            // Re-load logs with filter (API should support level filter)
+            if (currentDetailSessionId) {
+                loadSessionLogs(currentDetailSessionId);
+            }
+        }
+
+        // Toggle live log streaming
+        function toggleLogStream() {
+            const btn = document.getElementById('btn-logs-stream');
+
+            if (logStreamWs) {
+                // Unsubscribe and close
+                if (logStreamWs.readyState === WebSocket.OPEN) {
+                    logStreamWs.send(JSON.stringify({
+                        type: 'unsubscribe',
+                        channel: 'logs',
+                        session_id: currentDetailSessionId
+                    }));
+                }
+                logStreamWs.close();
+                logStreamWs = null;
+                btn.textContent = '▶ Start Stream';
+                btn.classList.remove('streaming');
+            } else {
+                // Connect to main WebSocket and subscribe to logs
+                logStreamWs = new WebSocket(CONTROL_WS_URL);
+
+                logStreamWs.onopen = () => {
+                    btn.textContent = '⏹ Stop Stream';
+                    btn.classList.add('streaming');
+                    // Subscribe to logs for this session
+                    logStreamWs.send(JSON.stringify({
+                        type: 'subscribe',
+                        channel: 'logs',
+                        session_id: currentDetailSessionId
+                    }));
+                };
+
+                logStreamWs.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        // Only process log messages
+                        if (msg.type === 'log' && msg.session_id === currentDetailSessionId) {
+                            const container = document.getElementById('detail-logs-container');
+                            const levelClass = `log-${(msg.level || 'info').toLowerCase()}`;
+                            const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                            container.innerHTML += `<div class="log-line ${levelClass}">[${timestamp}] [${msg.level || 'INFO'}] ${msg.message}</div>`;
+
+                            if (document.getElementById('logs-autoscroll-check').checked) {
+                                container.scrollTop = container.scrollHeight;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore non-JSON or other messages
+                    }
+                };
+
+                logStreamWs.onclose = () => {
+                    btn.textContent = '▶ Start Stream';
+                    btn.classList.remove('streaming');
+                    logStreamWs = null;
+                };
+
+                logStreamWs.onerror = (err) => {
+                    console.error('[LogStream] WebSocket error:', err);
+                    btn.textContent = '▶ Start Stream';
+                    btn.classList.remove('streaming');
+                };
+            }
+        }
+
+        // Save session notes
+        async function saveSessionNotes() {
+            if (!currentDetailSessionId) return;
+
+            const notes = document.getElementById('detail-notes').value;
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${currentDetailSessionId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CONTROL_API_KEY
+                    },
+                    body: JSON.stringify({ notes })
+                });
+
+                if (!response.ok) throw new Error('Failed to save notes');
+
+                showSessionNotification('Notes saved');
+
+            } catch (error) {
+                console.error('[Detail] Failed to save notes:', error);
+                showErrorToast('Error', 'Failed to save notes');
+            }
+        }
+
+        // View current session on chart
+        function viewSessionOnChart() {
+            if (currentDetailSessionId) {
+                viewSession(currentDetailSessionId);
+                closeSessionDetailModal();
+            }
+        }
+
+        // Clone current session
+        async function cloneCurrentSession() {
+            if (currentDetailSessionId) {
+                await cloneSession(currentDetailSessionId);
+                closeSessionDetailModal();
+            }
+        }
+
+        // Session card clicks now handled inline via onclick attribute in renderSessionCard()
+        // Old modal-based click handler removed - using inline detail view instead
+        // ============= END SESSION DETAIL MODAL =============
 
         // Start session polling
         function startSessionPolling() {
@@ -4250,7 +5637,7 @@
                 // Initialize live market chart
                 if (!liveMarketChart) initLiveMarketChart();
                 await loadLiveMarketData();
-                liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
+                // Removed polling - using WebSocket for real-time updates only
                 connectLiveMarketWebSocket();
 
                 // Clear trade overlays from chart
@@ -4274,7 +5661,7 @@
                 // Keep live market chart but add trade overlays
                 if (!liveMarketChart) initLiveMarketChart();
                 await loadLiveMarketData();
-                liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
+                // Removed polling - using WebSocket for real-time updates only
                 connectLiveMarketWebSocket();
 
                 // Show equity curve container and trade overlay legend
@@ -4590,15 +5977,19 @@
             });
             resizeObserver.observe(container);
 
-            // Initial resize to fill container
-            setTimeout(() => {
-                if (container.clientWidth > 0 && container.clientHeight > 0) {
-                    liveMarketChart.applyOptions({
-                        width: container.clientWidth,
-                        height: container.clientHeight
-                    });
+            // Initial resize to fill container - retry multiple times for mobile layout
+            const retryResize = (attempts = 0) => {
+                if (attempts >= 5) return; // Max 5 attempts
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                if (w > 0 && h > 0) {
+                    liveMarketChart.applyOptions({ width: w, height: h });
+                } else {
+                    // Container not ready, retry after delay
+                    setTimeout(() => retryResize(attempts + 1), 100 * (attempts + 1));
                 }
-            }, 100);
+            };
+            setTimeout(() => retryResize(0), 50);
 
             // Subscribe to visible range changes for lazy loading
             liveMarketChart.timeScale().subscribeVisibleLogicalRangeChange((logicalRange) => {
@@ -7630,9 +9021,7 @@
             initLiveMarketChart();
             await loadLiveMarketData();
 
-            // Start auto-refresh (fallback, WebSocket is primary)
-            liveMarketRefreshInterval = setInterval(loadLiveMarketData, 300000);
-            // Connect WebSocket for real-time updates
+            // Connect WebSocket for real-time updates (polling removed - WebSocket only)
             connectLiveMarketWebSocket();
         })();
 
