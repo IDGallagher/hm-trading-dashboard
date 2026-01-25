@@ -105,7 +105,9 @@
         .trading-main {
             display: grid;
             grid-template-columns: 1fr 300px;
-            height: calc(100vh - 120px); /* Fill viewport minus header and tabs */
+            height: 55vh; /* Fixed height so bots section is visible below */
+            min-height: 400px;
+            max-height: 550px;
             gap: 1px;
             background: #30363d;
         }
@@ -113,16 +115,16 @@
         @media (max-width: 768px) {
             .trading-main {
                 grid-template-columns: 1fr;
-                grid-template-rows: 300px auto;
+                grid-template-rows: 350px auto;
                 height: auto;
-                min-height: calc(100vh - 120px);
+                min-height: 400px;
+                max-height: none;
             }
         }
         .chart-section {
             background: #0d1117;
             display: flex;
             flex-direction: column;
-            max-height: 350px; /* Reduced height so bots are above fold */
             min-height: 0;
             overflow: hidden;
             position: relative;
@@ -130,9 +132,8 @@
         /* Mobile: Ensure chart section has explicit height */
         @media (max-width: 768px) {
             .chart-section {
-                min-height: 250px;
-                height: 300px;
-                max-height: 300px;
+                min-height: 300px;
+                height: 350px;
             }
         }
         .chart-toolbar {
@@ -242,13 +243,6 @@
             flex: 1 1 auto;
             min-height: 0;
             position: relative;
-        }
-        /* Mobile: Ensure chart container has explicit dimensions */
-        @media (max-width: 768px) {
-            .chart-container-pro {
-                min-height: 300px;
-                height: 300px;
-            }
         }
         #live-price-chart-container {
             position: absolute;
@@ -378,6 +372,8 @@
             -webkit-overflow-scrolling: touch;
             position: relative;
             z-index: 100; /* Ensure tab bar is above chart canvas */
+            margin: 0;
+            padding: 0;
         }
         .tab-bar::-webkit-scrollbar { height: 0; }
         .tab-item {
@@ -393,7 +389,7 @@
         .tab-item:hover { color: #c9d1d9; background: rgba(255,255,255,0.05); }
         .tab-item.active { color: #00d4ff; border-bottom-color: #00d4ff; }
         .tab-count { opacity: 0.7; }
-        .tab-content { display: none; background: #0d1117; min-height: 200px; }
+        .tab-content { display: none; background: #0d1117; min-height: 200px; margin: 0; padding: 0; }
         .tab-content.active { display: block; }
 
         /* === YOUR BOTS TAB === */
