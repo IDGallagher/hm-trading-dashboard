@@ -5044,8 +5044,7 @@
                 /book.*insert/i,
                 /book.*delete/i,
                 /Received orderBookL2/i,
-                /DBClient.*Query executed/i,
-                /DBClient.*Executing query/i,
+                /DBClient/i,
                 /WebSocket.*ping/i,
                 /WebSocket.*pong/i,
                 /heartbeat/i
@@ -5055,6 +5054,8 @@
                 const msg = log.message || '';
                 // Always keep errors and warnings
                 if (log.level === 'ERROR' || log.level === 'WARN') return true;
+                // Filter out ALL debug messages
+                if (log.level === 'DEBUG') return false;
                 // Filter out verbose patterns
                 return !verbosePatterns.some(pattern => pattern.test(msg));
             });
