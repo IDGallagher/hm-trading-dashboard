@@ -2538,8 +2538,7 @@
         }
         .inline-detail-content {
             padding: 12px;
-            overflow-y: auto;
-            flex: 1;
+            /* No inner scrollbar - rely on page scroll */
         }
         .inline-detail-header {
             display: flex;
@@ -2597,49 +2596,88 @@
         }
         .inline-metric-value.positive { color: #3fb950; }
         .inline-metric-value.negative { color: #f85149; }
-        .inline-detail-tabs {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 12px;
-            border-bottom: 1px solid #30363d;
-            padding-bottom: 8px;
+        /* Two-column layout: Equity chart left, Trades right */
+        .inline-equity-trades-row {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 12px;
+            margin-bottom: 16px;
         }
-        .inline-tab {
-            background: transparent;
-            border: none;
+        @media (max-width: 768px) {
+            .inline-equity-trades-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        .inline-equity-section {
+            background: #161b22;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 200px;
+        }
+        .inline-equity-section h4 {
+            margin: 0 0 8px 0;
             color: #8b949e;
-            padding: 6px 12px;
-            cursor: pointer;
-            font-size: 12px;
-            border-radius: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
         }
-        .inline-tab:hover { background: #21262d; }
-        .inline-tab.active {
-            background: #21262d;
-            color: #f0f6fc;
+        .inline-trades-section {
+            background: #161b22;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: 250px;
         }
-        .inline-tab-content {
-            max-height: 300px;
-            overflow-y: auto;
+        .inline-trades-section h4 {
+            margin: 0;
+            padding: 10px 12px;
+            color: #8b949e;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
         }
-        .inline-trades-list, .inline-logs-list {
+        .inline-trades-list {
             font-family: monospace;
             font-size: 11px;
+            overflow-y: auto;
+            flex: 1;
         }
         .inline-trade-row {
             display: grid;
-            grid-template-columns: 80px 50px 80px 60px 80px;
-            gap: 8px;
-            padding: 6px 8px;
+            grid-template-columns: 70px 45px 70px 50px 70px;
+            gap: 6px;
+            padding: 5px 10px;
             border-bottom: 1px solid #21262d;
         }
-        .inline-trade-row:nth-child(even) { background: #161b22; }
+        .inline-trade-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+        /* Logs section below - no inner scrollbar */
+        .inline-logs-section {
+            background: #161b22;
+            border-radius: 8px;
+        }
+        .inline-logs-section h4 {
+            margin: 0;
+            padding: 10px 12px;
+            color: #8b949e;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #30363d;
+        }
+        .inline-logs-list {
+            font-family: monospace;
+            font-size: 11px;
+            padding: 8px 12px;
+        }
         .inline-log-row {
-            padding: 4px 8px;
+            padding: 4px 0;
             border-bottom: 1px solid #21262d;
+            word-break: break-word;
         }
+        .inline-log-row:last-child { border-bottom: none; }
         .inline-log-row.error { color: #f85149; }
         .inline-log-row.warn { color: #d29922; }
+        .inline-log-row.info { color: #58a6ff; }
         .inline-empty {
             color: #6e7681;
             text-align: center;
@@ -2980,30 +3018,26 @@
                     </div>
                 </div>
 
-                <!-- Tabs for Trades/Logs -->
-                <div class="inline-detail-tabs">
-                    <button class="inline-tab active" data-tab="trades" onclick="switchInlineTab('trades')">Trades</button>
-                    <button class="inline-tab" data-tab="logs" onclick="switchInlineTab('logs')">Logs</button>
-                    <button class="inline-tab" data-tab="equity" onclick="switchInlineTab('equity')">Equity</button>
-                </div>
-
-                <!-- Trades Tab -->
-                <div class="inline-tab-content" id="inline-tab-trades">
-                    <div class="inline-trades-list" id="inline-trades-list">
-                        <div class="inline-empty">No trades yet</div>
+                <!-- Equity Chart (left) + Trades (right) -->
+                <div class="inline-equity-trades-row">
+                    <div class="inline-equity-section">
+                        <h4>Equity Curve</h4>
+                        <div id="inline-equity-chart" style="height: 180px;"></div>
+                    </div>
+                    <div class="inline-trades-section">
+                        <h4>Recent Trades</h4>
+                        <div class="inline-trades-list" id="inline-trades-list">
+                            <div class="inline-empty">No trades yet</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Logs Tab -->
-                <div class="inline-tab-content" id="inline-tab-logs" style="display: none;">
+                <!-- Logs below (extends down, no inner scrollbar) -->
+                <div class="inline-logs-section">
+                    <h4>Session Logs</h4>
                     <div class="inline-logs-list" id="inline-logs-list">
                         <div class="inline-empty">No logs available</div>
                     </div>
-                </div>
-
-                <!-- Equity Tab -->
-                <div class="inline-tab-content" id="inline-tab-equity" style="display: none;">
-                    <div id="inline-equity-chart" style="height: 200px;"></div>
                 </div>
             </div>
         </div>
@@ -4202,14 +4236,31 @@
         function initSessionSubTabs() {
             document.querySelectorAll('.session-sub-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
+                    // ALWAYS hide inline detail when switching tabs (fixes contamination bug)
+                    document.getElementById('inline-session-detail').style.display = 'none';
+                    currentInlineSessionId = null;
+
+                    // Clear chart markers when leaving detail view
+                    if (liveMarketCandleSeries) {
+                        liveMarketCandleSeries.setMarkers([]);
+                    }
+
                     // Update active tab
                     document.querySelectorAll('.session-sub-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
 
-                    // Update active panel
+                    // Update active panel - explicitly set display to prevent state pollution
                     const panelId = tab.dataset.panel;
-                    document.querySelectorAll('.session-panel').forEach(p => p.classList.remove('active'));
-                    document.getElementById(`panel-${panelId}`).classList.add('active');
+                    document.querySelectorAll('.session-panel').forEach(p => {
+                        p.classList.remove('active');
+                        p.style.display = 'none';
+                    });
+                    const targetPanel = document.getElementById(`panel-${panelId}`);
+                    targetPanel.classList.add('active');
+                    targetPanel.style.display = 'flex';
+
+                    // Reset previousPanelId to current panel
+                    previousPanelId = `panel-${panelId}`;
                 });
             });
         }
@@ -4494,9 +4545,12 @@
             // Load metrics
             await loadInlineMetrics(sessionId);
 
-            // Load trades tab by default
-            switchInlineTab('trades');
-            await loadInlineTrades(sessionId);
+            // Load ALL sections at once (no tabs anymore)
+            await Promise.all([
+                loadInlineTrades(sessionId),
+                loadInlineLogs(sessionId),
+                loadInlineEquity(sessionId)
+            ]);
 
             // Switch chart to session's market if different
             const currentMarket = document.getElementById('market-selector').value.toLowerCase();
@@ -4716,12 +4770,21 @@
 
             const markers = [];
 
-            // Helper to find closest candle to a timestamp (timestamp in ms)
-            const findClosestCandle = (timestampMs) => {
+            // Helper to find the candle that CONTAINS a timestamp
+            // (i.e., trade occurred during this candle's time window)
+            const findContainingCandle = (timestampMs) => {
                 const timestampSec = Math.floor(timestampMs / 1000);
-                return lastCandleData.reduce((prev, curr) => {
-                    return Math.abs(curr.time - timestampSec) < Math.abs(prev.time - timestampSec) ? curr : prev;
-                });
+                // Sort candles by time to ensure correct order
+                const sortedCandles = [...lastCandleData].sort((a, b) => a.time - b.time);
+
+                // Find the candle where: candle.time <= timestamp < next_candle.time
+                for (let i = sortedCandles.length - 1; i >= 0; i--) {
+                    if (sortedCandles[i].time <= timestampSec) {
+                        return sortedCandles[i];
+                    }
+                }
+                // If trade is before all candles, return first candle
+                return sortedCandles[0];
             };
 
             // Group trades by timestamp to pair OPEN/CLOSE
@@ -4733,7 +4796,7 @@
             });
 
             trades.forEach(trade => {
-                const candle = findClosestCandle(trade.timestamp);
+                const candle = findContainingCandle(trade.timestamp);
                 const isEntry = trade.action === 'OPEN';
                 const isLong = trade.side === 'BUY';
 
