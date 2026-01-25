@@ -4993,9 +4993,10 @@
                     if (trades.length === 0) {
                         container.innerHTML = '<div class="inline-empty">No trades yet</div>';
                     } else {
+                        // Note: t.timestamp is Unix seconds, multiply by 1000 for JavaScript Date
                         container.innerHTML = trades.slice(-50).reverse().map(t => `
                             <div class="inline-trade-row">
-                                <span>${new Date(t.timestamp).toLocaleTimeString()}</span>
+                                <span>${new Date(t.timestamp * 1000).toLocaleTimeString()}</span>
                                 <span style="color: ${t.side === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
                                 <span>$${parseFloat(t.price).toFixed(2)}</span>
                                 <span>${t.size}</span>
@@ -5140,8 +5141,8 @@
 
             // Helper to find the candle that CONTAINS a timestamp
             // (i.e., trade occurred during this candle's time window)
-            const findContainingCandle = (timestampMs) => {
-                const timestampSec = Math.floor(timestampMs / 1000);
+            // Note: trade.timestamp is Unix seconds, candle.time is also Unix seconds
+            const findContainingCandle = (timestampSec) => {
                 // Sort candles by time to ensure correct order
                 const sortedCandles = [...lastCandleData].sort((a, b) => a.time - b.time);
 
@@ -5444,9 +5445,10 @@
                 if (trades.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" class="no-data">No trades yet</td></tr>';
                 } else {
+                    // Note: t.timestamp is Unix seconds, multiply by 1000 for JavaScript Date
                     tbody.innerHTML = trades.map(t => `
                         <tr>
-                            <td>${new Date(t.timestamp).toLocaleString()}</td>
+                            <td>${new Date(t.timestamp * 1000).toLocaleString()}</td>
                             <td>${t.action}</td>
                             <td class="${t.side.toLowerCase()}">${t.side}</td>
                             <td>$${t.price.toFixed(2)}</td>
