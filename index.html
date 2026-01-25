@@ -2566,7 +2566,10 @@
         }
         .inline-detail-content {
             padding: 12px;
-            /* No inner scrollbar - rely on page scroll */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            gap: 12px;
         }
         .inline-detail-header {
             display: flex;
@@ -2686,10 +2689,14 @@
             100% { background: transparent; }
         }
 
-        /* Logs section below - no inner scrollbar */
+        /* Logs section - flex to fill remaining space */
         .inline-logs-section {
             background: #161b22;
             border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-height: 200px;
         }
         .inline-logs-section h4 {
             margin: 0;
@@ -2698,11 +2705,15 @@
             font-size: 11px;
             text-transform: uppercase;
             border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
         }
         .inline-logs-list {
             font-family: monospace;
             font-size: 11px;
             padding: 8px 12px;
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 400px;
         }
         .inline-log-row {
             padding: 4px 0;
@@ -2713,6 +2724,13 @@
         .inline-log-row.error { color: #f85149; }
         .inline-log-row.warn { color: #d29922; }
         .inline-log-row.info { color: #58a6ff; }
+        .inline-log-row.new-log {
+            animation: flash-new-log 1s ease-out;
+        }
+        @keyframes flash-new-log {
+            0% { background: rgba(88, 166, 255, 0.3); }
+            100% { background: transparent; }
+        }
         .inline-empty {
             color: #6e7681;
             text-align: center;
@@ -5018,30 +5036,98 @@
         }
 
         // Load logs for inline detail
+        // Filter out verbose/noisy log messages (order book, debug spam)
+        function filterVerboseLogs(logs) {
+            const verbosePatterns = [
+                /orderBook/i,
+                /book.*update/i,
+                /book.*insert/i,
+                /book.*delete/i,
+                /Received orderBookL2/i,
+                /DBClient.*Query executed/i,
+                /DBClient.*Executing query/i,
+                /WebSocket.*ping/i,
+                /WebSocket.*pong/i,
+                /heartbeat/i
+            ];
+
+            return logs.filter(log => {
+                const msg = log.message || '';
+                // Always keep errors and warnings
+                if (log.level === 'ERROR' || log.level === 'WARN') return true;
+                // Filter out verbose patterns
+                return !verbosePatterns.some(pattern => pattern.test(msg));
+            });
+        }
+
         async function loadInlineLogs(sessionId) {
             const container = document.getElementById('inline-logs-list');
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=100`, {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=200`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    const logs = data.logs || [];
+                    let logs = data.logs || [];
+
+                    // Filter out verbose order book and debug messages
+                    logs = filterVerboseLogs(logs);
+
                     if (logs.length === 0) {
                         container.innerHTML = '<div class="inline-empty">No logs available</div>';
                     } else {
-                        container.innerHTML = logs.slice(-50).reverse().map(l => `
+                        // Show most recent logs at bottom (chronological order)
+                        container.innerHTML = logs.slice(-100).map(l => `
                             <div class="inline-log-row ${l.level?.toLowerCase()}">
                                 <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
                                 <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
                                 ${l.message}
                             </div>
                         `).join('');
+                        // Auto-scroll to bottom (latest logs)
+                        container.scrollTop = container.scrollHeight;
                     }
                 }
             } catch (err) {
                 container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
             }
+        }
+
+        // Append new log entries and auto-scroll
+        function appendInlineLogs(newLogs) {
+            const container = document.getElementById('inline-logs-list');
+            if (!container || !newLogs || newLogs.length === 0) return;
+
+            // Filter verbose logs
+            const filteredLogs = filterVerboseLogs(newLogs);
+            if (filteredLogs.length === 0) return;
+
+            // Check if user has scrolled up (not at bottom)
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+
+            // Remove "No logs" message if present
+            const emptyMsg = container.querySelector('.inline-empty');
+            if (emptyMsg) emptyMsg.remove();
+
+            // Append new logs
+            const html = filteredLogs.map(l => `
+                <div class="inline-log-row ${l.level?.toLowerCase()} new-log">
+                    <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                    <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
+                    ${l.message}
+                </div>
+            `).join('');
+            container.insertAdjacentHTML('beforeend', html);
+
+            // Auto-scroll if user was at bottom
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // Remove highlight after animation
+            setTimeout(() => {
+                container.querySelectorAll('.new-log').forEach(el => el.classList.remove('new-log'));
+            }, 1000);
         }
 
         // Load equity curve for inline detail
@@ -5129,6 +5215,7 @@
         }
 
         // Display session trades as markers on the chart
+        // OPTIMIZED: Sort candles once, use binary search, limit markers
         function displaySessionTrades(tradeData) {
             // Store trade data for re-rendering when period changes
             currentSessionTradeData = tradeData;
@@ -5144,34 +5231,36 @@
                 return;
             }
 
-            const markers = [];
+            // OPTIMIZATION 1: Sort candles ONCE (not per trade)
+            const sortedCandles = [...lastCandleData].sort((a, b) => a.time - b.time);
+            const candleTimes = sortedCandles.map(c => c.time);
 
-            // Helper to find the candle that CONTAINS a timestamp
-            // (i.e., trade occurred during this candle's time window)
-            // Note: trade.timestamp is Unix seconds, candle.time is also Unix seconds
+            // OPTIMIZATION 2: Binary search for candle lookup
             const findContainingCandle = (timestampSec) => {
-                // Sort candles by time to ensure correct order
-                const sortedCandles = [...lastCandleData].sort((a, b) => a.time - b.time);
-
-                // Find the candle where: candle.time <= timestamp < next_candle.time
-                for (let i = sortedCandles.length - 1; i >= 0; i--) {
-                    if (sortedCandles[i].time <= timestampSec) {
-                        return sortedCandles[i];
+                // Binary search to find largest candle.time <= timestampSec
+                let left = 0, right = candleTimes.length - 1;
+                let result = 0;
+                while (left <= right) {
+                    const mid = Math.floor((left + right) / 2);
+                    if (candleTimes[mid] <= timestampSec) {
+                        result = mid;
+                        left = mid + 1;
+                    } else {
+                        right = mid - 1;
                     }
                 }
-                // If trade is before all candles, return first candle
-                return sortedCandles[0];
+                return sortedCandles[result];
             };
 
-            // Group trades by timestamp to pair OPEN/CLOSE
-            const tradesByTime = {};
-            trades.forEach(trade => {
-                const key = trade.timestamp;
-                if (!tradesByTime[key]) tradesByTime[key] = [];
-                tradesByTime[key].push(trade);
-            });
+            // OPTIMIZATION 3: Limit to most recent 200 trades for performance
+            const MAX_MARKERS = 200;
+            const tradesToShow = trades.length > MAX_MARKERS
+                ? trades.slice(-MAX_MARKERS)
+                : trades;
 
-            trades.forEach(trade => {
+            const markers = [];
+
+            tradesToShow.forEach(trade => {
                 const candle = findContainingCandle(trade.timestamp);
                 const isEntry = trade.action === 'OPEN';
                 const isLong = trade.side === 'BUY';
@@ -5201,7 +5290,9 @@
             // Sort markers by time (required by Lightweight Charts)
             markers.sort((a, b) => a.time - b.time);
             liveMarketCandleSeries.setMarkers(markers);
-            console.log(`[Sessions] Displayed ${markers.length} trade markers on chart`);
+
+            const limitNote = trades.length > MAX_MARKERS ? ` (limited from ${trades.length})` : '';
+            console.log(`[Sessions] Displayed ${markers.length} trade markers on chart${limitNote}`);
         }
 
         // Clear session trade markers
