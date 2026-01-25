@@ -3967,6 +3967,162 @@
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
+        // SESSION DATA API HELPERS (Phase 3 Migration)
+        // Try new DB endpoints first, fall back to file-based
+        // ==========================================
+
+        /**
+         * Fetch session trades - tries DB endpoint first, falls back to file-based
+         * @param {string} sessionId - Session UUID
+         * @param {object} options - { limit, offset }
+         * @returns {object} { success, trades, count, total, source }
+         */
+        async function fetchSessionTrades(sessionId, options = {}) {
+            const { limit = 1000, offset = 0 } = options;
+            const headers = { 'x-api-key': CONTROL_API_KEY };
+
+            // Try new DB endpoint first
+            try {
+                const dbResponse = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/trades/db?limit=${limit}&offset=${offset}`,
+                    { headers }
+                );
+                if (dbResponse.ok) {
+                    const data = await dbResponse.json();
+                    // Check if DB has data
+                    if (data.trades && data.trades.length > 0) {
+                        // Map field names: direction->side, realized_pnl->pnl for compatibility
+                        const mappedTrades = data.trades.map(t => ({
+                            ...t,
+                            side: t.direction,
+                            pnl: t.realized_pnl
+                        }));
+                        return { success: true, trades: mappedTrades, count: data.count, total: data.total, source: 'db' };
+                    }
+                }
+            } catch (e) {
+                console.log('[fetchSessionTrades] DB endpoint failed, trying file-based:', e.message);
+            }
+
+            // Fall back to file-based endpoint
+            try {
+                const fileResponse = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/trades?limit=${limit}&offset=${offset}`,
+                    { headers }
+                );
+                if (fileResponse.ok) {
+                    const data = await fileResponse.json();
+                    return { success: true, trades: data.trades || [], count: data.count || 0, total: data.count || 0, source: 'file' };
+                }
+            } catch (e) {
+                console.error('[fetchSessionTrades] File endpoint failed:', e.message);
+            }
+
+            return { success: false, trades: [], count: 0, total: 0, source: 'none' };
+        }
+
+        /**
+         * Fetch session equity curve - tries DB endpoint first, falls back to file-based
+         * @param {string} sessionId - Session UUID
+         * @param {object} options - { limit }
+         * @returns {object} { success, equity, count, final_equity, source }
+         */
+        async function fetchSessionEquity(sessionId, options = {}) {
+            const { limit = 1000 } = options;
+            const headers = { 'x-api-key': CONTROL_API_KEY };
+
+            // Try new DB endpoint first
+            try {
+                const dbResponse = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/equity-curve?limit=${limit}`,
+                    { headers }
+                );
+                if (dbResponse.ok) {
+                    const data = await dbResponse.json();
+                    // Check if DB has data
+                    if (data.equity_curve && data.equity_curve.length > 0) {
+                        return {
+                            success: true,
+                            equity: data.equity_curve,
+                            count: data.count,
+                            final_equity: data.final_equity,
+                            max_drawdown: data.max_drawdown,
+                            source: 'db'
+                        };
+                    }
+                }
+            } catch (e) {
+                console.log('[fetchSessionEquity] DB endpoint failed, trying file-based:', e.message);
+            }
+
+            // Fall back to file-based endpoint
+            try {
+                const fileResponse = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/equity`,
+                    { headers }
+                );
+                if (fileResponse.ok) {
+                    const data = await fileResponse.json();
+                    return {
+                        success: true,
+                        equity: data.equity || [],
+                        count: data.count || 0,
+                        final_equity: data.final_equity || 0,
+                        source: 'file'
+                    };
+                }
+            } catch (e) {
+                console.error('[fetchSessionEquity] File endpoint failed:', e.message);
+            }
+
+            return { success: false, equity: [], count: 0, final_equity: 0, source: 'none' };
+        }
+
+        /**
+         * Fetch session positions - new DB endpoint only
+         * @param {string} sessionId - Session UUID
+         * @returns {object} { success, positions, count }
+         */
+        async function fetchSessionPositions(sessionId) {
+            const headers = { 'x-api-key': CONTROL_API_KEY };
+            try {
+                const response = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/positions`,
+                    { headers }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    return { success: true, positions: data.positions || [], count: data.count || 0 };
+                }
+            } catch (e) {
+                console.error('[fetchSessionPositions] Failed:', e.message);
+            }
+            return { success: false, positions: [], count: 0 };
+        }
+
+        /**
+         * Fetch session trade summary - new DB endpoint only
+         * @param {string} sessionId - Session UUID
+         * @returns {object} { success, summary }
+         */
+        async function fetchSessionTradeSummary(sessionId) {
+            const headers = { 'x-api-key': CONTROL_API_KEY };
+            try {
+                const response = await fetch(
+                    `${CONTROL_API_URL}/sessions/${sessionId}/trades/summary`,
+                    { headers }
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    return { success: true, summary: data.summary };
+                }
+            } catch (e) {
+                console.error('[fetchSessionTradeSummary] Failed:', e.message);
+            }
+            return { success: false, summary: null };
+        }
+
+        // ==========================================
         // SESSION MANAGEMENT (Phase 2)
         // ==========================================
 
@@ -4779,12 +4935,10 @@
 
             // Load trades onto chart (directly, don't open modal)
             try {
-                const tradesResponse = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (tradesResponse.ok) {
-                    const tradesData = await tradesResponse.json();
-                    displaySessionTrades(tradesData);
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionTrades(sessionId);
+                if (result.success) {
+                    displaySessionTrades({ trades: result.trades, count: result.count });
                 }
             } catch (err) {
                 console.error('[Sessions] Failed to load trades for chart:', err);
@@ -4832,12 +4986,10 @@
         async function loadInlineTrades(sessionId) {
             const container = document.getElementById('inline-trades-list');
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const trades = data.trades || [];
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionTrades(sessionId, { limit: 100 });
+                if (result.success) {
+                    const trades = result.trades || [];
                     if (trades.length === 0) {
                         container.innerHTML = '<div class="inline-empty">No trades yet</div>';
                     } else {
@@ -4887,12 +5039,10 @@
         // Load equity curve for inline detail
         async function loadInlineEquity(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/equity`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const equity = data.equity || [];
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionEquity(sessionId);
+                if (result.success) {
+                    const equity = result.equity || [];
                     if (equity.length > 0) {
                         // Create mini equity chart
                         const container = document.getElementById('inline-equity-chart');
@@ -4944,18 +5094,15 @@
             currentViewedSessionId = sessionId;
 
             try {
-                // Fetch session trades
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionTrades(sessionId);
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to load session trades');
+                if (!result.success) {
+                    throw new Error('Failed to load session trades');
                 }
 
-                const data = await response.json();
-                console.log(`[Sessions] Loaded ${data.count} trades for session ${data.session_name}`);
+                const data = { trades: result.trades, count: result.count, session_name: sessionId };
+                console.log(`[Sessions] Loaded ${data.count} trades (source: ${result.source})`);
 
                 // Display trades on chart
                 displaySessionTrades(data);
@@ -5240,14 +5387,11 @@
         // Load equity curve chart
         async function loadEquityCurve(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/equity`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionEquity(sessionId);
+                if (!result.success) throw new Error('Failed to load equity curve');
 
-                if (!response.ok) throw new Error('Failed to load equity curve');
-
-                const data = await response.json();
-                const points = data.equity || [];
+                const points = result.equity || [];
 
                 // Create/update chart
                 const container = document.getElementById('detail-equity-chart');
@@ -5289,15 +5433,12 @@
                 tradesCurrentPage = page;
                 const offset = (page - 1) * TRADES_PER_PAGE;
 
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/trades?limit=${TRADES_PER_PAGE}&offset=${offset}`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                // Use new helper (tries DB first, falls back to file)
+                const result = await fetchSessionTrades(sessionId, { limit: TRADES_PER_PAGE, offset });
+                if (!result.success) throw new Error('Failed to load trades');
 
-                if (!response.ok) throw new Error('Failed to load trades');
-
-                const data = await response.json();
-                const trades = data.trades || [];
-                const total = data.count || 0;
+                const trades = result.trades || [];
+                const total = result.total || result.count || 0;
 
                 const tbody = document.getElementById('detail-trades-body');
                 if (trades.length === 0) {
