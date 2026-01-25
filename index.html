@@ -2678,6 +2678,13 @@
             border-bottom: 1px solid #21262d;
         }
         .inline-trade-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .inline-trade-row.new-trade {
+            animation: flash-new-trade 1s ease-out;
+        }
+        @keyframes flash-new-trade {
+            0% { background: rgba(63, 185, 80, 0.4); }
+            100% { background: transparent; }
+        }
 
         /* Logs section below - no inner scrollbar */
         .inline-logs-section {
@@ -7562,6 +7569,14 @@
                     console.log('[WS] Connected');
                     wsReconnectAttempts = 0;
                     updateWsStatus(true);
+
+                    // Subscribe to session trade updates (all sessions)
+                    tradeWebSocket.send(JSON.stringify({
+                        type: 'subscribe',
+                        channel: 'session_trades',
+                        session_id: 'all'
+                    }));
+                    console.log('[WS] Subscribed to session_trades');
                 };
 
                 tradeWebSocket.onmessage = (event) => {
@@ -7634,6 +7649,94 @@
                 case 'market_stopped':
                     // Keep feed visible but stop updates
                     break;
+
+                case 'session_trade':
+                    // Realtime session trade from C++ bot
+                    handleSessionTradeUpdate(message);
+                    break;
+            }
+        }
+
+        // Handle realtime session trade updates from WebSocket
+        function handleSessionTradeUpdate(message) {
+            const sessionId = message.session_id;
+            const trades = message.trades || [];
+
+            if (trades.length === 0) return;
+
+            console.log(`[WS] Session trade update: ${trades.length} trade(s) for session ${sessionId}`);
+
+            // Calculate P&L from the trades
+            const tradePnl = trades.reduce((sum, t) => sum + (parseFloat(t.realized_pnl) || 0), 0);
+
+            // Find and update session in sessionsData
+            let sessionFound = null;
+            ['running', 'scrapers', 'history'].forEach(category => {
+                const session = sessionsData[category].find(s => s.id === sessionId);
+                if (session) {
+                    sessionFound = session;
+                    // Update trade count and P&L
+                    session.trade_count = (parseInt(session.trade_count) || 0) + trades.length;
+                    session.total_pnl = (parseFloat(session.total_pnl) || 0) + tradePnl;
+                }
+            });
+
+            if (sessionFound) {
+                // Re-render the sessions panel if visible
+                const runningPanel = document.getElementById('panel-running');
+                if (runningPanel && runningPanel.style.display !== 'none') {
+                    renderSessionsPanel('running');
+                }
+            }
+
+            // If inline detail view is open for this session, update it
+            if (currentInlineSessionId === sessionId) {
+                // Update trade count display
+                const tradesEl = document.getElementById('inline-trades');
+                if (tradesEl) {
+                    const currentCount = parseInt(tradesEl.textContent) || 0;
+                    tradesEl.textContent = currentCount + trades.length;
+                }
+
+                // Update P&L display
+                const pnlEl = document.getElementById('inline-pnl');
+                if (pnlEl && sessionFound) {
+                    const pnl = parseFloat(sessionFound.total_pnl) || 0;
+                    pnlEl.textContent = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+                    pnlEl.className = `inline-metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+                }
+
+                // Prepend new trades to the inline trades list
+                const tradesContainer = document.getElementById('inline-trades-list');
+                if (tradesContainer) {
+                    const newTradesHtml = trades.map(t => `
+                        <div class="inline-trade-row new-trade">
+                            <span>${new Date((t.timestamp || Date.now()) * 1000).toLocaleTimeString()}</span>
+                            <span style="color: ${(t.direction || t.side) === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
+                            <span>$${parseFloat(t.price).toFixed(2)}</span>
+                            <span>${t.size}</span>
+                            <span class="${(parseFloat(t.realized_pnl) || 0) >= 0 ? 'positive' : 'negative'}">${(parseFloat(t.realized_pnl) || 0) >= 0 ? '+' : ''}${(parseFloat(t.realized_pnl) || 0).toFixed(2)}</span>
+                        </div>
+                    `).join('');
+
+                    // Check if "No trades yet" message is showing
+                    if (tradesContainer.querySelector('.inline-empty')) {
+                        tradesContainer.innerHTML = newTradesHtml;
+                    } else {
+                        tradesContainer.insertAdjacentHTML('afterbegin', newTradesHtml);
+                    }
+
+                    // Flash effect on new trades
+                    setTimeout(() => {
+                        tradesContainer.querySelectorAll('.new-trade').forEach(el => el.classList.remove('new-trade'));
+                    }, 1000);
+                }
+
+                // Update chart markers if trades are on the chart
+                if (currentSessionTradeData && liveMarketCandleSeries) {
+                    currentSessionTradeData.trades = [...(currentSessionTradeData.trades || []), ...trades];
+                    displaySessionTrades(currentSessionTradeData);
+                }
             }
         }
 
