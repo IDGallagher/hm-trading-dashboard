@@ -4299,6 +4299,26 @@
                     el.addEventListener('change', () => fetchHistoryPage(1));
                 }
             });
+
+            // Running sessions filter change handlers
+            ['filter-market-running', 'filter-strategy-running'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', () => {
+                        renderSessionList('running-sessions-list', filterRunningSessions(sessionsData.running), 'running');
+                    });
+                }
+            });
+
+            // Scrapers filter change handlers
+            ['filter-market-scrapers'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', () => {
+                        renderSessionList('scrapers-list', filterScraperSessions(sessionsData.scrapers), 'scrapers');
+                    });
+                }
+            });
         });
 
         // Fetch session health status
@@ -4344,10 +4364,32 @@
             // historyTotal is set by fetchHistoryPage(), don't override here
         }
 
+        // Filter running sessions by market and strategy
+        function filterRunningSessions(sessions) {
+            const marketFilter = document.getElementById('filter-market-running')?.value || '';
+            const strategyFilter = document.getElementById('filter-strategy-running')?.value || '';
+
+            return sessions.filter(s => {
+                if (marketFilter && s.market !== marketFilter) return false;
+                if (strategyFilter && s.strategy_id !== strategyFilter) return false;
+                return true;
+            });
+        }
+
+        // Filter scrapers by market
+        function filterScraperSessions(sessions) {
+            const marketFilter = document.getElementById('filter-market-scrapers')?.value || '';
+
+            return sessions.filter(s => {
+                if (marketFilter && s.market !== marketFilter) return false;
+                return true;
+            });
+        }
+
         // Render all session lists
         function renderAllSessions() {
-            renderSessionList('running-sessions-list', sessionsData.running, 'running');
-            renderSessionList('scrapers-list', sessionsData.scrapers, 'scrapers');
+            renderSessionList('running-sessions-list', filterRunningSessions(sessionsData.running), 'running');
+            renderSessionList('scrapers-list', filterScraperSessions(sessionsData.scrapers), 'scrapers');
             renderSessionList('history-list', sessionsData.history, 'history');
         }
 
