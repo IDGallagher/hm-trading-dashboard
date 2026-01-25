@@ -7,6 +7,10 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
         body {
             font-family: 'Roboto Mono', -apple-system, BlinkMacSystemFont, monospace;
             background: #0d1117;
@@ -15,6 +19,8 @@
             font-size: 12px;
             -webkit-tap-highlight-color: transparent;
             overflow-x: hidden;
+            max-width: 100vw;
+            width: 100%;
         }
 
         /* === BITMEX-STYLE HEADER === */
@@ -26,6 +32,8 @@
             border-bottom: 1px solid #30363d;
             gap: 16px;
             flex-wrap: wrap;
+            max-width: 100vw;
+            overflow-x: hidden;
         }
         .instrument-dropdown {
             display: flex;
@@ -71,6 +79,7 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            min-width: 140px; /* Fixed width prevents jumping on price changes */
         }
         .price-main.down { color: #f85149; }
         .price-arrow { font-size: 14px; }
@@ -1744,6 +1753,8 @@
             border-radius: 10px;
             font-size: 11px;
             font-weight: 600;
+            min-width: 28px; /* Fixed width prevents jumping when count changes */
+            text-align: center;
         }
         .session-sub-tab.active .tab-count-badge {
             background: rgba(0,212,255,0.2);
@@ -1806,6 +1817,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            min-height: 100px; /* Prevent collapse when empty/loading */
         }
         .session-card {
             display: grid;
@@ -1816,7 +1828,9 @@
             background: #161b22;
             border: 1px solid #30363d;
             border-radius: 8px;
-            transition: all 0.2s;
+            transition: background 0.2s, border-color 0.2s;
+            min-height: 60px; /* Fixed height prevents layout jumps */
+            contain: layout style; /* CSS containment for performance */
         }
         .session-card:hover {
             background: #1c2128;
@@ -2703,6 +2717,46 @@
         }
         .session-card.clickable:hover {
             border-color: #58a6ff;
+        }
+
+        /* === FOOTER === */
+        .dashboard-footer {
+            margin-top: 40px;
+            padding: 24px 16px;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            text-align: center;
+            color: #8b949e;
+            font-size: 12px;
+        }
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .footer-logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .footer-links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .footer-links a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+        .footer-copyright {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #6e7681;
         }
     </style>
 </head>
@@ -3881,6 +3935,19 @@
         <p class="timestamp" id="timestamp">Last updated: Loading...</p>
     </div>
 
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <div class="footer-logo">📊 HM Trading Dashboard</div>
+            <div class="footer-links">
+                <span>High-frequency trading analytics</span>
+            </div>
+            <div class="footer-copyright">
+                © 2025 HM Trading Systems
+            </div>
+        </div>
+    </footer>
+
     <script>
         // Global state
         let currentData = null;
@@ -4092,7 +4159,8 @@
         function updateTabCounts() {
             document.getElementById('running-count').textContent = sessionsData.running.length;
             document.getElementById('scrapers-count').textContent = sessionsData.scrapers.length;
-            document.getElementById('history-count').textContent = sessionsData.history.length;
+            // Use historyTotal from API for consistent count (avoids flickering)
+            // historyTotal is set by fetchHistoryPage(), don't override here
         }
 
         // Render all session lists
@@ -4102,7 +4170,10 @@
             renderSessionList('history-list', sessionsData.history, 'history');
         }
 
-        // Render a session list
+        // Track previous session data for smart updates
+        const previousSessionData = {};
+
+        // Render a session list with smart DOM updates (prevents layout jumps)
         function renderSessionList(containerId, sessions, panelType) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -4116,14 +4187,137 @@
                     container.appendChild(emptyEl);
                     emptyEl.style.display = 'flex';
                 }
+                previousSessionData[containerId] = {};
                 return;
             }
 
             // Hide empty state
             if (emptyEl) emptyEl.style.display = 'none';
 
-            // Render session cards
-            container.innerHTML = sessions.map(session => renderSessionCard(session, panelType)).join('');
+            // Get existing cards by session ID
+            const existingCards = {};
+            container.querySelectorAll('.session-card[data-session-id]').forEach(card => {
+                existingCards[card.dataset.sessionId] = card;
+            });
+
+            // Build set of current session IDs
+            const currentSessionIds = new Set(sessions.map(s => s.id));
+
+            // Remove cards for sessions that no longer exist
+            Object.keys(existingCards).forEach(id => {
+                if (!currentSessionIds.has(id)) {
+                    existingCards[id].remove();
+                    delete existingCards[id];
+                }
+            });
+
+            // Initialize previous data tracker for this container
+            if (!previousSessionData[containerId]) {
+                previousSessionData[containerId] = {};
+            }
+
+            // Update or create cards
+            sessions.forEach((session, index) => {
+                const existingCard = existingCards[session.id];
+
+                if (existingCard) {
+                    // Smart update: only update changed elements
+                    updateSessionCardInPlace(existingCard, session, panelType, previousSessionData[containerId][session.id]);
+                } else {
+                    // Create new card
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = renderSessionCard(session, panelType);
+                    const newCard = tempDiv.firstElementChild;
+
+                    // Insert at correct position
+                    const existingAtIndex = container.children[index];
+                    if (existingAtIndex) {
+                        container.insertBefore(newCard, existingAtIndex);
+                    } else {
+                        container.appendChild(newCard);
+                    }
+                }
+
+                // Store current data for next comparison
+                previousSessionData[containerId][session.id] = {
+                    status: session.status,
+                    total_pnl: session.total_pnl,
+                    seconds_since_update: session.seconds_since_update,
+                    trade_count: session.trade_count
+                };
+            });
+        }
+
+        // Update a session card in place without replacing DOM
+        function updateSessionCardInPlace(card, session, panelType, prevData) {
+            const isRunning = session.status === 'running';
+
+            // Update card classes for health status
+            const cardClass = getCardHealthClass(session);
+            card.className = `session-card clickable ${cardClass}`;
+
+            // Update runtime (always changes for running sessions)
+            const runtimeEl = card.querySelector('.session-runtime');
+            if (runtimeEl) {
+                let runtime = '--';
+                if (session.started_at) {
+                    const startTime = new Date(session.started_at).getTime();
+                    const endTime = (session.status === 'running' || !session.stopped_at)
+                        ? Date.now()
+                        : new Date(session.stopped_at).getTime();
+                    const durationMs = endTime - startTime;
+                    runtime = durationMs >= 0 ? formatDuration(durationMs) : '00:00:00';
+                }
+                if (runtimeEl.textContent !== runtime) {
+                    runtimeEl.textContent = runtime;
+                }
+            }
+
+            // Update heartbeat (for running sessions)
+            const heartbeatEl = card.querySelector('.heartbeat-indicator');
+            if (heartbeatEl && isRunning) {
+                const healthClass = getHealthClass(session);
+                heartbeatEl.className = `heartbeat-indicator ${healthClass}`;
+                const timeSpan = heartbeatEl.querySelector('span:last-child');
+                if (timeSpan) {
+                    const newTime = `${session.seconds_since_update || 0}s ago`;
+                    if (timeSpan.textContent !== newTime) {
+                        timeSpan.textContent = newTime;
+                    }
+                }
+            }
+
+            // Update P&L if changed
+            if (!prevData || prevData.total_pnl !== session.total_pnl) {
+                const pnlEl = card.querySelector('.session-metric .metric-value');
+                if (pnlEl) {
+                    const pnl = parseFloat(session.total_pnl || 0);
+                    const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+                    const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+                    pnlEl.className = `metric-value ${pnlClass}`;
+                    pnlEl.textContent = pnlFormatted;
+                }
+            }
+
+            // Update trade count for non-running sessions
+            if (!isRunning && (!prevData || prevData.trade_count !== session.trade_count)) {
+                const tradeEl = card.querySelector('.session-metric:first-of-type .metric-value');
+                if (tradeEl && tradeEl.previousElementSibling?.textContent === 'Trades') {
+                    tradeEl.textContent = session.trade_count || 0;
+                }
+            }
+
+            // Update status if changed
+            if (!prevData || prevData.status !== session.status) {
+                const statusEl = card.querySelector('.session-status');
+                if (statusEl) {
+                    statusEl.className = `session-status ${session.status}`;
+                    const textNode = Array.from(statusEl.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+                    if (textNode) {
+                        textNode.textContent = `\n                            ${session.status}\n                        `;
+                    }
+                }
+            }
         }
 
         // Render a single session card
