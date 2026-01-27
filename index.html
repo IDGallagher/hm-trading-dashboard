@@ -5966,15 +5966,12 @@
                 }
                 console.log(`[URL] Found session in ${panelType} panel:`, foundSession.name);
 
-                // Switch to sessions panel first
-                switchMainPanel('sessions');
-                await new Promise(resolve => setTimeout(resolve, 200));
-
-                // Switch to the correct sub-tab
-                const subTabBtn = document.querySelector(`[data-subtab="${panelType}"]`);
+                // Switch to the correct sub-tab (uses data-panel attribute)
+                const subTabBtn = document.querySelector(`.session-sub-tab[data-panel="${panelType}"]`);
                 if (subTabBtn) {
+                    console.log(`[URL] Clicking sub-tab for: ${panelType}`);
                     subTabBtn.click();
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
 
                 // Open the session detail
