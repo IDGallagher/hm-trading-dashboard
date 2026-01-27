@@ -5061,18 +5061,25 @@
                         container.innerHTML = '<div class="inline-empty">No trades yet</div>';
                     } else {
                         // Note: t.timestamp is Unix seconds, multiply by 1000 for JavaScript Date
-                        container.innerHTML = trades.slice(-50).reverse().map(t => `
+                        // Parse price/pnl as numbers (DB returns strings)
+                        container.innerHTML = trades.slice(-50).reverse().map(t => {
+                            const pnl = parseFloat(t.pnl) || 0;
+                            const price = parseFloat(t.price) || 0;
+                            return `
                             <div class="inline-trade-row">
                                 <span>${new Date(t.timestamp * 1000).toLocaleTimeString()}</span>
                                 <span style="color: ${t.side === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
-                                <span>$${parseFloat(t.price).toFixed(2)}</span>
+                                <span>$${price.toFixed(2)}</span>
                                 <span>${t.size}</span>
-                                <span class="${(t.pnl || 0) >= 0 ? 'positive' : 'negative'}">${(t.pnl || 0) >= 0 ? '+' : ''}${(t.pnl || 0).toFixed(2)}</span>
+                                <span class="${pnl >= 0 ? 'positive' : 'negative'}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
                             </div>
-                        `).join('');
+                        `}).join('');
                     }
+                } else {
+                    container.innerHTML = '<div class="inline-empty">Failed to load trades</div>';
                 }
             } catch (err) {
+                console.error('[Sessions] Failed to load trades:', err);
                 container.innerHTML = '<div class="inline-empty">Failed to load trades</div>';
             }
         }
@@ -5117,7 +5124,7 @@
                     logs = filterVerboseLogs(logs);
 
                     if (logs.length === 0) {
-                        container.innerHTML = '<div class="inline-empty">No logs available</div>';
+                        container.innerHTML = '<div class="inline-empty">No INFO/WARN/ERROR logs (DEBUG filtered)</div>';
                     } else {
                         // Show most recent logs at bottom (chronological order)
                         container.innerHTML = logs.slice(-100).map(l => `
@@ -5130,8 +5137,11 @@
                         // Auto-scroll to bottom (latest logs)
                         container.scrollTop = container.scrollHeight;
                     }
+                } else {
+                    container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
                 }
             } catch (err) {
+                console.error('[Sessions] Failed to load logs:', err);
                 container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
             }
         }
