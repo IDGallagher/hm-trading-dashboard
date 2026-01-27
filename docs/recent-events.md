@@ -1,5 +1,16 @@
 # Recent Events
 
+## Current Status - January 27, 2026
+
+**Dashboard:** Live at https://hm-trading-dashboard.pages.dev/
+
+**Active Services (3 running in market mode):**
+- 24/7 BTC/USD order book data collection
+- All 4 strategies monitoring BitMEX (SDBot, SazBot, DivergeBot, PairTradeBot)
+- WebSocket streaming to dashboard at wss://agent-company.atamatch.com:8443/trades/stream
+
+**Control API:** Running on Hetzner, proxied through nginx on :8443
+
 ## Latest Updates - January 23, 2026
 
 ### Bug Fixes Completed

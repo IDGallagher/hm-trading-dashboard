@@ -2,7 +2,9 @@
 
 ## Overview
 
-HM Trading Dashboard is a web-based interface for monitoring and testing cryptocurrency trading strategies. It connects to a C++ backend (new-hope) for real-time market data, strategy execution, and backtesting.
+Vanilla JavaScript dashboard for HM Trading system. Displays live BTC/USD order book, real-time candles from trading engine, and session management. Hosted on Cloudflare Pages.
+
+**Live:** https://hm-trading-dashboard.pages.dev/
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -31,48 +33,54 @@ HM Trading Dashboard is a web-based interface for monitoring and testing cryptoc
 
 ### Frontend (hm-trading-dashboard)
 
-| Component | Responsibility |
-|-----------|----------------|
-| **index.html** | Main dashboard UI, chart rendering, WebSocket connection |
-| **Candlestick Charts** | Display OHLCV data using Lightweight Charts library |
-| **Backtest View** | Show backtest results, trades, P&L metrics |
-| **Live Test Panel** | Start/stop live tests, view forming candles |
+| Component | Purpose |
+|-----------|---------|
+| **Price Feed** | Live BTC/USD from BitMEX (refreshed real-time) |
+| **Order Book** | Top 10 bid/ask levels (updated via WebSocket) |
+| **Session Manager** | Create/manage trading sessions (test, backtest, market modes) |
+| **Strategy Selector** | Choose trading bot (SDBot, SazBot, DivergeBot, PairTradeBot) |
+| **Performance Metrics** | Display P&L, Sharpe ratio, win rate |
 
-### Backend (hm-trading-new-hope)
+### Control API (Node.js + Express)
 
-| Component | Responsibility |
-|-----------|----------------|
-| **WebSocket Server** | Push live candle updates to dashboard |
-| **REST API** | Serve backtest results and historical data |
-| **Strategy Engine** | Execute trading strategies (TestBot, PairTradeBot) |
-| **FlatBuffer Archive** | Store/retrieve historical market data efficiently |
+| Component | Purpose |
+|-----------|---------|
+| **Session Endpoints** | `/sessions` CRUD, mode control (/test/*, /backtest/*, /market/*) |
+| **WebSocket Relay** | Forward C++ engine updates to browser clients |
+| **MySQL Persistence** | Store trades, positions, metrics, events for historical analysis |
+| **Trade Transformation** | Pair C++ OPEN/CLOSE into entry+exit objects for display |
 
-## Data Flow
+### C++ Engine (4 Concurrent Strategies)
 
-### Live Test Flow
+| Strategy | Trigger | Status |
+|----------|---------|--------|
+| **SDBot** | Bollinger Band divergence (±2.0 std) | Active |
+| **SazBot** | Order book imbalance (ratio > 1.5) | Active |
+| **DivergeBot** | Price ratio divergence | Active |
+| **PairTradeBot** | Statistical arbitrage | Active |
+
+## Data Flows
+
+**Price & Order Book (Real-time):**
 ```
-1. User clicks "Start Test" in dashboard
-2. Dashboard sends start command to backend via HTTP
-3. Backend begins strategy execution
-4. Backend pushes live candle updates via WebSocket (timestamps in ms)
-5. Dashboard converts timestamps (ms → s) and renders candles
-6. Live forming candle updates in real-time
-```
-
-### Backtest Flow
-```
-1. User initiates backtest in dashboard
-2. Dashboard sends backtest request to backend via HTTP
-3. Backend loads FlatBuffer archive data
-4. Backend runs strategy against historical data
-5. Backend returns results (trades, metrics) via HTTP
-6. Dashboard displays results in Backtest View
+BitMEX WebSocket → C++ Engine (market mode) → Control API → Dashboard (wss://)
 ```
 
-### Test/Backtest Parity
-- Live tests and backtests use identical strategy code
-- Same data format ensures reproducible results
-- Instant backtest creates backtest from live test data
+**Session Management:**
+```
+Dashboard → Control API (POST /sessions) → MySQL (session record)
+User selects strategy + mode → Control API spawns C++ subprocess
+C++ generates trades → Stored in MySQL → Dashboard queries via REST
+```
+
+**Market Data Modes:**
+
+| Mode | Source | Use Case |
+|------|--------|----------|
+| **live** | BitMEX mainnet | Real trading (currently inactive) |
+| **test** | BitMEX testnet | Paper trading verification |
+| **backtest** | S3 FlatBuffer archives | Historical simulation |
+| **market** | BitMEX mainnet (3 services) | 24/7 data collection |
 
 ## Technologies
 
@@ -97,10 +105,12 @@ HM Trading Dashboard is a web-based interface for monitoring and testing cryptoc
 | **FlatBuffer Archive** | Historical OHLCV data (16,697+ files) |
 | **Strategy Configs** | Trading strategy parameters |
 
-## Known Limitations
+## Tech Stack
 
-1. **Data Availability:** Only BTC/USD data is archived. Arbitrage strategies requiring BTC/USDT will produce 0 trades.
-
-2. **Timestamp Format:** Backend sends milliseconds, frontend expects seconds. Conversion is handled in WebSocket handler.
-
-3. **Single-Pair Strategies Only:** Until BTC/USDT data is archived, only single-pair strategies (TestBot) work for backtesting.
+| Component | Technology |
+|-----------|-----------|
+| **Frontend** | Vanilla JS, Lightweight Charts (TradingView) |
+| **Hosting** | Cloudflare Pages (auto-deploy on push) |
+| **Control API** | Node.js + Express, MySQL |
+| **Trading Engine** | C++20, BitMEX WebSocket, FlatBuffer archives |
+| **Data Storage** | MySQL (trades, sessions), S3 (market data archives) |

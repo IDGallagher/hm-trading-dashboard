@@ -1,47 +1,67 @@
-# HM Trading Dashboard - Project Learnings
+# Learnings - Dashboard
 
-## Project Completion (2026-01-27)
-Real-time BitMEX XBTUSD trading dashboard: https://hm-trading-dashboard.pages.dev/
-- All 12 P1-P5 features verified complete
-- Deployed to Cloudflare Pages
-- Final verification: CEO QA round passed all requirements
+## Current Status
 
-## Key Technical Insights
+**Live dashboard:** https://hm-trading-dashboard.pages.dev/ (Cloudflare Pages)
+- Real-time BTC/USD price feed and order book
+- Session management (test/backtest/market modes)
+- 4 active trading strategies streaming data
 
-### Session Detail View
-- Positioned at y=1071 (requires user scroll to access)
-- Logs section displays "No logs available" when no INFO/WARN/ERROR entries exist
-- Browser caching requires hard refresh (Cmd+Shift+R) to see updates after deployment
+## Critical Insights
 
-### Systemd Service Configuration
-- Used systemd template unit pattern: `hm-bot@<instance>.service`
-- Critical fixes: `StartLimitBurst` placement (after `StartLimitInterval`), shell variable expansion in service files
-- Commit: fec997e
+**WebSocket Connection:**
+- Endpoint: `wss://agent-company.atamatch.com:8443/trades/stream`
+- Control API relays C++ engine order updates
+- Drop-in reconnection logic prevents display staleness
 
-### BitMEX Integration
-- P&L formula: inverse perpetual contract calculation
-- XBTUSD pairs use specific leverage/position sizing logic
-- Real-time WebSocket streaming verified stable
+**Browser Caching:**
+- Cloudflare Pages caches static assets aggressively
+- Hard refresh (Cmd+Shift+R) required after deployment changes
+- Session data always fetches fresh (not cached)
 
-### Cloudflare Deployment
-- Pages deployment handles automatic cache clearing on push
-- Static site regeneration for real-time data requires refresh strategy
-- DNS routing for custom domain tested and verified
+**Order Book Display:**
+- Shows top 10 bid/ask levels for BTC/USD
+- Updated in real-time from BitMEX WebSocket
+- Spread calculation visible for entry/exit analysis
 
-## Key Challenges & Resolutions
+**Strategy Selection:**
+- Dashboard allows switching between 4 strategies without reloading
+- Each strategy has predefined parameters (non-editable via UI)
+- SDBot most stable for backtesting, SazBot most responsive to market events
 
-| Challenge | Root Cause | Solution |
-|-----------|-----------|----------|
-| Session view not updating | Browser caching | Hard refresh (Cmd+Shift+R) required by users |
-| systemd service failures | Syntax errors (StartLimitBurst, variables) | Fixed systemd template, tested all 3 services running |
-| QA blocking | Credentials expired (2+ hour session) | Credential refresh between test rounds |
+**4 Operating Modes:**
+- **test** - Paper trading against BitMEX testnet (slower execution)
+- **backtest** - Historical replay from S3 archives (deterministic)
+- **market** - 24/7 data collection mode (3 services running)
+- **live** - Not currently active (mainnet trading disabled)
 
-## Agent Contributions
-- **backend-dev**: Session detail view + logs section, final deployment
-- **cpp-dev**: Systemd service fixes, verified all services running
-- **workflow-qa**: Comprehensive P1-P5 feature verification, bug detection & fix validation
+## Gotchas
 
-## Patterns That Worked
-- Incremental QA with immediate bug fixes (rapid iteration)
-- Systemd troubleshooting via direct service status checks
-- Cloudflare Pages for static dashboard deployment (reliable, fast)
+**API Connection:**
+- Dashboard polls Control API at `http://localhost:8443` (nginx proxy)
+- CORS headers required: custom `x-api-key` must be in `allowedHeaders`
+- 503 errors indicate Control API down or unresponsive
+
+**Session State:**
+- Switching modes (test → backtest) requires stopping current session first
+- Session data persisted in MySQL survives API restarts
+- C++ subprocess cleanup on session end may take 5-10 seconds
+
+**Cloudflare Pages Deployment:**
+- Auto-deploys on master push, takes 30-60 seconds
+- Cached assets cleared automatically
+- Custom domain requires DNS CNAME configuration
+
+**Real-time Updates:**
+- WebSocket reconnects automatically on disconnect
+- Order book updates every 100ms during market hours
+- Price feed updates from BitMEX (live 24/7)
+
+## Debugging Checklist
+
+- **API not responding:** Check `systemctl status bitmex-dashboard` on Hetzner
+- **WebSocket disconnected:** Verify `agent-company.atamatch.com:8443` accessible
+- **Stale data:** Hard refresh dashboard (Cmd+Shift+R) to clear cache
+- **Session won't start:** Verify C++ binary path and MySQL connectivity
+- **No trades showing:** Check if correct strategy selected for data type (SDBot for backtest)
+- **Order book not updating:** Verify BitMEX API key configured in engine
