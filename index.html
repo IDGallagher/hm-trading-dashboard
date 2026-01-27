@@ -1868,6 +1868,14 @@
             color: #8b949e;
             font-size: 12px;
         }
+        .session-params {
+            color: #58a6ff;
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(88, 166, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
         .session-market {
             font-size: 12px;
             color: #58a6ff;
@@ -3089,6 +3097,7 @@
                     <span id="inline-session-market">XBTUSD</span>
                     <span id="inline-session-strategy">TestBot</span>
                     <span id="inline-session-runtime">00:00:00</span>
+                    <span id="inline-session-params" class="session-params" style="display: none;"></span>
                 </div>
 
                 <!-- Metrics Summary -->
@@ -4591,6 +4600,20 @@
             const liveDataBadge = isProvidingLiveData ?
                 '<span class="live-data-badge" title="This session is providing live market data">📡 LIVE</span>' : '';
 
+            // Parse and format strategy params for display
+            let paramsDisplay = '';
+            try {
+                const params = session.strategy_params ? 
+                    (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params) : {};
+                const paramItems = [];
+                if (params.trade_size !== undefined) paramItems.push(`Size: ${params.trade_size}`);
+                if (params.trade_interval !== undefined) paramItems.push(`Interval: ${params.trade_interval}s`);
+                if (params.leverage !== undefined && params.leverage !== 1) paramItems.push(`Lev: ${params.leverage}x`);
+                if (paramItems.length > 0) {
+                    paramsDisplay = `<span class="session-params">${paramItems.join(' • ')}</span>`;
+                }
+            } catch (e) { /* ignore parse errors */ }
+
             return `
                 <div class="session-card clickable ${cardClass}" data-session-id="${session.id}" onclick="showInlineDetail('${session.id}', '${panelType}')">
                     <div class="session-info">
@@ -4602,6 +4625,7 @@
                         <div class="session-meta">
                             <span class="session-strategy">${session.strategy}</span>
                             <span>${session.type}</span>
+                            ${paramsDisplay}
                         </div>
                     </div>
                     <div class="session-status ${session.status}">
@@ -4748,7 +4772,7 @@
             const container = document.getElementById('strategy-params-container');
             const fieldsContainer = document.getElementById('strategy-params-fields');
 
-            if (!strategy || !strategy.default_params) {
+            if (!strategy || !strategy.default_params || Object.keys(strategy.default_params).length === 0) {
                 container.style.display = 'none';
                 return;
             }
@@ -4757,14 +4781,27 @@
             fieldsContainer.innerHTML = '';
 
             const params = strategy.default_params;
+            const schema = strategy.param_schema?.properties || {};
+
             Object.keys(params).forEach(key => {
                 const value = params[key];
+                const paramSchema = schema[key] || {};
                 const inputType = typeof value === 'number' ? 'number' : 'text';
+                
+                // Format the label nicely (trade_size -> Trade Size)
+                const label = paramSchema.description || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                
+                // Get min/max/step from schema
+                const min = paramSchema.minimum !== undefined ? `min="${paramSchema.minimum}"` : '';
+                const max = paramSchema.maximum !== undefined ? `max="${paramSchema.maximum}"` : '';
+                const step = inputType === 'number' ? 'step="any"' : '';
+                
                 fieldsContainer.innerHTML += `
                     <div class="form-group">
-                        <label class="form-label">${key}</label>
+                        <label class="form-label">${label}</label>
                         <input type="${inputType}" class="form-input strategy-param"
-                               data-param="${key}" value="${value}">
+                               data-param="${key}" value="${value}" ${min} ${max} ${step}
+                               title="${paramSchema.description || ''}">
                     </div>
                 `;
             });
@@ -4967,6 +5004,27 @@
             statusEl.className = `inline-session-status ${session.status}`;
             document.getElementById('inline-session-market').textContent = session.market;
             document.getElementById('inline-session-strategy').textContent = session.strategy;
+
+            // Show strategy params
+            const paramsEl = document.getElementById('inline-session-params');
+            try {
+                const params = session.strategy_params ? 
+                    (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params) : {};
+                const paramItems = [];
+                if (params.trade_size !== undefined) paramItems.push(`Size: ${params.trade_size}`);
+                if (params.trade_interval !== undefined) paramItems.push(`Interval: ${params.trade_interval}s`);
+                if (params.leverage !== undefined && params.leverage !== 1) paramItems.push(`Lev: ${params.leverage}x`);
+                // Add any other params
+                Object.keys(params).filter(k => !['trade_size', 'trade_interval', 'leverage'].includes(k)).forEach(k => {
+                    paramItems.push(`${k}: ${params[k]}`);
+                });
+                if (paramItems.length > 0) {
+                    paramsEl.textContent = paramItems.join(' • ');
+                    paramsEl.style.display = 'inline-block';
+                } else {
+                    paramsEl.style.display = 'none';
+                }
+            } catch (e) { paramsEl.style.display = 'none'; }
 
             // Calculate runtime
             let runtime = '--';
@@ -5470,9 +5528,21 @@
                 document.getElementById('detail-duration').textContent = session.started_at ?
                     formatDurationFromDates(session.started_at, session.completed_at || new Date().toISOString()) : '-';
 
-                // Strategy params
-                const params = session.strategy_params ? JSON.parse(session.strategy_params) : {};
-                document.getElementById('detail-params').textContent = JSON.stringify(params, null, 2);
+                // Strategy params - format nicely
+                try {
+                    const params = session.strategy_params ? 
+                        (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params) : {};
+                    if (Object.keys(params).length > 0) {
+                        const formatted = Object.entries(params)
+                            .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`)
+                            .join('\n');
+                        document.getElementById('detail-params').textContent = formatted;
+                    } else {
+                        document.getElementById('detail-params').textContent = 'No custom parameters';
+                    }
+                } catch (e) {
+                    document.getElementById('detail-params').textContent = session.strategy_params || 'No parameters';
+                }
 
                 // Notes
                 document.getElementById('detail-notes').value = session.notes || '';
