@@ -2032,6 +2032,14 @@
         .btn-session-restart:hover {
             background: rgba(240,136,62,0.15);
         }
+        .btn-session-backtest {
+            background: transparent;
+            border-color: #8b5cf6;
+            color: #8b5cf6;
+        }
+        .btn-session-backtest:hover {
+            background: rgba(139,92,246,0.15);
+        }
         .btn-session-view {
             background: transparent;
             border-color: #30363d;
@@ -3084,6 +3092,7 @@
                     ← Back to Sessions
                 </button>
                 <div class="inline-detail-actions">
+                    <button class="btn-session-action btn-session-backtest" id="inline-backtest-btn" style="display: none;">Launch Backtest</button>
                     <button class="btn-session-action btn-session-restart" id="inline-restart-btn">Restart</button>
                     <button class="btn-session-action btn-session-stop" id="inline-stop-btn">Stop</button>
                 </div>
@@ -4929,6 +4938,55 @@
             }
         }
 
+        // Launch backtest from a finished test session
+        async function launchBacktestFromSession(session) {
+            try {
+                // Get session time range from started_at and stopped_at
+                const startTime = session.started_at ? new Date(session.started_at) : null;
+                const endTime = session.stopped_at ? new Date(session.stopped_at) : null;
+
+                // Open the new session modal with pre-filled values
+                openNewSessionModal();
+
+                // Wait for modal to be ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Pre-fill the form
+                document.getElementById('new-session-type').value = 'backtest';
+                document.getElementById('new-session-type').dispatchEvent(new Event('change'));
+                document.getElementById('new-session-market').value = session.market;
+                document.getElementById('new-session-strategy').value = session.strategy;
+                document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
+                document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
+
+                // Set date range
+                if (startTime) {
+                    document.getElementById('new-session-start').value = startTime.toISOString().slice(0, 16);
+                }
+                if (endTime) {
+                    document.getElementById('new-session-end').value = endTime.toISOString().slice(0, 16);
+                }
+
+                // Wait for strategy params to load, then fill them
+                await new Promise(resolve => setTimeout(resolve, 200));
+                if (session.strategy_params) {
+                    const params = typeof session.strategy_params === 'string' ?
+                        JSON.parse(session.strategy_params) : session.strategy_params;
+                    document.querySelectorAll('.strategy-param').forEach(input => {
+                        const param = input.dataset.param;
+                        if (params[param] !== undefined) {
+                            input.value = params[param];
+                        }
+                    });
+                }
+
+                showSessionNotification(`Backtest form pre-filled with "${session.name || session.strategy}" parameters`);
+            } catch (error) {
+                console.error('[Sessions] Failed to prepare backtest:', error);
+                showErrorToast('Session Error', error.message);
+            }
+        }
+
         // Clone a session
         async function cloneSession(sessionId) {
             try {
@@ -4975,6 +5033,7 @@
         let currentViewedSessionId = null;
         let currentInlineSessionId = null;
         let previousPanelId = null;
+        let logsPollingInterval = null;  // For streaming logs
         let currentSessionTradeData = null; // Store trade data for re-rendering on period change
 
         // Show inline session detail view
@@ -5040,6 +5099,14 @@
             document.getElementById('inline-stop-btn').onclick = () => { stopSession(sessionId); };
             document.getElementById('inline-stop-btn').style.display = session.status === 'running' ? 'inline-block' : 'none';
 
+            // Show Launch Backtest button for finished test sessions
+            const backtestBtn = document.getElementById('inline-backtest-btn');
+            const isFinishedTest = session.status !== 'running' && session.type === 'test';
+            backtestBtn.style.display = isFinishedTest ? 'inline-block' : 'none';
+            if (isFinishedTest) {
+                backtestBtn.onclick = () => { launchBacktestFromSession(session); };
+            }
+
             // Load metrics
             await loadInlineMetrics(sessionId);
 
@@ -5049,6 +5116,16 @@
                 loadInlineLogs(sessionId),
                 loadInlineEquity(sessionId)
             ]);
+
+            // Start logs polling for running sessions (every 2 seconds)
+            if (logsPollingInterval) clearInterval(logsPollingInterval);
+            if (session.status === 'running') {
+                logsPollingInterval = setInterval(() => {
+                    if (currentInlineSessionId === sessionId) {
+                        loadInlineLogs(sessionId);
+                    }
+                }, 2000);
+            }
 
             // Switch chart to session's market if different
             const currentMarket = document.getElementById('market-selector').value.toLowerCase();
@@ -5060,8 +5137,8 @@
 
             // Load trades onto chart (directly, don't open modal)
             try {
-                // Use new helper (tries DB first, falls back to file)
-                const result = await fetchSessionTrades(sessionId);
+                // Use new helper (tries DB first, falls back to file) - limit to 200 for chart performance
+                const result = await fetchSessionTrades(sessionId, { limit: 200 });
                 if (result.success) {
                     displaySessionTrades({ trades: result.trades, count: result.count });
                 }
@@ -5078,6 +5155,12 @@
             }
             currentInlineSessionId = null;
             currentSessionTradeData = null; // Clear stored trade data
+
+            // Stop logs polling
+            if (logsPollingInterval) {
+                clearInterval(logsPollingInterval);
+                logsPollingInterval = null;
+            }
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
@@ -5299,15 +5382,15 @@
             currentViewedSessionId = sessionId;
 
             try {
-                // Use new helper (tries DB first, falls back to file)
-                const result = await fetchSessionTrades(sessionId);
+                // Use new helper (tries DB first, falls back to file) - limit to 200 for chart performance
+                const result = await fetchSessionTrades(sessionId, { limit: 200 });
 
                 if (!result.success) {
                     throw new Error('Failed to load session trades');
                 }
 
-                const data = { trades: result.trades, count: result.count, session_name: sessionId };
-                console.log(`[Sessions] Loaded ${data.count} trades (source: ${result.source})`);
+                const data = { trades: result.trades, count: result.count, total: result.total, session_name: sessionId };
+                console.log(`[Sessions] Loaded ${data.count} trades of ${result.total || 'unknown'} total (source: ${result.source})`);
 
                 // Display trades on chart
                 displaySessionTrades(data);
@@ -5628,7 +5711,7 @@
                     height: 250,
                     layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e' },
                     grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
-                    timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.1)' },
+                    timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
                     rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
                 });
 
@@ -5673,7 +5756,7 @@
                             <td>${t.action}</td>
                             <td class="${t.side.toLowerCase()}">${t.side}</td>
                             <td>$${t.price.toFixed(2)}</td>
-                            <td>${t.size}</td>
+                            <td>${formatTradeSize(t.size)}</td>
                             <td class="${(t.pnl || 0) >= 0 ? 'buy' : 'sell'}">${t.pnl ? `$${t.pnl.toFixed(2)}` : '-'}</td>
                             <td>${t.reason || '-'}</td>
                         </tr>
@@ -5849,11 +5932,65 @@
         // Old modal-based click handler removed - using inline detail view instead
         // ============= END SESSION DETAIL MODAL =============
 
+        // Check URL params and open session detail if specified
+        async function handleUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session');
+            if (sessionId) {
+                console.log(`[URL] Session param detected: ${sessionId}`);
+
+                // Wait for sessions data to be populated
+                let attempts = 0;
+                while (attempts < 20 && (!sessionsData.running.length && !sessionsData.history.length)) {
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                    attempts++;
+                }
+                console.log(`[URL] Sessions loaded after ${attempts} attempts. Running: ${sessionsData.running.length}, History: ${sessionsData.history.length}`);
+
+                // Find which panel the session is in
+                let panelType = 'running';
+                let foundSession = sessionsData.running.find(s => s.id === sessionId);
+                if (foundSession) {
+                    panelType = 'running';
+                } else if (sessionsData.scrapers.find(s => s.id === sessionId)) {
+                    panelType = 'scrapers';
+                    foundSession = sessionsData.scrapers.find(s => s.id === sessionId);
+                } else if (sessionsData.history.find(s => s.id === sessionId)) {
+                    panelType = 'history';
+                    foundSession = sessionsData.history.find(s => s.id === sessionId);
+                }
+
+                if (!foundSession) {
+                    console.error(`[URL] Session not found: ${sessionId}`);
+                    return;
+                }
+                console.log(`[URL] Found session in ${panelType} panel:`, foundSession.name);
+
+                // Switch to sessions panel first
+                switchMainPanel('sessions');
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Switch to the correct sub-tab
+                const subTabBtn = document.querySelector(`[data-subtab="${panelType}"]`);
+                if (subTabBtn) {
+                    subTabBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                // Open the session detail
+                console.log(`[URL] Opening detail view for ${sessionId} (${panelType})`);
+                showInlineDetail(sessionId, panelType);
+            }
+        }
+
         // Start session polling
         function startSessionPolling() {
             // Initial fetch
             fetchStrategies();
-            fetchSessions();
+            fetchSessions().then(() => {
+                // Check URL params after sessions are loaded
+                handleUrlParams();
+            });
 
             // Poll every 5 seconds
             sessionPollingInterval = setInterval(() => {
@@ -6718,6 +6855,17 @@
             if (volume >= 1000000) return (volume / 1000000).toFixed(2) + 'M';
             if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K';
             return volume.toFixed(0);
+        }
+
+        // Format trade size - removes unnecessary decimal places
+        function formatTradeSize(size) {
+            if (size == null) return '-';
+            const num = parseFloat(size);
+            if (isNaN(num)) return size;
+            // If whole number, show no decimals
+            if (num === Math.floor(num)) return num.toFixed(0);
+            // Otherwise show up to 2 decimals, trimming trailing zeros
+            return parseFloat(num.toFixed(2)).toString();
         }
 
         // Update volume series with candle data
