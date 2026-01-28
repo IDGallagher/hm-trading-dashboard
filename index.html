@@ -4547,12 +4547,11 @@
 
                     // Calculate seconds since last data write (only if we have valid timestamp)
                     if (heartbeat.last_data_write) {
-                        // last_data_write is a Unix timestamp in MILLISECONDS (e.g., 1769591209243)
-                        const lastWriteMs = Number(heartbeat.last_data_write);
+                        // last_data_write is ISO string (e.g., "2026-01-28T09:07:36.429Z")
+                        const lastWriteMs = new Date(heartbeat.last_data_write).getTime();
                         const nowMs = Date.now();
                         const secondsAgo = Math.floor((nowMs - lastWriteMs) / 1000);
-                        console.log('[Heartbeat] last_data_write:', heartbeat.last_data_write, 'parsed:', lastWriteMs, 'now:', nowMs, 'diff:', secondsAgo);
-                        // Only use if valid (non-negative and reasonable)
+                        // Only use if valid (non-negative and reasonable < 1 hour)
                         scraper.seconds_since_data = (secondsAgo >= 0 && secondsAgo < 3600) ? secondsAgo : undefined;
                     } else {
                         // No data write timestamp - reset to undefined
