@@ -2212,6 +2212,28 @@
             outline: none;
             border-color: #58a6ff;
         }
+        .input-with-suffix {
+            display: flex;
+            align-items: center;
+        }
+        .input-with-suffix .form-input {
+            border-radius: 6px 0 0 6px;
+            border-right: none;
+        }
+        .input-suffix {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 12px;
+            color: #8b949e;
+            font-size: 14px;
+        }
+        .form-hint {
+            font-size: 11px;
+            color: #6e7681;
+            margin-top: 4px;
+        }
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -3240,6 +3262,26 @@
                     </div>
                 </div>
 
+                <!-- Fee configuration (shown for test/backtest, hidden for scraper) -->
+                <div class="form-row" id="fee-config-fields">
+                    <div class="form-group">
+                        <label class="form-label">Maker Fee (rebate)</label>
+                        <div class="input-with-suffix">
+                            <input type="number" class="form-input" id="new-session-maker-fee" value="-0.025" step="0.001">
+                            <span class="input-suffix">%</span>
+                        </div>
+                        <small class="form-hint">Negative = rebate for adding liquidity</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Taker Fee</label>
+                        <div class="input-with-suffix">
+                            <input type="number" class="form-input" id="new-session-taker-fee" value="0.075" step="0.001">
+                            <span class="input-suffix">%</span>
+                        </div>
+                        <small class="form-hint">Fee for taking liquidity</small>
+                    </div>
+                </div>
+
                 <!-- Strategy params (dynamic based on strategy) -->
                 <div id="strategy-params-container" class="strategy-params" style="display: none;">
                     <div class="strategy-params-title">Strategy Parameters</div>
@@ -4004,6 +4046,65 @@
         let currentCandlePeriod = '1m';
         let rawCandles = null; // Store original 1m candles
 
+        // Adaptive time formatter for equity charts
+        // Adjusts time label format based on zoom level
+        function setupAdaptiveTimeFormat(chart) {
+            const timeScale = chart.timeScale();
+
+            // Create adaptive tick formatter
+            const adaptiveTickFormatter = (time, tickMarkType, locale) => {
+                const date = new Date(time * 1000);
+
+                // Get visible range to determine zoom level
+                const visibleRange = timeScale.getVisibleLogicalRange();
+                let barsVisible = 100; // default
+                if (visibleRange) {
+                    barsVisible = Math.abs(visibleRange.to - visibleRange.from);
+                }
+
+                // Also check visible time range
+                const visibleTimeRange = timeScale.getVisibleRange();
+                let timeSpanSeconds = 86400 * 7; // default 1 week
+                if (visibleTimeRange && visibleTimeRange.from && visibleTimeRange.to) {
+                    timeSpanSeconds = visibleTimeRange.to - visibleTimeRange.from;
+                }
+
+                const hours = timeSpanSeconds / 3600;
+                const days = timeSpanSeconds / 86400;
+
+                // Format based on zoom level
+                if (days > 7) {
+                    // Wide range (weeks+) - show date only
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                } else if (days > 1) {
+                    // Medium-wide range (days) - show date
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                } else if (hours > 6) {
+                    // Medium range (hours) - show date + hour
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) +
+                           ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                } else if (hours > 1) {
+                    // Narrow range (hours) - show hour:minute
+                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    // Very narrow range (minutes) - show hour:minute:second
+                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            };
+
+            // Apply the formatter
+            timeScale.applyOptions({
+                tickMarkFormatter: adaptiveTickFormatter
+            });
+
+            // Force re-render on visible range change to update labels
+            timeScale.subscribeVisibleLogicalRangeChange(() => {
+                // Trigger a re-render by slightly updating options
+                // This ensures tick marks get recalculated with new zoom level
+                chart.applyOptions({});
+            });
+        }
+
         // Live Test Control State
         const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
         const CONTROL_WS_URL = 'wss://agent-company.atamatch.com:8443/trades/stream';
@@ -4233,6 +4334,33 @@
                 }
                 const data = await response.json();
                 const sessions = data.sessions || [];
+
+                // Build a map of existing session trade_count and total_pnl (from WebSocket updates)
+                const existingStats = {};
+                ['running', 'scrapers', 'history'].forEach(category => {
+                    (sessionsData[category] || []).forEach(s => {
+                        if (s.trade_count !== undefined || s.total_pnl !== undefined) {
+                            existingStats[s.id] = {
+                                trade_count: s.trade_count,
+                                total_pnl: s.total_pnl
+                            };
+                        }
+                    });
+                });
+
+                // Merge existing stats into new sessions (preserve WebSocket updates if API doesn't provide)
+                sessions.forEach(s => {
+                    const existing = existingStats[s.id];
+                    if (existing) {
+                        // Only use existing if API didn't provide values
+                        if (s.trade_count === undefined || s.trade_count === null) {
+                            s.trade_count = existing.trade_count;
+                        }
+                        if (s.total_pnl === undefined || s.total_pnl === null) {
+                            s.total_pnl = existing.total_pnl;
+                        }
+                    }
+                });
 
                 // Categorize sessions
                 sessionsData.running = sessions.filter(s =>
@@ -4540,11 +4668,16 @@
                 }
             }
 
-            // Update trade count for non-running sessions
-            if (!isRunning && (!prevData || prevData.trade_count !== session.trade_count)) {
-                const tradeEl = card.querySelector('.session-metric:first-of-type .metric-value');
-                if (tradeEl && tradeEl.previousElementSibling?.textContent === 'Trades') {
-                    tradeEl.textContent = session.trade_count || 0;
+            // Update trade count for all sessions
+            if (!prevData || prevData.trade_count !== session.trade_count) {
+                const tradeMetrics = card.querySelectorAll('.session-metric');
+                for (const metric of tradeMetrics) {
+                    const label = metric.querySelector('.metric-label');
+                    if (label && label.textContent === 'Trades') {
+                        const valueEl = metric.querySelector('.metric-value');
+                        if (valueEl) valueEl.textContent = session.trade_count || 0;
+                        break;
+                    }
                 }
             }
 
@@ -4647,12 +4780,11 @@
                             <span class="heartbeat-icon">♡</span>
                             <span>${session.seconds_since_update || 0}s ago</span>
                         </div>
-                    ` : `
-                        <div class="session-metric">
-                            <span class="metric-label">Trades</span>
-                            <span class="metric-value">${session.trade_count || 0}</span>
-                        </div>
-                    `}
+                    ` : ''}
+                    <div class="session-metric">
+                        <span class="metric-label">Trades</span>
+                        <span class="metric-value">${session.trade_count || 0}</span>
+                    </div>
                     <div class="session-metric">
                         <span class="metric-label">P&L</span>
                         <span class="metric-value ${pnlClass}">${pnlFormatted}</span>
@@ -4754,10 +4886,14 @@
         function updateNewSessionForm() {
             const type = document.getElementById('new-session-type').value;
             const backtestFields = document.getElementById('backtest-range-fields');
+            const feeFields = document.getElementById('fee-config-fields');
             const strategySelect = document.getElementById('new-session-strategy');
 
             // Show/hide backtest date range
             backtestFields.style.display = type === 'backtest' ? 'grid' : 'none';
+
+            // Show/hide fee config (hide for scrapers)
+            feeFields.style.display = type === 'scraper' ? 'none' : 'grid';
 
             // Filter strategies by type
             strategySelect.innerHTML = '';
@@ -4843,6 +4979,14 @@
                 strategy_params: strategyParams
             };
             if (name) body.name = name;
+
+            // Add fee configuration for test/backtest (not scrapers)
+            if (type !== 'scraper') {
+                const makerFee = parseFloat(document.getElementById('new-session-maker-fee').value);
+                const takerFee = parseFloat(document.getElementById('new-session-taker-fee').value);
+                if (!isNaN(makerFee)) body.maker_fee = makerFee;
+                if (!isNaN(takerFee)) body.taker_fee = takerFee;
+            }
 
             // Add date range for backtest
             if (type === 'backtest') {
@@ -5373,6 +5517,8 @@
                         if (chartData.length > 0) {
                             series.setData(chartData);
                             inlineEquityChart.timeScale().fitContent();
+                            // Apply adaptive time formatting for zoom
+                            setupAdaptiveTimeFormat(inlineEquityChart);
                             console.log(`[InlineEquity] Loaded ${chartData.length} points, width: ${chartWidth}`);
                         } else {
                             container.innerHTML = '<div class="inline-empty">No valid equity data</div>';
@@ -5765,6 +5911,9 @@
                         value: p.equity
                     })));
                 }
+
+                // Apply adaptive time formatting for zoom
+                setupAdaptiveTimeFormat(detailEquityChart);
 
             } catch (error) {
                 console.error('[Detail] Failed to load equity curve:', error);
@@ -6736,6 +6885,9 @@
                 equityCurveChart.applyOptions({ width: container.clientWidth });
             });
             resizeObserver.observe(container);
+
+            // Apply adaptive time formatting for zoom
+            setupAdaptiveTimeFormat(equityCurveChart);
         }
 
         // Volume series for live market chart
@@ -8085,11 +8237,10 @@
             });
 
             if (sessionFound) {
-                // Re-render the sessions panel if visible
-                const runningPanel = document.getElementById('panel-running');
-                if (runningPanel && runningPanel.style.display !== 'none') {
-                    renderSessionsPanel('running');
-                }
+                // Re-render the session card to show updated trade count and P&L
+                renderSessionList('running-sessions-list', filterRunningSessions(sessionsData.running), 'running');
+                renderSessionList('scrapers-list', filterScraperSessions(sessionsData.scrapers), 'scrapers');
+                renderSessionList('history-list', sessionsData.history, 'history');
             }
 
             // If inline detail view is open for this session, update it
@@ -9464,6 +9615,9 @@
             });
 
             equityChart.timeScale().fitContent();
+
+            // Apply adaptive time formatting for zoom
+            setupAdaptiveTimeFormat(equityChart);
 
             // Handle resize
             const handleResize = () => {
