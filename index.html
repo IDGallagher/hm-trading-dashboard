@@ -1929,6 +1929,19 @@
             color: #484f58;
             animation: none;
         }
+        /* Service active indicator for scrapers */
+        .heartbeat-indicator.service-active .heartbeat-icon {
+            color: #3fb950;
+            animation: pulse-service 2s ease-in-out infinite;
+        }
+        .heartbeat-indicator.service-inactive .heartbeat-icon {
+            color: #f85149;
+            animation: none;
+        }
+        @keyframes pulse-service {
+            0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4); }
+            50% { transform: scale(1.15); opacity: 0.9; box-shadow: 0 0 8px 2px rgba(63, 185, 80, 0.3); }
+        }
         @keyframes heartbeat {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
@@ -4503,6 +4516,76 @@
             }
         }
 
+        // Fetch detailed heartbeat for a specific scraper session
+        async function fetchScraperHeartbeat(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/heartbeat`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.heartbeat) {
+                        return data.heartbeat;
+                    }
+                }
+            } catch (error) {
+                console.error('[Sessions] Failed to fetch scraper heartbeat:', error);
+            }
+            return null;
+        }
+
+        // Poll heartbeats for all running scrapers
+        async function pollScraperHeartbeats() {
+            const runningScrapers = sessionsData.scrapers.filter(s => s.status === 'running');
+            for (const scraper of runningScrapers) {
+                const heartbeat = await fetchScraperHeartbeat(scraper.id);
+                if (heartbeat) {
+                    scraper.service_active = heartbeat.service_active;
+                    scraper.service_status = heartbeat.service_status;
+                    scraper.last_data_write = heartbeat.last_data_write;
+
+                    // Calculate seconds since last data write
+                    if (heartbeat.last_data_write) {
+                        const lastWrite = new Date(heartbeat.last_data_write).getTime();
+                        const now = Date.now();
+                        scraper.seconds_since_data = Math.floor((now - lastWrite) / 1000);
+                    }
+
+                    // Update health status based on service status
+                    if (!heartbeat.service_active) {
+                        scraper.health_status = 'dead';
+                    } else if (scraper.seconds_since_data > 60) {
+                        scraper.health_status = 'warning';
+                    } else {
+                        scraper.health_status = 'healthy';
+                    }
+
+                    // Update the card display
+                    updateScraperCardHeartbeat(scraper);
+                }
+            }
+        }
+
+        // Update scraper card heartbeat display
+        function updateScraperCardHeartbeat(scraper) {
+            const card = document.querySelector(`.session-card[data-session-id="${scraper.id}"]`);
+            if (!card) return;
+
+            const heartbeatEl = card.querySelector('.heartbeat-indicator');
+            if (heartbeatEl) {
+                const statusClass = scraper.service_active ? 'service-active' : 'service-inactive';
+                const displayTime = scraper.seconds_since_data !== undefined
+                    ? `${scraper.seconds_since_data}s ago`
+                    : (scraper.service_active ? 'active' : 'inactive');
+
+                heartbeatEl.className = `heartbeat-indicator ${statusClass}`;
+                heartbeatEl.innerHTML = `
+                    <span class="heartbeat-icon">●</span>
+                    <span>${displayTime}</span>
+                `;
+            }
+        }
+
         // Update tab count badges
         function updateTabCounts() {
             document.getElementById('running-count').textContent = sessionsData.running.length;
@@ -4798,10 +4881,16 @@
                         ${session.status}
                     </div>
                     <div class="session-runtime">${runtime}</div>
-                    ${isRunning ? `
+                    ${isRunning && !isScraper ? `
                         <div class="heartbeat-indicator ${healthClass}">
                             <span class="heartbeat-icon">♡</span>
                             <span>${session.seconds_since_update || 0}s ago</span>
+                        </div>
+                    ` : ''}
+                    ${isRunning && isScraper ? `
+                        <div class="heartbeat-indicator ${session.service_active ? 'service-active' : (session.service_active === false ? 'service-inactive' : healthClass)}">
+                            <span class="heartbeat-icon">●</span>
+                            <span>${session.seconds_since_data !== undefined ? session.seconds_since_data + 's ago' : (session.seconds_since_update || 0) + 's ago'}</span>
                         </div>
                     ` : ''}
                     ${!isScraper ? `
@@ -6236,18 +6325,27 @@
         }
 
         // Start session polling
+        let scraperHeartbeatInterval = null;
+
         function startSessionPolling() {
             // Initial fetch
             fetchStrategies();
             fetchSessions().then(() => {
                 // Check URL params after sessions are loaded
                 handleUrlParams();
+                // Initial scraper heartbeat fetch
+                pollScraperHeartbeats();
             });
 
             // Poll every 5 seconds
             sessionPollingInterval = setInterval(() => {
                 fetchSessions();
             }, SESSION_POLL_INTERVAL);
+
+            // Poll scraper heartbeats every 15 seconds
+            scraperHeartbeatInterval = setInterval(() => {
+                pollScraperHeartbeats();
+            }, 15000);
         }
 
         // Stop session polling
@@ -6255,6 +6353,10 @@
             if (sessionPollingInterval) {
                 clearInterval(sessionPollingInterval);
                 sessionPollingInterval = null;
+            }
+            if (scraperHeartbeatInterval) {
+                clearInterval(scraperHeartbeatInterval);
+                scraperHeartbeatInterval = null;
             }
         }
 
