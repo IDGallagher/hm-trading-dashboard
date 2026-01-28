@@ -270,14 +270,15 @@
             flex-direction: column;
             overflow: hidden;
         }
-        /* ORDERBOOK section - shrinks to fit content, never scrolls */
+        /* ORDERBOOK section - fixed height with scrollable content */
         .panel-section.orderbook-section {
-            flex: 0 1 auto; /* Can shrink, doesn't grow */
+            flex: 0 0 auto; /* Fixed size, doesn't shrink */
             display: flex;
             flex-direction: column;
-            min-height: 0;
+            min-height: 280px; /* Enough for ~15 rows each side */
+            max-height: 350px;
             border-bottom: 1px solid #30363d;
-            overflow: hidden; /* NEVER scrollbar */
+            overflow: hidden;
         }
         /* TRADES section - fills remaining space, has scrollbar */
         .panel-section.trades-section {
@@ -300,10 +301,11 @@
             justify-content: space-between;
             align-items: center;
         }
-        /* Orderbook content - overflow hidden, no scrollbar */
+        /* Orderbook content - scrollable to show all rows */
         .orderbook-section .panel-content {
             flex: 1 1 auto;
-            overflow: hidden; /* NO scrollbar */
+            overflow-y: auto; /* Allow scroll if needed */
+            overflow-x: hidden;
             padding: 2px;
             min-height: 0;
         }
@@ -7521,12 +7523,15 @@
             if (!bidsContainer || !asksContainer) return;
 
             // Calculate totals and max for depth bars
+            // Show up to 15 levels each side
             let bidTotal = 0, askTotal = 0;
-            const bidRows = bids.slice(0, 12).map(b => { bidTotal += b.amount; return { ...b, total: bidTotal }; });
-            const askRows = asks.slice(0, 12).reverse().map(a => { askTotal += a.amount; return { ...a, total: askTotal }; }).reverse();
+            const bidRows = bids.slice(0, 15).map(b => { bidTotal += b.amount; return { ...b, total: bidTotal }; });
+            // Asks: calculate totals in original order (lowest first), then reverse for display (highest at top, lowest at bottom near spread)
+            const askRowsRaw = asks.slice(0, 15).map(a => { askTotal += a.amount; return { ...a, total: askTotal }; });
+            const askRows = askRowsRaw.reverse();  // Now highest price at top, lowest at bottom
             const maxTotal = Math.max(bidTotal, askTotal);
 
-            // Render asks (sells) - reversed so lowest at bottom
+            // Render asks (sells) - highest at top, lowest at bottom (near spread)
             asksContainer.innerHTML = askRows.map(ask => {
                 const depth = (ask.total / maxTotal * 100).toFixed(0);
                 return `<div class="orderbook-row ask">
