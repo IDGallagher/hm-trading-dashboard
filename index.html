@@ -3494,6 +3494,7 @@
                     <option value="SazBot">SazBot</option>
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
+                    <option value="DevDistStat">DevDistStat</option>
                 </select>
                 <div id="strategy-description" class="strategy-description" title="Strategy description">
                     Live market data only. Select a strategy to view trade overlays and backtest results.
@@ -5436,6 +5437,14 @@
             } catch (err) {
                 console.error('[Sessions] Failed to load trades for chart:', err);
             }
+
+            // Load DevDistStat indicators if this is a DevDistStat strategy session
+            if (session.strategy === 'DevDistStat') {
+                console.log('[DevDistStat] Loading indicators for session:', sessionId);
+                await loadDevDistStatIndicators(sessionId);
+                // Update chart with DevDistStat indicators
+                updateChartIndicators('DevDistStat');
+            }
         }
 
         // Hide inline detail and return to list
@@ -5457,6 +5466,10 @@
             if (liveMarketCandleSeries) {
                 liveMarketCandleSeries.setMarkers([]);
             }
+
+            // Clear DevDistStat indicator data and chart indicators
+            devDistStatIndicatorData = { mean: [], upper: [], lower: [], zscore: [] };
+            clearIndicators();
         }
 
         // Load metrics for inline detail
@@ -6597,7 +6610,8 @@
             'DivergeBot': 'Arbitrage strategy that detects price divergence between BTC/USD and BTC/USDT markets.',
             'SazBot': 'Order book imbalance strategy analyzing bid/ask ratios at multiple depth levels (1%-25%).',
             'SDBot': 'Supply/demand zone trading based on detecting significant price runs and zone boundaries.',
-            'PairTradeBot': 'Statistical arbitrage using mean reversion between correlated trading pairs.'
+            'PairTradeBot': 'Statistical arbitrage using mean reversion between correlated trading pairs.',
+            'DevDistStat': 'Distribution-based mean reversion using statistical z-score bands for entry/exit signals.'
         };
 
         // Strategy indicator configurations
@@ -6618,12 +6632,87 @@
             'PairTradeBot': [
                 { type: 'ema', period: 20, color: '#2196f3', label: 'EMA 20' },
                 { type: 'ema', period: 50, color: '#ff9800', label: 'EMA 50' }
+            ],
+            'DevDistStat': [
+                { type: 'devdiststat_bands', colorMean: '#ffeb3b', colorUpper: '#4caf50', colorLower: '#f44336' }
             ]
         };
 
         // Indicator line series for live market chart
         let indicatorSeries = {}; // { 'ema_20': lineSeries, 'ema_50': lineSeries, etc. }
         let currentStrategyIndicators = 'TestBot';
+
+        // DevDistStat indicator data parsed from session logs
+        let devDistStatIndicatorData = {
+            mean: [],   // { time, value }
+            upper: [],  // { time, value }
+            lower: [],  // { time, value }
+            zscore: []  // { time, value } - for optional z-score panel
+        };
+
+        // Parse [INDICATOR] logs from session logs
+        // Format: [INDICATOR] ts=1706000000 price=89100.00 mean=89108.32 upper=89117.93 lower=89098.71 zscore=-1.732
+        function parseDevDistStatIndicatorLogs(logs) {
+            const data = { mean: [], upper: [], lower: [], zscore: [] };
+
+            if (!logs || !Array.isArray(logs)) return data;
+
+            for (const log of logs) {
+                const msg = log.message || '';
+                if (!msg.includes('[INDICATOR]')) continue;
+
+                // Parse key=value pairs
+                const tsMatch = msg.match(/ts=(\d+)/);
+                const meanMatch = msg.match(/mean=([\d.]+)/);
+                const upperMatch = msg.match(/upper=([\d.]+)/);
+                const lowerMatch = msg.match(/lower=([\d.]+)/);
+                const zscoreMatch = msg.match(/zscore=([-\d.]+)/);
+
+                if (!tsMatch) continue;
+
+                // Convert timestamp to seconds (TradingView expects seconds)
+                let time = parseInt(tsMatch[1]);
+                if (time > 9999999999) time = Math.floor(time / 1000); // Convert ms to seconds
+
+                if (meanMatch) data.mean.push({ time, value: parseFloat(meanMatch[1]) });
+                if (upperMatch) data.upper.push({ time, value: parseFloat(upperMatch[1]) });
+                if (lowerMatch) data.lower.push({ time, value: parseFloat(lowerMatch[1]) });
+                if (zscoreMatch) data.zscore.push({ time, value: parseFloat(zscoreMatch[1]) });
+            }
+
+            // Sort by time (ascending)
+            data.mean.sort((a, b) => a.time - b.time);
+            data.upper.sort((a, b) => a.time - b.time);
+            data.lower.sort((a, b) => a.time - b.time);
+            data.zscore.sort((a, b) => a.time - b.time);
+
+            console.log(`[DevDistStat] Parsed ${data.mean.length} indicator points from logs`);
+            return data;
+        }
+
+        // Load DevDistStat indicators from session logs
+        async function loadDevDistStatIndicators(sessionId) {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=500`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+
+                if (!response.ok) {
+                    console.warn('[DevDistStat] Failed to load logs for indicators');
+                    return null;
+                }
+
+                const data = await response.json();
+                const logs = data.logs || [];
+
+                // Parse indicator data from logs
+                devDistStatIndicatorData = parseDevDistStatIndicatorLogs(logs);
+                return devDistStatIndicatorData;
+            } catch (err) {
+                console.error('[DevDistStat] Error loading indicator logs:', err);
+                return null;
+            }
+        }
 
         // Calculate EMA from candle data
         function calculateEMA(candles, period) {
@@ -6751,6 +6840,48 @@
                         indicatorSeries['bb_lower'] = lowerSeries;
 
                         console.log(`[Indicators] Added Bollinger Bands with ${bb.upper.length} points`);
+                    }
+                } else if (config.type === 'devdiststat_bands') {
+                    // DevDistStat bands from parsed log data
+                    if (devDistStatIndicatorData.mean.length > 0) {
+                        // Mean line (yellow - moving average)
+                        const meanSeries = liveMarketChart.addLineSeries({
+                            color: config.colorMean || '#ffeb3b',
+                            lineWidth: 2,
+                            title: 'Mean',
+                            priceLineVisible: false,
+                            lastValueVisible: true
+                        });
+                        meanSeries.setData(devDistStatIndicatorData.mean);
+                        indicatorSeries['devdist_mean'] = meanSeries;
+
+                        // Upper band (green - overbought zone)
+                        const upperSeries = liveMarketChart.addLineSeries({
+                            color: config.colorUpper || '#4caf50',
+                            lineWidth: 1,
+                            lineStyle: 2, // Dashed
+                            title: 'Upper',
+                            priceLineVisible: false,
+                            lastValueVisible: false
+                        });
+                        upperSeries.setData(devDistStatIndicatorData.upper);
+                        indicatorSeries['devdist_upper'] = upperSeries;
+
+                        // Lower band (red - oversold zone)
+                        const lowerSeries = liveMarketChart.addLineSeries({
+                            color: config.colorLower || '#f44336',
+                            lineWidth: 1,
+                            lineStyle: 2, // Dashed
+                            title: 'Lower',
+                            priceLineVisible: false,
+                            lastValueVisible: false
+                        });
+                        lowerSeries.setData(devDistStatIndicatorData.lower);
+                        indicatorSeries['devdist_lower'] = lowerSeries;
+
+                        console.log(`[Indicators] Added DevDistStat bands with ${devDistStatIndicatorData.mean.length} points`);
+                    } else {
+                        console.log('[Indicators] No DevDistStat indicator data available');
                     }
                 }
             }
