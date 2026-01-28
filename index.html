@@ -5417,9 +5417,11 @@
             }
 
             // Switch chart to session's market if different
-            const currentMarket = document.getElementById('market-selector').value.toLowerCase();
+            const currentMarketVal = document.getElementById('market-selector').value.toLowerCase();
             const sessionMarket = session.market.toLowerCase();
-            if (currentMarket !== sessionMarket) {
+            console.log('[Market] showInlineDetail switching market?', { current: currentMarketVal, session: sessionMarket, willSwitch: currentMarketVal !== sessionMarket });
+            if (currentMarketVal !== sessionMarket) {
+                console.log('[Market] RESETTING market selector to:', sessionMarket);
                 document.getElementById('market-selector').value = sessionMarket;
                 document.getElementById('market-selector').dispatchEvent(new Event('change'));
             }
