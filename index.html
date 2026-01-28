@@ -4706,6 +4706,7 @@
         // Render a single session card
         function renderSessionCard(session, panelType) {
             const isRunning = session.status === 'running';
+            const isScraper = session.type === 'scraper';
             const healthClass = getHealthClass(session);
             const cardClass = getCardHealthClass(session);
 
@@ -4722,7 +4723,7 @@
                 runtime = durationMs >= 0 ? formatDuration(durationMs) : '00:00:00';
             }
 
-            // Format PnL
+            // Format PnL (not shown for scrapers)
             const pnl = parseFloat(session.total_pnl || 0);
             const pnlClass = pnl >= 0 ? 'positive' : 'negative';
             const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
@@ -4765,12 +4766,25 @@
                 }
             } catch (e) { /* ignore parse errors */ }
 
+            // Format session name - handle multi-market scrapers
+            let sessionName = session.name || `${session.strategy} - ${session.market}`;
+            let marketDisplay = session.market;
+            if (isScraper && session.market && session.market.includes('+')) {
+                // Multi-market scraper - show count instead of full list
+                const markets = session.market.split('+');
+                marketDisplay = `${markets.length} markets`;
+                // If name already contains first market, don't duplicate
+                if (!session.name) {
+                    sessionName = `${session.strategy}`;
+                }
+            }
+
             return `
                 <div class="session-card clickable ${cardClass}" data-session-id="${session.id}" onclick="showInlineDetail('${session.id}', '${panelType}')">
                     <div class="session-info">
                         <div class="session-name">
-                            ${session.name || `${session.strategy} - ${session.market}`}
-                            <span class="session-market">${session.market}</span>
+                            ${sessionName}
+                            <span class="session-market">${marketDisplay}</span>
                             ${liveDataBadge}
                         </div>
                         <div class="session-meta">
@@ -4790,14 +4804,16 @@
                             <span>${session.seconds_since_update || 0}s ago</span>
                         </div>
                     ` : ''}
-                    <div class="session-metric">
-                        <span class="metric-label">Trades</span>
-                        <span class="metric-value">${session.trade_count || 0}</span>
-                    </div>
-                    <div class="session-metric">
-                        <span class="metric-label">P&L</span>
-                        <span class="metric-value ${pnlClass}">${pnlFormatted}</span>
-                    </div>
+                    ${!isScraper ? `
+                        <div class="session-metric">
+                            <span class="metric-label">Trades</span>
+                            <span class="metric-value">${session.trade_count || 0}</span>
+                        </div>
+                        <div class="session-metric">
+                            <span class="metric-label">P&L</span>
+                            <span class="metric-value ${pnlClass}">${pnlFormatted}</span>
+                        </div>
+                    ` : ''}
                     <div class="session-actions">
                         ${actionsHtml}
                     </div>
