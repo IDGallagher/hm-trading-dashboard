@@ -2643,10 +2643,10 @@
         }
         .inline-metric-value.positive { color: #3fb950; }
         .inline-metric-value.negative { color: #f85149; }
-        /* Two-column layout: Equity chart left, Trades right */
+        /* Two-column layout: Equity chart left (75%), Trades right (25%) */
         .inline-equity-trades-row {
             display: grid;
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: 3fr 1fr;
             gap: 12px;
             margin-bottom: 16px;
         }
@@ -3133,7 +3133,7 @@
                 <div class="inline-equity-trades-row">
                     <div class="inline-equity-section">
                         <h4>Equity Curve</h4>
-                        <div id="inline-equity-chart" style="height: 180px;"></div>
+                        <div id="inline-equity-chart" style="height: 180px; width: 100%;"></div>
                     </div>
                     <div class="inline-trades-section">
                         <h4>Recent Trades</h4>
@@ -5211,7 +5211,7 @@
                                 <span>${new Date(t.timestamp * 1000).toLocaleTimeString()}</span>
                                 <span style="color: ${t.side === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
                                 <span>$${price.toFixed(2)}</span>
-                                <span>${t.size}</span>
+                                <span>${formatTradeSize(t.size)}</span>
                                 <span class="${pnl >= 0 ? 'positive' : 'negative'}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
                             </div>
                         `}).join('');
@@ -5325,6 +5325,7 @@
         }
 
         // Load equity curve for inline detail
+        let inlineEquityChart = null;
         async function loadInlineEquity(sessionId) {
             try {
                 // Use new helper (tries DB first, falls back to file)
@@ -5335,23 +5336,61 @@
                         // Create mini equity chart
                         const container = document.getElementById('inline-equity-chart');
                         container.innerHTML = '';
-                        const chart = LightweightCharts.createChart(container, {
-                            width: container.clientWidth,
-                            height: 200,
+
+                        // Get width - use offsetWidth or fallback to parent width
+                        const chartWidth = container.offsetWidth || container.clientWidth || container.parentElement?.offsetWidth || 400;
+                        const chartHeight = 180;
+
+                        // Destroy previous chart if exists
+                        if (inlineEquityChart) {
+                            inlineEquityChart.remove();
+                            inlineEquityChart = null;
+                        }
+
+                        inlineEquityChart = LightweightCharts.createChart(container, {
+                            width: chartWidth,
+                            height: chartHeight,
                             layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
-                            grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } }
+                            grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+                            rightPriceScale: { borderColor: '#21262d' },
+                            timeScale: { borderColor: '#21262d' }
                         });
-                        const series = chart.addLineSeries({ color: '#58a6ff', lineWidth: 2 });
-                        series.setData(equity.map(e => ({
-                            time: Math.floor(e.timestamp / 1000),
-                            value: e.equity
-                        })));
-                        chart.timeScale().fitContent();
+
+                        const series = inlineEquityChart.addLineSeries({
+                            color: '#58a6ff',
+                            lineWidth: 2,
+                            priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+                        });
+
+                        // Map equity data - handle both timestamp formats
+                        const chartData = equity.map(e => {
+                            // Handle timestamp: could be in ms or seconds
+                            let time = e.timestamp;
+                            if (time > 1e12) time = Math.floor(time / 1000); // Convert ms to seconds
+                            return { time: time, value: parseFloat(e.equity) || 0 };
+                        }).filter(d => d.time > 0 && !isNaN(d.value));
+
+                        if (chartData.length > 0) {
+                            series.setData(chartData);
+                            inlineEquityChart.timeScale().fitContent();
+                            console.log(`[InlineEquity] Loaded ${chartData.length} points, width: ${chartWidth}`);
+                        } else {
+                            container.innerHTML = '<div class="inline-empty">No valid equity data</div>';
+                        }
+
+                        // Handle resize
+                        const resizeHandler = () => {
+                            if (inlineEquityChart && container.offsetWidth > 0) {
+                                inlineEquityChart.applyOptions({ width: container.offsetWidth });
+                            }
+                        };
+                        window.addEventListener('resize', resizeHandler);
                     } else {
                         document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">No equity data</div>';
                     }
                 }
             } catch (err) {
+                console.error('[InlineEquity] Error:', err);
                 document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">Failed to load equity</div>';
             }
         }
@@ -7217,11 +7256,16 @@
             return price.toFixed(1);
         }
 
-        // Format amount
+        // Format amount - clean decimal formatting
         function formatMarketAmount(amount) {
-            if (amount >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
-            if (amount >= 1000) return (amount / 1000).toFixed(1) + 'K';
-            return amount.toString();
+            if (amount == null) return '-';
+            const num = parseFloat(amount);
+            if (isNaN(num)) return amount;
+            if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            // For amounts < 1000: show clean decimals (max 2 places, trim trailing zeros)
+            if (num === Math.floor(num)) return num.toFixed(0);
+            return parseFloat(num.toFixed(2)).toString();
         }
 
         // === PROFESSIONAL UI FUNCTIONS ===
