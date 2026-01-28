@@ -3282,6 +3282,16 @@
                     </div>
                 </div>
 
+                <!-- Trade interval (shown for test/backtest, hidden for scraper) -->
+                <div class="form-group" id="trade-interval-field">
+                    <label class="form-label">Trade Period (seconds)</label>
+                    <div class="input-with-suffix">
+                        <input type="number" class="form-input" id="new-session-trade-interval" value="60" min="10" step="1">
+                        <span class="input-suffix">sec</span>
+                    </div>
+                    <small class="form-hint">Time between trades (minimum 10 seconds)</small>
+                </div>
+
                 <!-- Strategy params (dynamic based on strategy) -->
                 <div id="strategy-params-container" class="strategy-params" style="display: none;">
                     <div class="strategy-params-title">Strategy Parameters</div>
@@ -4903,6 +4913,12 @@
             // Show/hide fee config (hide for scrapers)
             feeFields.style.display = type === 'scraper' ? 'none' : 'grid';
 
+            // Show/hide trade interval (hide for scrapers)
+            const tradeIntervalField = document.getElementById('trade-interval-field');
+            if (tradeIntervalField) {
+                tradeIntervalField.style.display = type === 'scraper' ? 'none' : 'block';
+            }
+
             // Filter strategies by type
             strategySelect.innerHTML = '';
             strategiesData.filter(s => {
@@ -4978,6 +4994,14 @@
                 }
                 strategyParams[param] = value;
             });
+
+            // Add trade_interval for test/backtest
+            if (type !== 'scraper') {
+                const tradeInterval = parseInt(document.getElementById('new-session-trade-interval').value);
+                if (!isNaN(tradeInterval) && tradeInterval >= 10) {
+                    strategyParams.trade_interval = tradeInterval;
+                }
+            }
 
             // Build request body
             const body = {
