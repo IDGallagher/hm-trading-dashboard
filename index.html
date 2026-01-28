@@ -3494,7 +3494,7 @@
                     <option value="SazBot">SazBot</option>
                     <option value="SDBot">SDBot</option>
                     <option value="PairTradeBot">PairTradeBot</option>
-                    <option value="DevDistStat">DevDistStat</option>
+                    <option value="DevDistStatBot">DevDistStatBot</option>
                 </select>
                 <div id="strategy-description" class="strategy-description" title="Strategy description">
                     Live market data only. Select a strategy to view trade overlays and backtest results.
@@ -5438,12 +5438,12 @@
                 console.error('[Sessions] Failed to load trades for chart:', err);
             }
 
-            // Load DevDistStat indicators if this is a DevDistStat strategy session
-            if (session.strategy === 'DevDistStat') {
-                console.log('[DevDistStat] Loading indicators for session:', sessionId);
+            // Load DevDistStatBot indicators if this is a DevDistStatBot strategy session
+            if (session.strategy === 'DevDistStatBot') {
+                console.log('[DevDistStatBot] Loading indicators for session:', sessionId);
                 await loadDevDistStatIndicators(sessionId);
-                // Update chart with DevDistStat indicators
-                updateChartIndicators('DevDistStat');
+                // Update chart with DevDistStatBot indicators
+                updateChartIndicators('DevDistStatBot');
             }
         }
 
@@ -6611,7 +6611,7 @@
             'SazBot': 'Order book imbalance strategy analyzing bid/ask ratios at multiple depth levels (1%-25%).',
             'SDBot': 'Supply/demand zone trading based on detecting significant price runs and zone boundaries.',
             'PairTradeBot': 'Statistical arbitrage using mean reversion between correlated trading pairs.',
-            'DevDistStat': 'Distribution-based mean reversion using statistical z-score bands for entry/exit signals.'
+            'DevDistStatBot': 'Distribution-based mean reversion using statistical z-score bands for entry/exit signals.'
         };
 
         // Strategy indicator configurations
@@ -6633,7 +6633,7 @@
                 { type: 'ema', period: 20, color: '#2196f3', label: 'EMA 20' },
                 { type: 'ema', period: 50, color: '#ff9800', label: 'EMA 50' }
             ],
-            'DevDistStat': [
+            'DevDistStatBot': [
                 { type: 'devdiststat_bands', colorMean: '#ffeb3b', colorUpper: '#4caf50', colorLower: '#f44336' }
             ]
         };
