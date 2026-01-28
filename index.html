@@ -4658,13 +4658,21 @@
 
             // Update P&L if changed
             if (!prevData || prevData.total_pnl !== session.total_pnl) {
-                const pnlEl = card.querySelector('.session-metric .metric-value');
-                if (pnlEl) {
-                    const pnl = parseFloat(session.total_pnl || 0);
-                    const pnlClass = pnl >= 0 ? 'positive' : 'negative';
-                    const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
-                    pnlEl.className = `metric-value ${pnlClass}`;
-                    pnlEl.textContent = pnlFormatted;
+                // Find P&L element by checking label (not just first metric)
+                const allMetrics = card.querySelectorAll('.session-metric');
+                for (const metric of allMetrics) {
+                    const label = metric.querySelector('.metric-label');
+                    if (label && label.textContent === 'P&L') {
+                        const pnlEl = metric.querySelector('.metric-value');
+                        if (pnlEl) {
+                            const pnl = parseFloat(session.total_pnl || 0);
+                            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+                            const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+                            pnlEl.className = `metric-value ${pnlClass}`;
+                            pnlEl.textContent = pnlFormatted;
+                        }
+                        break;
+                    }
                 }
             }
 
