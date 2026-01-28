@@ -3286,10 +3286,10 @@
                 <div class="form-group" id="trade-interval-field">
                     <label class="form-label">Trade Period (seconds)</label>
                     <div class="input-with-suffix">
-                        <input type="number" class="form-input" id="new-session-trade-interval" value="60" min="10" step="1">
+                        <input type="number" class="form-input" id="new-session-trade-interval" value="60" min="1" step="1">
                         <span class="input-suffix">sec</span>
                     </div>
-                    <small class="form-hint">Time between trades (minimum 10 seconds)</small>
+                    <small class="form-hint">Time between trades (minimum 1 second)</small>
                 </div>
 
                 <!-- Strategy params (dynamic based on strategy) -->
@@ -4998,7 +4998,7 @@
             // Add trade_interval for test/backtest
             if (type !== 'scraper') {
                 const tradeInterval = parseInt(document.getElementById('new-session-trade-interval').value);
-                if (!isNaN(tradeInterval) && tradeInterval >= 10) {
+                if (!isNaN(tradeInterval) && tradeInterval >= 1) {
                     strategyParams.trade_interval = tradeInterval;
                 }
             }
