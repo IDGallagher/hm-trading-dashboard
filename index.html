@@ -2750,8 +2750,7 @@
             font-size: 11px;
             padding: 8px 12px;
             flex-grow: 1;
-            overflow-y: auto;
-            max-height: 400px;
+            /* No scrollbar - logs expand page downward */
         }
         .inline-log-row {
             padding: 4px 0;
@@ -5187,11 +5186,13 @@
         let previousPanelId = null;
         let logsPollingInterval = null;  // For streaming logs
         let currentSessionTradeData = null; // Store trade data for re-rendering on period change
+        let lastLogTimestamp = null; // Track last log timestamp for incremental updates
 
         // Show inline session detail view
         async function showInlineDetail(sessionId, panelType) {
             console.log('[Sessions] Show inline detail for:', sessionId);
             currentInlineSessionId = sessionId;
+            lastLogTimestamp = null;  // Reset for fresh log load
 
             // Find the session data
             let session = sessionsData.running.find(s => s.id === sessionId) ||
@@ -5274,7 +5275,7 @@
             if (session.status === 'running') {
                 logsPollingInterval = setInterval(() => {
                     if (currentInlineSessionId === sessionId) {
-                        loadInlineLogs(sessionId);
+                        pollInlineLogs(sessionId);  // Use incremental polling
                     }
                 }, 2000);
             }
@@ -5413,6 +5414,11 @@
                     const data = await response.json();
                     let logs = data.logs || [];
 
+                    // Store last timestamp from raw logs (before filtering)
+                    if (logs.length > 0) {
+                        lastLogTimestamp = logs[logs.length - 1].timestamp;
+                    }
+
                     // Filter out verbose order book and debug messages
                     logs = filterVerboseLogs(logs);
 
@@ -5436,6 +5442,41 @@
             } catch (err) {
                 console.error('[Sessions] Failed to load logs:', err);
                 container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
+            }
+        }
+
+        // Poll for new logs incrementally (only fetch logs newer than lastLogTimestamp)
+        async function pollInlineLogs(sessionId) {
+            if (!lastLogTimestamp) {
+                // No previous timestamp, do full load
+                return loadInlineLogs(sessionId);
+            }
+
+            try {
+                // Fetch recent logs
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=50`, {
+                    headers: { 'x-api-key': CONTROL_API_KEY }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    let logs = data.logs || [];
+
+                    // Filter to only logs newer than lastLogTimestamp (client-side)
+                    const lastTs = new Date(lastLogTimestamp).getTime();
+                    const newLogs = logs.filter(l => new Date(l.timestamp).getTime() > lastTs);
+
+                    // Update last timestamp from raw logs (before filtering)
+                    if (logs.length > 0) {
+                        lastLogTimestamp = logs[logs.length - 1].timestamp;
+                    }
+
+                    // Append only the new logs (if any)
+                    if (newLogs.length > 0) {
+                        appendInlineLogs(newLogs);
+                    }
+                }
+            } catch (err) {
+                console.error('[Sessions] Failed to poll logs:', err);
             }
         }
 
