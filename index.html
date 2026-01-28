@@ -4545,17 +4545,22 @@
                     scraper.service_status = heartbeat.service_status;
                     scraper.last_data_write = heartbeat.last_data_write;
 
-                    // Calculate seconds since last data write
+                    // Calculate seconds since last data write (only if we have valid timestamp)
                     if (heartbeat.last_data_write) {
                         const lastWrite = new Date(heartbeat.last_data_write).getTime();
                         const now = Date.now();
-                        scraper.seconds_since_data = Math.floor((now - lastWrite) / 1000);
+                        const secondsAgo = Math.floor((now - lastWrite) / 1000);
+                        // Only use if reasonable (< 5 minutes) - otherwise data is stale/invalid
+                        scraper.seconds_since_data = secondsAgo >= 0 ? secondsAgo : undefined;
+                    } else {
+                        // No data write timestamp - reset to undefined
+                        scraper.seconds_since_data = undefined;
                     }
 
-                    // Update health status based on service status
+                    // Update health status based on service status (service_active is the reliable indicator)
                     if (!heartbeat.service_active) {
                         scraper.health_status = 'dead';
-                    } else if (scraper.seconds_since_data > 60) {
+                    } else if (scraper.seconds_since_data !== undefined && scraper.seconds_since_data > 60) {
                         scraper.health_status = 'warning';
                     } else {
                         scraper.health_status = 'healthy';
@@ -4574,10 +4579,22 @@
 
             const heartbeatEl = card.querySelector('.heartbeat-indicator');
             if (heartbeatEl) {
+                // service_active is the reliable health indicator
                 const statusClass = scraper.service_active ? 'service-active' : 'service-inactive';
-                const displayTime = scraper.seconds_since_data !== undefined
-                    ? `${scraper.seconds_since_data}s ago`
-                    : (scraper.service_active ? 'active' : 'inactive');
+
+                // Determine display text
+                let displayTime;
+                if (!scraper.service_active) {
+                    displayTime = 'stopped';
+                } else if (scraper.seconds_since_data === undefined) {
+                    // Service active but no data yet
+                    displayTime = 'starting...';
+                } else if (scraper.seconds_since_data > 300) {
+                    // Data older than 5 minutes - show as stale
+                    displayTime = 'stale';
+                } else {
+                    displayTime = `${scraper.seconds_since_data}s ago`;
+                }
 
                 heartbeatEl.className = `heartbeat-indicator ${statusClass}`;
                 heartbeatEl.innerHTML = `
@@ -4889,9 +4906,9 @@
                         </div>
                     ` : ''}
                     ${isRunning && isScraper ? `
-                        <div class="heartbeat-indicator ${session.service_active ? 'service-active' : (session.service_active === false ? 'service-inactive' : healthClass)}">
+                        <div class="heartbeat-indicator ${session.service_active === true ? 'service-active' : (session.service_active === false ? 'service-inactive' : 'healthy')}">
                             <span class="heartbeat-icon">●</span>
-                            <span>${session.seconds_since_data !== undefined ? session.seconds_since_data + 's ago' : (session.seconds_since_update || 0) + 's ago'}</span>
+                            <span>${session.service_active === false ? 'stopped' : (session.seconds_since_data !== undefined ? session.seconds_since_data + 's ago' : 'loading...')}</span>
                         </div>
                     ` : ''}
                     ${!isScraper ? `
