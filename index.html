@@ -7805,15 +7805,23 @@
             const periodSelector = document.getElementById('market-period-selector');
             const refreshBtn = document.getElementById('refresh-market-btn');
 
+            console.log('[Market] initLiveMarketControls called', {
+                marketSelector: !!marketSelector,
+                marketSelectorSecondary: !!marketSelectorSecondary
+            });
+
             // Common handler for market change
             function handleMarketChange(newMarket, sourceSelector) {
+                console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
                 currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
                 isLoadingOlderCandles = false;
                 clearIndicators(); // Clear indicators before loading new data
+                console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
+                console.log('[Market] Calling subscribeToMarket for:', currentMarket);
                 subscribeToMarket(currentMarket);
 
                 // Sync the other selector
@@ -7825,12 +7833,20 @@
                 }
             }
 
-            if (marketSelector) marketSelector.addEventListener('change', (e) => {
-                handleMarketChange(e.target.value, marketSelector);
-            });
-            if (marketSelectorSecondary) marketSelectorSecondary.addEventListener('change', (e) => {
-                handleMarketChange(e.target.value, marketSelectorSecondary);
-            });
+            if (marketSelector) {
+                console.log('[Market] Adding change listener to market-selector');
+                marketSelector.addEventListener('change', (e) => {
+                    console.log('[Market] market-selector change event fired:', e.target.value);
+                    handleMarketChange(e.target.value, marketSelector);
+                });
+            }
+            if (marketSelectorSecondary) {
+                console.log('[Market] Adding change listener to market-selector-secondary');
+                marketSelectorSecondary.addEventListener('change', (e) => {
+                    console.log('[Market] market-selector-secondary change event fired:', e.target.value);
+                    handleMarketChange(e.target.value, marketSelectorSecondary);
+                });
+            }
             if (periodSelector) periodSelector.addEventListener('change', (e) => {
                 currentMarketPeriod = e.target.value;
                 formingCandle = null; // Reset forming candle on period change
