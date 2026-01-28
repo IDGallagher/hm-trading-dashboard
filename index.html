@@ -3667,7 +3667,7 @@
             <div class="market-controls">
                 <div class="market-control-group">
                     <span class="market-control-label">Market:</span>
-                    <select id="market-selector" class="market-select">
+                    <select id="market-selector-secondary" class="market-select">
                         <option value="xbtusd">BTC/USD (XBTUSD)</option>
                         <option value="ethusd">ETH/USD (ETHUSD)</option>
                         <option value="solusd">SOL/USD (SOLUSD)</option>
@@ -7801,10 +7801,13 @@
         // Initialize live market controls
         function initLiveMarketControls() {
             const marketSelector = document.getElementById('market-selector');
+            const marketSelectorSecondary = document.getElementById('market-selector-secondary');
             const periodSelector = document.getElementById('market-period-selector');
             const refreshBtn = document.getElementById('refresh-market-btn');
-            if (marketSelector) marketSelector.addEventListener('change', (e) => {
-                currentMarket = e.target.value;
+
+            // Common handler for market change
+            function handleMarketChange(newMarket, sourceSelector) {
+                currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
@@ -7812,6 +7815,21 @@
                 clearIndicators(); // Clear indicators before loading new data
                 loadLiveMarketData();
                 subscribeToMarket(currentMarket);
+
+                // Sync the other selector
+                if (sourceSelector !== marketSelector && marketSelector) {
+                    marketSelector.value = newMarket;
+                }
+                if (sourceSelector !== marketSelectorSecondary && marketSelectorSecondary) {
+                    marketSelectorSecondary.value = newMarket;
+                }
+            }
+
+            if (marketSelector) marketSelector.addEventListener('change', (e) => {
+                handleMarketChange(e.target.value, marketSelector);
+            });
+            if (marketSelectorSecondary) marketSelectorSecondary.addEventListener('change', (e) => {
+                handleMarketChange(e.target.value, marketSelectorSecondary);
             });
             if (periodSelector) periodSelector.addEventListener('change', (e) => {
                 currentMarketPeriod = e.target.value;
