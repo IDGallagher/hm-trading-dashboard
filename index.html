@@ -6693,7 +6693,7 @@
         // Load DevDistStat indicators from session logs
         async function loadDevDistStatIndicators(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=500`, {
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=5000`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
