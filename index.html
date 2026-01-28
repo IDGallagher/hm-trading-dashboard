@@ -4551,9 +4551,18 @@
                         const lastWriteMs = new Date(heartbeat.last_data_write).getTime();
                         const nowMs = Date.now();
                         const secondsAgo = Math.floor((nowMs - lastWriteMs) / 1000);
-                        // Only use if valid (non-negative and reasonable < 1 hour)
-                        scraper.seconds_since_data = (secondsAgo >= 0 && secondsAgo < 3600) ? secondsAgo : undefined;
+                        console.log('[Heartbeat DEBUG]', {
+                            session_id: scraper.id,
+                            last_data_write: heartbeat.last_data_write,
+                            lastWriteMs,
+                            nowMs,
+                            secondsAgo,
+                            service_active: heartbeat.service_active
+                        });
+                        // Use the calculated value (no limit - show actual staleness)
+                        scraper.seconds_since_data = secondsAgo >= 0 ? secondsAgo : undefined;
                     } else {
+                        console.log('[Heartbeat DEBUG] No last_data_write for', scraper.id);
                         // No data write timestamp - reset to undefined
                         scraper.seconds_since_data = undefined;
                     }
@@ -4591,8 +4600,9 @@
                     // Service active but no data yet
                     displayTime = 'starting...';
                 } else if (scraper.seconds_since_data > 300) {
-                    // Data older than 5 minutes - show as stale
-                    displayTime = 'stale';
+                    // Data older than 5 minutes - show minutes/hours
+                    const mins = Math.floor(scraper.seconds_since_data / 60);
+                    displayTime = mins > 60 ? `${Math.floor(mins/60)}h ago` : `${mins}m ago`;
                 } else {
                     displayTime = `${scraper.seconds_since_data}s ago`;
                 }
