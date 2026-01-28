@@ -4380,12 +4380,13 @@
                 sessionsData.running = sessions.filter(s =>
                     s.status === 'running' && (s.type === 'test' || s.type === 'backtest')
                 );
-                // Show all scrapers (any status) so users can see and restart failed ones
+                // Only show running scrapers (stopped scrapers go to history)
                 sessionsData.scrapers = sessions.filter(s =>
-                    s.type === 'scraper'
+                    s.type === 'scraper' && s.status === 'running'
                 );
+                // History includes stopped scrapers
                 sessionsData.history = sessions.filter(s =>
-                    s.status !== 'running' && s.status !== 'created' && s.type !== 'scraper'
+                    s.status !== 'running' && s.status !== 'created'
                 );
 
                 // Also fetch health status for running sessions
