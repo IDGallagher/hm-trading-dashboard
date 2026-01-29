@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>HM Trading Dashboard</title>
-    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html {
@@ -4108,25 +4108,35 @@
         // GLOBAL ERROR HANDLER - Captures JS errors for debugging
         // ==========================================
         const jsErrorLog = [];
-        const MAX_ERROR_LOG = 20;
+        const MAX_ERROR_LOG = 50;
 
-        function logJsError(type, message, source, line, col) {
+        function logJsError(type, message, source, line, col, stack) {
             const entry = {
                 time: new Date().toLocaleTimeString(),
                 type: type,
-                message: message,
-                source: source ? source.split('/').pop() : '',
+                message: String(message).substring(0, 200),
+                source: source ? String(source).split('/').pop() : '',
                 line: line || '',
-                col: col || ''
+                col: col || '',
+                stack: stack || ''
             };
             jsErrorLog.unshift(entry);
             if (jsErrorLog.length > MAX_ERROR_LOG) jsErrorLog.pop();
             updateErrorPanel();
+        }
 
-            // Also show toast for immediate visibility
-            if (typeof showErrorToast === 'function') {
-                showErrorToast(`JS ${type}`, `${message} (${entry.source}:${line})`, 0); // 0 = don't auto-hide
-            }
+        // Helper to wrap async functions with error catching
+        function safeAsync(fn, fnName) {
+            return async function(...args) {
+                try {
+                    return await fn.apply(this, args);
+                } catch (err) {
+                    const stack = err.stack || '';
+                    const location = stack.split('\n')[1] || '';
+                    logJsError('AsyncError', `${fnName}: ${err.message}`, location, '', '', stack);
+                    throw err; // Re-throw so caller knows it failed
+                }
+            };
         }
 
         function updateErrorPanel() {
@@ -4136,12 +4146,14 @@
 
             if (jsErrorLog.length > 0) {
                 panel.style.display = 'block';
+                panel.style.visibility = 'visible';
+                panel.style.opacity = '1';
                 list.innerHTML = jsErrorLog.map(e =>
-                    `<div class="js-error-entry">
+                    `<div class="js-error-entry" title="${e.stack ? e.stack.replace(/"/g, '&quot;') : ''}">
                         <span class="error-time">[${e.time}]</span>
                         <span class="error-type">${e.type}</span>
                         <span class="error-msg">${e.message}</span>
-                        <span class="error-loc">${e.source}:${e.line}</span>
+                        <span class="error-loc">${e.source}${e.line ? ':'+e.line : ''}</span>
                     </div>`
                 ).join('');
             } else {
@@ -4151,7 +4163,8 @@
 
         // Catch synchronous errors
         window.onerror = function(message, source, line, col, error) {
-            logJsError('Error', message, source, line, col);
+            const stack = error?.stack || '';
+            logJsError('Error', message, source, line, col, stack);
             return false; // Let error propagate to console too
         };
 
@@ -5440,6 +5453,7 @@
 
         // Show inline session detail view
         async function showInlineDetail(sessionId, panelType) {
+          try {
             console.log('[Sessions] Show inline detail for:', sessionId);
             currentInlineSessionId = sessionId;
             lastLogTimestamp = null;  // Reset for fresh log load
@@ -5451,6 +5465,7 @@
 
             if (!session) {
                 console.error('[Sessions] Session not found:', sessionId);
+                logJsError('DetailView', `Session not found: ${sessionId}`, 'showInlineDetail', '', '');
                 return;
             }
 
@@ -5558,6 +5573,12 @@
                 // Update chart with DevDistStatBot indicators
                 updateChartIndicators('DevDistStatBot');
             }
+          } catch (err) {
+            // Catch ALL errors in showInlineDetail and log them visibly
+            const stack = err.stack || '';
+            logJsError('DetailViewError', `showInlineDetail failed: ${err.message}`, stack.split('\n')[1] || '', '', '', stack);
+            console.error('[Sessions] showInlineDetail error:', err);
+          }
         }
 
         // Hide inline detail and return to list
@@ -5705,7 +5726,8 @@
                 }
             } catch (err) {
                 console.error('[Sessions] Failed to load logs:', err);
-                container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
+                logJsError('LogsError', `loadInlineLogs: ${err.message}`, '', '', '', err.stack);
+                container.innerHTML = '<div class="inline-empty">Failed to load logs: ' + err.message + '</div>';
             }
         }
 
@@ -5741,6 +5763,11 @@
                 }
             } catch (err) {
                 console.error('[Sessions] Failed to poll logs:', err);
+                // Only log first poll error to avoid spam
+                if (!window._pollLogErrorShown) {
+                    logJsError('PollError', `pollInlineLogs: ${err.message}`, '', '', '', err.stack);
+                    window._pollLogErrorShown = true;
+                }
             }
         }
 
