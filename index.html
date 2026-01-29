@@ -4240,7 +4240,6 @@
 
         // Safe wrapper for chart update calls (single point updates)
         function safeUpdate(series, point, sourceName) {
-            console.log(`[Chart] safeUpdate called: ${sourceName}`, point);
             if (!series) {
                 console.warn(`[Chart] safeUpdate: series is null for ${sourceName}`);
                 return false;
@@ -8265,6 +8264,9 @@
         }
 
         function handleMarketUpdate(data) {
+            // Track if we've already updated the forming candle this message
+            let candleUpdated = false;
+
             // Update price display
             if (data.price) {
                 const priceEl = document.getElementById('current-market-price');
@@ -8272,15 +8274,6 @@
 
                 // Update professional trading header
                 updateTradingHeader(data.price.value, data.price.change24h || null);
-
-                // Update forming candle with current price if we have one
-                if (data.price.value && formingCandle) {
-                    updateFormingCandle({
-                        price: data.price.value,
-                        timestamp: data.price.timestamp || Math.floor(Date.now() / 1000),
-                        amount: 0
-                    });
-                }
             }
 
             // Update orderbook (professional version)
@@ -8294,7 +8287,7 @@
                 }
             }
 
-            // Update trades and forming candle
+            // Update trades and forming candle - PREFER trades data (has volume)
             if (data.trades && data.trades.length > 0) {
                 renderLiveMarketTrades(data.trades);
 
@@ -8306,7 +8299,17 @@
                         timestamp: latestTrade.timestamp || Math.floor(Date.now() / 1000),
                         amount: latestTrade.amount || 0
                     });
+                    candleUpdated = true;
                 }
+            }
+
+            // Only update from price if no trade data (avoid duplicate updates)
+            if (!candleUpdated && data.price && data.price.value && formingCandle) {
+                updateFormingCandle({
+                    price: data.price.value,
+                    timestamp: data.price.timestamp || Math.floor(Date.now() / 1000),
+                    amount: 0
+                });
             }
         }
 
