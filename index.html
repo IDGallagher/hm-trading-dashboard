@@ -4175,6 +4175,52 @@
             logJsError('Promise', message, reason?.stack?.split('\n')[1] || '', '', '');
         });
 
+        // Safe wrapper for chart setData calls - logs errors with source identification
+        function safeSetData(series, data, sourceName) {
+            if (!series) {
+                console.warn(`[Chart] safeSetData: series is null for ${sourceName}`);
+                return false;
+            }
+            if (!data) {
+                console.warn(`[Chart] safeSetData: data is null for ${sourceName}`);
+                return false;
+            }
+            if (!Array.isArray(data)) {
+                console.warn(`[Chart] safeSetData: data is not array for ${sourceName}`, typeof data);
+                return false;
+            }
+            // Filter out any null/invalid data points
+            const validData = data.filter(d => d && typeof d.time === 'number' && d.time > 0);
+            if (validData.length === 0) {
+                console.warn(`[Chart] safeSetData: no valid data points for ${sourceName}`);
+                return false;
+            }
+            try {
+                series.setData(validData);
+                return true;
+            } catch (err) {
+                logJsError('ChartSetData', `${sourceName}: ${err.message}`, '', '', '', err.stack);
+                console.error(`[Chart] setData failed for ${sourceName}:`, err);
+                return false;
+            }
+        }
+
+        // Safe wrapper for chart setMarkers calls
+        function safeSetMarkers(series, markers, sourceName) {
+            if (!series) {
+                console.warn(`[Chart] safeSetMarkers: series is null for ${sourceName}`);
+                return false;
+            }
+            try {
+                series.setMarkers(markers || []);
+                return true;
+            } catch (err) {
+                logJsError('ChartSetMarkers', `${sourceName}: ${err.message}`, '', '', '', err.stack);
+                console.error(`[Chart] setMarkers failed for ${sourceName}:`, err);
+                return false;
+            }
+        }
+
         // Global state
         let currentData = null;
         let testSessionData = null;
@@ -6008,7 +6054,7 @@
 
             // Sort markers by time (required by Lightweight Charts)
             markers.sort((a, b) => a.time - b.time);
-            liveMarketCandleSeries.setMarkers(markers);
+            safeSetMarkers(liveMarketCandleSeries, markers, 'displaySessionTrades');
 
             const limitNote = trades.length > MAX_MARKERS ? ` (limited from ${trades.length})` : '';
             console.log(`[Sessions] Displayed ${markers.length} trade markers on chart${limitNote}`);
@@ -6018,7 +6064,7 @@
         function clearSessionTrades() {
             currentViewedSessionId = null;
             if (liveMarketCandleSeries) {
-                liveMarketCandleSeries.setMarkers([]);
+                safeSetMarkers(liveMarketCandleSeries, [], 'clearSessionTrades');
             }
         }
 
@@ -6948,9 +6994,8 @@
                             priceLineVisible: false,
                             lastValueVisible: false
                         });
-                        series.setData(emaData);
+                        safeSetData(series, emaData, `EMA_${config.period}`);
                         indicatorSeries[`ema_${config.period}`] = series;
-                        console.log(`[Indicators] Added EMA ${config.period} with ${emaData.length} points`);
                     }
                 } else if (config.type === 'bollinger') {
                     const bb = calculateBollingerBands(lastCandleData, config.period, config.stdDev);
@@ -6964,7 +7009,7 @@
                             priceLineVisible: false,
                             lastValueVisible: false
                         });
-                        upperSeries.setData(bb.upper);
+                        safeSetData(upperSeries, bb.upper, 'BB_upper');
                         indicatorSeries['bb_upper'] = upperSeries;
 
                         // Lower band
@@ -6976,7 +7021,7 @@
                             priceLineVisible: false,
                             lastValueVisible: false
                         });
-                        lowerSeries.setData(bb.lower);
+                        safeSetData(lowerSeries, bb.lower, 'BB_lower');
                         indicatorSeries['bb_lower'] = lowerSeries;
 
                         console.log(`[Indicators] Added Bollinger Bands with ${bb.upper.length} points`);
@@ -7568,8 +7613,7 @@
                 };
             });
 
-            liveMarketVolumeSeries.setData(volumeData);
-            console.log(`[Volume] Set ${volumeData.length} volume bars`);
+            safeSetData(liveMarketVolumeSeries, volumeData, 'updateVolumeSeries');
         }
 
         // Load older candles when user scrolls left
@@ -7630,7 +7674,7 @@
                         earliestCandleTime = lastCandleData[0].time;
 
                         // Update chart with all data
-                        liveMarketCandleSeries.setData(lastCandleData);
+                        safeSetData(liveMarketCandleSeries, lastCandleData, 'loadOlderCandles');
 
                         // Update volume series
                         updateVolumeSeries(lastCandleData);
@@ -7714,7 +7758,7 @@
                     }));
                     lastCandleData = candles; // Store for reference
                     earliestCandleTime = candles[0].time; // Track earliest for lazy loading
-                    liveMarketCandleSeries.setData(candles);
+                    safeSetData(liveMarketCandleSeries, candles, 'loadLiveMarketData');
 
                     // Update volume series
                     updateVolumeSeries(candles);
