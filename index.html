@@ -5380,11 +5380,13 @@
             }
 
             // Add date range for backtest
+            // IMPORTANT: datetime-local inputs give "YYYY-MM-DDTHH:mm" without timezone
+            // We append ":00Z" to force UTC interpretation (fixes 9-hour timezone bug)
             if (type === 'backtest') {
                 const startDate = document.getElementById('new-session-start').value;
                 const endDate = document.getElementById('new-session-end').value;
-                if (startDate) body.range_start = Math.floor(new Date(startDate).getTime() / 1000);
-                if (endDate) body.range_end = Math.floor(new Date(endDate).getTime() / 1000);
+                if (startDate) body.range_start = Math.floor(new Date(startDate + ':00Z').getTime() / 1000);
+                if (endDate) body.range_end = Math.floor(new Date(endDate + ':00Z').getTime() / 1000);
             }
 
             try {
