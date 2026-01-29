@@ -6881,8 +6881,25 @@
 
             if (!logs || !Array.isArray(logs)) return data;
 
+            // DEBUG: Log first few entries to see actual structure
+            if (logs.length > 0) {
+                console.log('[DevDistStat] DEBUG - First log entry keys:', Object.keys(logs[0]));
+                console.log('[DevDistStat] DEBUG - First log entry:', JSON.stringify(logs[0]).slice(0, 500));
+                // Look for any [INDICATOR] in any field
+                const sampleWithIndicator = logs.find(l => JSON.stringify(l).includes('[INDICATOR]') || JSON.stringify(l).includes('INDICATOR'));
+                if (sampleWithIndicator) {
+                    console.log('[DevDistStat] DEBUG - Sample INDICATOR log:', JSON.stringify(sampleWithIndicator).slice(0, 500));
+                } else {
+                    console.log('[DevDistStat] DEBUG - No [INDICATOR] found in any log field!');
+                    // Check what log types exist
+                    const types = new Set(logs.slice(0, 100).map(l => l.type || l.level || l.log_type || 'unknown'));
+                    console.log('[DevDistStat] DEBUG - Log types found:', [...types]);
+                }
+            }
+
             for (const log of logs) {
-                const msg = log.message || '';
+                // Try multiple possible field names for the message content
+                const msg = log.message || log.content || log.text || log.data || log.log || '';
                 if (!msg.includes('[INDICATOR]')) continue;
 
                 // Parse key=value pairs
