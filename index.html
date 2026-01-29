@@ -6910,8 +6910,52 @@
             data.lower.sort((a, b) => a.time - b.time);
             data.zscore.sort((a, b) => a.time - b.time);
 
-            console.log(`[DevDistStat] Parsed ${data.mean.length} indicator points from logs`);
+            console.log(`[DevDistStat] Parsed ${data.mean.length} indicator points from ${logs.length} total logs`);
+
+            // DEBUG: Show sample data if available
+            if (data.mean.length > 0) {
+                console.log(`[DevDistStat] First indicator point:`, data.mean[0]);
+                console.log(`[DevDistStat] Last indicator point:`, data.mean[data.mean.length - 1]);
+                console.log(`[DevDistStat] Value range: ${Math.min(...data.mean.map(d => d.value)).toFixed(2)} to ${Math.max(...data.mean.map(d => d.value)).toFixed(2)}`);
+            }
+
             return data;
+        }
+
+        // Aggregate tick-level indicator data to match chart candle period
+        // Takes the LAST value within each candle bucket (most recent before candle closes)
+        function aggregateIndicatorData(rawData, period) {
+            if (!rawData || rawData.length === 0) return [];
+
+            const periodSecs = PERIOD_SECONDS[period] || 300;
+            const buckets = {};
+
+            // Group points by candle bucket
+            for (const point of rawData) {
+                // Round timestamp down to candle boundary
+                const bucketTime = Math.floor(point.time / periodSecs) * periodSecs;
+
+                // Keep only the LAST value for each bucket
+                // (as we iterate chronologically, later values overwrite earlier ones)
+                buckets[bucketTime] = { time: bucketTime, value: point.value };
+            }
+
+            // Convert to sorted array
+            const result = Object.values(buckets).sort((a, b) => a.time - b.time);
+
+            console.log(`[Aggregation] ${rawData.length} tick points -> ${result.length} candle points (period: ${period})`);
+
+            return result;
+        }
+
+        // Aggregate all DevDistStat indicator series to match chart period
+        function aggregateDevDistStatData(data, period) {
+            return {
+                mean: aggregateIndicatorData(data.mean, period),
+                upper: aggregateIndicatorData(data.upper, period),
+                lower: aggregateIndicatorData(data.lower, period),
+                zscore: aggregateIndicatorData(data.zscore, period)
+            };
         }
 
         // Load DevDistStat indicators from session logs
@@ -7066,13 +7110,17 @@
                     }
                 } else if (config.type === 'devdiststat_bands') {
                     // DevDistStat bands from parsed log data
-                    // Validate data - filter out any null/undefined/invalid points
-                    const isValidPoint = (p) => p && typeof p.time === 'number' && p.time > 0 && typeof p.value === 'number' && !isNaN(p.value);
-                    const validMean = (devDistStatIndicatorData.mean || []).filter(isValidPoint);
-                    const validUpper = (devDistStatIndicatorData.upper || []).filter(isValidPoint);
-                    const validLower = (devDistStatIndicatorData.lower || []).filter(isValidPoint);
+                    // STEP 1: Aggregate tick-level data to match chart candle period
+                    const aggregatedData = aggregateDevDistStatData(devDistStatIndicatorData, currentMarketPeriod);
+                    console.log(`[Indicators] DevDistStat aggregated to ${currentMarketPeriod}: mean=${aggregatedData.mean.length}, upper=${aggregatedData.upper.length}, lower=${aggregatedData.lower.length}`);
 
-                    console.log(`[Indicators] DevDistStat validation: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
+                    // STEP 2: Validate data - filter out any null/undefined/invalid points
+                    const isValidPoint = (p) => p && typeof p.time === 'number' && p.time > 0 && typeof p.value === 'number' && !isNaN(p.value);
+                    const validMean = aggregatedData.mean.filter(isValidPoint);
+                    const validUpper = aggregatedData.upper.filter(isValidPoint);
+                    const validLower = aggregatedData.lower.filter(isValidPoint);
+
+                    console.log(`[Indicators] DevDistStat after validation: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
 
                     // DEBUG: Log timestamp ranges to check alignment
                     if (validMean.length > 0) {
@@ -7086,6 +7134,18 @@
                         const candleLast = lastCandleData[lastCandleData.length - 1].time;
                         console.log(`[Indicators] Candle time range: ${new Date(candleFirst * 1000).toISOString()} to ${new Date(candleLast * 1000).toISOString()}`);
                         console.log(`[Indicators] Candle first 3:`, lastCandleData.slice(0, 3).map(c => ({time: c.time, close: c.close})));
+                    }
+
+                    // DEBUG: Check price scale alignment
+                    if (validMean.length > 0 && lastCandleData && lastCandleData.length > 0) {
+                        const indicatorMin = Math.min(...validMean.map(d => d.value));
+                        const indicatorMax = Math.max(...validMean.map(d => d.value));
+                        const candleMin = Math.min(...lastCandleData.map(c => c.low));
+                        const candleMax = Math.max(...lastCandleData.map(c => c.high));
+                        console.log(`[Indicators] Price alignment check:`);
+                        console.log(`  Indicator values: ${indicatorMin.toFixed(2)} to ${indicatorMax.toFixed(2)}`);
+                        console.log(`  Candle prices: ${candleMin.toFixed(2)} to ${candleMax.toFixed(2)}`);
+                        console.log(`  Overlap: ${indicatorMin <= candleMax && indicatorMax >= candleMin ? 'YES' : 'NO - MISMATCH!'}`);
                     }
 
                     if (validMean.length > 0) {
@@ -7131,12 +7191,7 @@
                             }
 
                             console.log(`[Indicators] Added DevDistStat bands: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
-
-                            // Auto-fit visible range to include indicators (fixes timestamp misalignment)
-                            if (liveMarketChart) {
-                                liveMarketChart.timeScale().fitContent();
-                                console.log('[Indicators] Called fitContent() to show indicators');
-                            }
+                            // NOTE: Aggregation now aligns indicators to candle timestamps, fitContent() no longer needed
                         } catch (chartErr) {
                             console.error('[Indicators] DevDistStat chart error:', chartErr);
                             logJsError('ChartError', `DevDistStat setData: ${chartErr.message}`, '', '', '', chartErr.stack);
