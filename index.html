@@ -7069,6 +7069,20 @@
 
                     console.log(`[Indicators] DevDistStat validation: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
 
+                    // DEBUG: Log timestamp ranges to check alignment
+                    if (validMean.length > 0) {
+                        const meanFirst = validMean[0].time;
+                        const meanLast = validMean[validMean.length - 1].time;
+                        console.log(`[Indicators] DevDistStat mean time range: ${new Date(meanFirst * 1000).toISOString()} to ${new Date(meanLast * 1000).toISOString()}`);
+                        console.log(`[Indicators] DevDistStat mean first 3:`, validMean.slice(0, 3));
+                    }
+                    if (lastCandleData && lastCandleData.length > 0) {
+                        const candleFirst = lastCandleData[0].time;
+                        const candleLast = lastCandleData[lastCandleData.length - 1].time;
+                        console.log(`[Indicators] Candle time range: ${new Date(candleFirst * 1000).toISOString()} to ${new Date(candleLast * 1000).toISOString()}`);
+                        console.log(`[Indicators] Candle first 3:`, lastCandleData.slice(0, 3).map(c => ({time: c.time, close: c.close})));
+                    }
+
                     if (validMean.length > 0) {
                         try {
                             // Mean line (yellow - moving average)
@@ -7079,7 +7093,8 @@
                                 priceLineVisible: false,
                                 lastValueVisible: true
                             });
-                            safeSetData(meanSeries, validMean, 'DevDistStat_mean');
+                            const setDataResult = safeSetData(meanSeries, validMean, 'DevDistStat_mean');
+                            console.log(`[Indicators] DevDistStat meanSeries created:`, meanSeries ? 'YES' : 'NO', 'setData result:', setDataResult);
                             indicatorSeries['devdist_mean'] = meanSeries;
 
                             // Upper band (green - overbought zone) - only if has data
