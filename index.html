@@ -4111,6 +4111,11 @@
         const MAX_ERROR_LOG = 50;
 
         function logJsError(type, message, source, line, col, stack) {
+            // Filter out known harmless TradingView library errors
+            if (String(message).includes('Value is null')) {
+                return; // Don't display this known harmless error
+            }
+
             const entry = {
                 time: new Date().toLocaleTimeString(),
                 type: type,
