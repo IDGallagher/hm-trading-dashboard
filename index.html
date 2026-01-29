@@ -4189,8 +4189,15 @@
                 console.warn(`[Chart] safeSetData: data is not array for ${sourceName}`, typeof data);
                 return false;
             }
-            // Filter out any null/invalid data points
-            const validData = data.filter(d => d && typeof d.time === 'number' && d.time > 0);
+            // Filter out any null/invalid data points (validate BOTH time AND value)
+            const validData = data.filter(d =>
+                d &&
+                typeof d.time === 'number' && d.time > 0 &&
+                d.value !== null &&
+                d.value !== undefined &&
+                typeof d.value === 'number' &&
+                !isNaN(d.value)
+            );
             if (validData.length === 0) {
                 console.warn(`[Chart] safeSetData: no valid data points for ${sourceName}`);
                 return false;
