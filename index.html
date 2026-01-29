@@ -6044,7 +6044,7 @@
                         position: isLong ? 'belowBar' : 'aboveBar',
                         color: isLong ? '#2196F3' : '#FF9800', // Blue for long, orange for short
                         shape: isLong ? 'arrowUp' : 'arrowDown',
-                        text: `${trade.side} @ ${trade.price.toFixed(1)}`
+                        text: `${trade.side} @ ${(trade.price && typeof trade.price === 'number') ? trade.price.toFixed(1) : 'N/A'}`
                     });
                 } else {
                     // Exit marker - circle
