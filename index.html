@@ -4238,6 +4238,49 @@
             }
         }
 
+        // Safe wrapper for chart update calls (single point updates)
+        function safeUpdate(series, point, sourceName) {
+            if (!series) {
+                console.warn(`[Chart] safeUpdate: series is null for ${sourceName}`);
+                return false;
+            }
+            if (!point) {
+                console.warn(`[Chart] safeUpdate: point is null for ${sourceName}`);
+                return false;
+            }
+            // Validate time
+            if (typeof point.time !== 'number' || point.time <= 0) {
+                console.warn(`[Chart] safeUpdate: invalid time for ${sourceName}`, point.time);
+                return false;
+            }
+            // Validate OHLC data if present
+            if ('open' in point || 'high' in point || 'low' in point || 'close' in point) {
+                if (typeof point.open !== 'number' || isNaN(point.open) ||
+                    typeof point.high !== 'number' || isNaN(point.high) ||
+                    typeof point.low !== 'number' || isNaN(point.low) ||
+                    typeof point.close !== 'number' || isNaN(point.close)) {
+                    console.warn(`[Chart] safeUpdate: invalid OHLC for ${sourceName}`, point);
+                    return false;
+                }
+            }
+            // Validate value if present (line series)
+            if ('value' in point) {
+                if (point.value === null || point.value === undefined ||
+                    typeof point.value !== 'number' || isNaN(point.value)) {
+                    console.warn(`[Chart] safeUpdate: invalid value for ${sourceName}`, point.value);
+                    return false;
+                }
+            }
+            try {
+                series.update(point);
+                return true;
+            } catch (err) {
+                logJsError('ChartUpdate', `${sourceName}: ${err.message}`, '', '', '', err.stack);
+                console.error(`[Chart] update failed for ${sourceName}:`, err);
+                return false;
+            }
+        }
+
         // Global state
         let currentData = null;
         let testSessionData = null;
@@ -6739,17 +6782,13 @@
             }
 
             // Update the chart with the forming candle
-            try {
-                liveMarketCandleSeries.update({
-                    time: formingCandle.time,
-                    open: formingCandle.open,
-                    high: formingCandle.high,
-                    low: formingCandle.low,
-                    close: formingCandle.close
-                });
-            } catch (err) {
-                console.error('[LiveCandle] Update error:', err);
-            }
+            safeUpdate(liveMarketCandleSeries, {
+                time: formingCandle.time,
+                open: formingCandle.open,
+                high: formingCandle.high,
+                low: formingCandle.low,
+                close: formingCandle.close
+            }, 'liveMarketFormingCandle');
         }
 
         // Initialize forming candle from loaded historical data
@@ -6785,17 +6824,13 @@
                 console.log('[LiveCandle] Created new forming candle from last close:', formingCandle);
 
                 // Add this forming candle to the chart
-                try {
-                    liveMarketCandleSeries.update({
-                        time: formingCandle.time,
-                        open: formingCandle.open,
-                        high: formingCandle.high,
-                        low: formingCandle.low,
-                        close: formingCandle.close
-                    });
-                } catch (err) {
-                    console.error('[LiveCandle] Init update error:', err);
-                }
+                safeUpdate(liveMarketCandleSeries, {
+                    time: formingCandle.time,
+                    open: formingCandle.open,
+                    high: formingCandle.high,
+                    low: formingCandle.low,
+                    close: formingCandle.close
+                }, 'liveMarketInitFormingCandle');
             }
         }
 
