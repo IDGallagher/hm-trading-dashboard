@@ -5162,7 +5162,7 @@
 
                     // Clear chart markers when leaving detail view
                     if (liveMarketCandleSeries) {
-                        liveMarketCandleSeries.setMarkers([]);
+                        safeSetMarkers(liveMarketCandleSeries, [], 'clearOnTabSwitch');
                     }
 
                     // Update active tab
@@ -5644,7 +5644,7 @@
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
-                liveMarketCandleSeries.setMarkers([]);
+                safeSetMarkers(liveMarketCandleSeries, [], 'hideInlineDetail');
             }
 
             // Clear DevDistStat indicator data and chart indicators
@@ -5992,7 +5992,7 @@
 
             const trades = tradeData.trades || [];
             if (trades.length === 0) {
-                liveMarketCandleSeries.setMarkers([]);
+                safeSetMarkers(liveMarketCandleSeries, [], 'displaySessionTrades_empty');
                 return;
             }
 
@@ -7046,7 +7046,7 @@
                                 priceLineVisible: false,
                                 lastValueVisible: true
                             });
-                            meanSeries.setData(validMean);
+                            safeSetData(meanSeries, validMean, 'DevDistStat_mean');
                             indicatorSeries['devdist_mean'] = meanSeries;
 
                             // Upper band (green - overbought zone) - only if has data
@@ -7059,7 +7059,7 @@
                                     priceLineVisible: false,
                                     lastValueVisible: false
                                 });
-                                upperSeries.setData(validUpper);
+                                safeSetData(upperSeries, validUpper, 'DevDistStat_upper');
                                 indicatorSeries['devdist_upper'] = upperSeries;
                             }
 
@@ -7073,7 +7073,7 @@
                                     priceLineVisible: false,
                                     lastValueVisible: false
                                 });
-                                lowerSeries.setData(validLower);
+                                safeSetData(lowerSeries, validLower, 'DevDistStat_lower');
                                 indicatorSeries['devdist_lower'] = lowerSeries;
                             }
 
@@ -7194,7 +7194,7 @@
         // Clear trade overlay markers from the live market chart
         function clearTradeOverlays() {
             if (liveMarketCandleSeries) {
-                liveMarketCandleSeries.setMarkers([]);
+                safeSetMarkers(liveMarketCandleSeries, [], 'clearTradeOverlays');
             }
         }
 
@@ -7296,7 +7296,7 @@
 
                 // Sort markers by time (required by Lightweight Charts)
                 markers.sort((a, b) => a.time - b.time);
-                liveMarketCandleSeries.setMarkers(markers);
+                safeSetMarkers(liveMarketCandleSeries, markers, 'loadTradesOntoChart');
                 console.log(`[Trade Overlays] Displayed ${markers.length} markers for ${trades.length} trades`);
 
             } catch (err) {
@@ -7342,8 +7342,8 @@
                     if (!equityCurveChart) {
                         initEquityCurveChart(container);
                     }
-                    if (equitySeries) equitySeries.setData([]);
-                    if (drawdownSeries) drawdownSeries.setData([]);
+                    if (equitySeries) safeSetData(equitySeries, [], 'equityCurve_empty');
+                    if (drawdownSeries) safeSetData(drawdownSeries, [], 'drawdown_empty');
                     return;
                 }
 
@@ -7364,8 +7364,8 @@
                     value: -(point.drawdown || 0) / 100  // Negative percentage as decimal
                 }));
 
-                equitySeries.setData(equityData);
-                drawdownSeries.setData(drawdownData);
+                safeSetData(equitySeries, equityData, 'equityCurve');
+                safeSetData(drawdownSeries, drawdownData, 'drawdown');
 
                 // Update title with strategy name
                 const titleEl = document.getElementById('equity-chart-title');
