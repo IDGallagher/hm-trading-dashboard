@@ -6978,9 +6978,9 @@
         // Load DevDistStat indicators from session logs
         async function loadDevDistStatIndicators(sessionId) {
             try {
-                // Fetch more logs to capture indicator history (most logs are orderbook/trade updates)
-                // TODO: API should support filtering by log content (e.g., ?filter=[INDICATOR])
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=20000`, {
+                // Use server-side filtering to get only [INDICATOR] logs
+                // This avoids log volume issues - filters before returning results
+                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=5000&filter=[INDICATOR]`, {
                     headers: { 'x-api-key': CONTROL_API_KEY }
                 });
 
