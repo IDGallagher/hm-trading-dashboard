@@ -5901,7 +5901,7 @@
                         }).filter(d => d.time > 0 && !isNaN(d.value));
 
                         if (chartData.length > 0) {
-                            series.setData(chartData);
+                            safeSetData(series, chartData, 'inlineEquityChart');
                             inlineEquityChart.timeScale().fitContent();
                             // Apply adaptive time formatting for zoom
                             setupAdaptiveTimeFormat(inlineEquityChart);
@@ -6292,10 +6292,11 @@
                 });
 
                 if (points.length > 0) {
-                    lineSeries.setData(points.map(p => ({
+                    const equityPoints = points.map(p => ({
                         time: Math.floor(p.timestamp / 1000),
                         value: p.equity
-                    })));
+                    }));
+                    safeSetData(lineSeries, equityPoints, 'detailEquityChart');
                 }
 
                 // Apply adaptive time formatting for zoom
@@ -10064,7 +10065,7 @@
 
                 // Apply aggregation based on current period
                 const displayCandles = aggregateCandles(data.candles, currentCandlePeriod);
-                candleSeries.setData(displayCandles);
+                safeSetData(candleSeries, displayCandles, 'backtestCandleChart');
 
                 // Add trade markers - both entry AND exit markers
                 if (data.trades && data.trades.length > 0) {
@@ -10158,7 +10159,7 @@
             }));
 
             if (equityData.length > 0) {
-                equitySeries.setData(equityData);
+                safeSetData(equitySeries, equityData, 'backtestEquityChart');
             }
 
             // Drawdown area
@@ -10176,7 +10177,7 @@
             }));
 
             if (drawdownData.length > 0) {
-                drawdownSeries.setData(drawdownData);
+                safeSetData(drawdownSeries, drawdownData, 'backtestDrawdownChart');
             }
 
             equityChart.priceScale('drawdown').applyOptions({
