@@ -4240,6 +4240,7 @@
 
         // Safe wrapper for chart update calls (single point updates)
         function safeUpdate(series, point, sourceName) {
+            console.log(`[Chart] safeUpdate called: ${sourceName}`, point);
             if (!series) {
                 console.warn(`[Chart] safeUpdate: series is null for ${sourceName}`);
                 return false;
@@ -4524,8 +4525,7 @@
             history: []
         };
         let strategiesData = [];
-        let sessionPollingInterval = null;
-        const SESSION_POLL_INTERVAL = 5000; // 5 seconds
+        // NOTE: Polling removed - WebSocket handles real-time updates
 
         // Fetch strategies from API
         async function fetchStrategies() {
@@ -5553,7 +5553,7 @@
         let currentViewedSessionId = null;
         let currentInlineSessionId = null;
         let previousPanelId = null;
-        let logsPollingInterval = null;  // For streaming logs
+        // NOTE: logsPollingInterval removed - WebSocket handles real-time updates
         let currentSessionTradeData = null; // Store trade data for re-rendering on period change
         let lastLogTimestamp = null; // Track last log timestamp for incremental updates
 
@@ -5641,15 +5641,7 @@
                 loadInlineEquity(sessionId)
             ]);
 
-            // Start logs polling for running sessions (every 2 seconds)
-            if (logsPollingInterval) clearInterval(logsPollingInterval);
-            if (session.status === 'running') {
-                logsPollingInterval = setInterval(() => {
-                    if (currentInlineSessionId === sessionId) {
-                        pollInlineLogs(sessionId);  // Use incremental polling
-                    }
-                }, 2000);
-            }
+            // NOTE: Logs polling removed - initial load only, WebSocket for trade updates
 
             // Switch chart to session's market if different
             const currentMarketVal = document.getElementById('market-selector').value.toLowerCase();
@@ -5696,11 +5688,7 @@
             currentInlineSessionId = null;
             currentSessionTradeData = null; // Clear stored trade data
 
-            // Stop logs polling
-            if (logsPollingInterval) {
-                clearInterval(logsPollingInterval);
-                logsPollingInterval = null;
-            }
+            // NOTE: Logs polling removed - WebSocket handles real-time updates
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
@@ -6615,11 +6603,9 @@
             }
         }
 
-        // Start session polling
-        let scraperHeartbeatInterval = null;
-
+        // Initialize sessions (polling removed - WebSocket handles real-time updates)
         function startSessionPolling() {
-            // Initial fetch
+            // Initial fetch only - no polling (WebSocket handles updates)
             fetchStrategies();
             fetchSessions().then(() => {
                 // Check URL params after sessions are loaded
@@ -6627,28 +6613,12 @@
                 // Initial scraper heartbeat fetch
                 pollScraperHeartbeats();
             });
-
-            // Poll every 5 seconds
-            sessionPollingInterval = setInterval(() => {
-                fetchSessions();
-            }, SESSION_POLL_INTERVAL);
-
-            // Poll scraper heartbeats every 15 seconds
-            scraperHeartbeatInterval = setInterval(() => {
-                pollScraperHeartbeats();
-            }, 15000);
+            // NOTE: Polling removed - WebSocket provides real-time session trade updates
         }
 
-        // Stop session polling
+        // Stop session polling (no-op since polling removed)
         function stopSessionPolling() {
-            if (sessionPollingInterval) {
-                clearInterval(sessionPollingInterval);
-                sessionPollingInterval = null;
-            }
-            if (scraperHeartbeatInterval) {
-                clearInterval(scraperHeartbeatInterval);
-                scraperHeartbeatInterval = null;
-            }
+            // Polling removed - WebSocket handles real-time updates
         }
 
         // Initialize session management on page load
@@ -6669,7 +6639,7 @@
         // ==========================================
 
         let liveTestRunning = false;
-        let liveTestPollingInterval = null;
+        // NOTE: liveTestPollingInterval removed - WebSocket handles real-time updates
         let liveTestStartTime = null;
         let currentStrategy = 'TestBot';
 
@@ -6709,7 +6679,7 @@
         let liveMarketCandleSeries = null;
         let currentMarket = 'xbtusd';
         let currentMarketPeriod = '5m';
-        let liveMarketRefreshInterval = null;
+        // NOTE: liveMarketRefreshInterval removed - WebSocket handles real-time updates
 
         // Live forming candle state
         let formingCandle = null;  // { time, open, high, low, close, volume }
@@ -8663,23 +8633,16 @@
             }
         }
 
-        // Start polling for status updates
+        // Start polling for status updates (polling removed - fetch once only)
         function startPolling() {
-            if (liveTestPollingInterval) {
-                clearInterval(liveTestPollingInterval);
-            }
-            // Poll every 2 seconds
-            liveTestPollingInterval = setInterval(pollLiveTestStatus, 2000);
-            // Also poll immediately
+            // Polling removed - WebSocket handles real-time updates
+            // Just do a single initial status check
             pollLiveTestStatus();
         }
 
-        // Stop polling
+        // Stop polling (no-op since polling removed)
         function stopPolling() {
-            if (liveTestPollingInterval) {
-                clearInterval(liveTestPollingInterval);
-                liveTestPollingInterval = null;
-            }
+            // Polling removed - WebSocket handles real-time updates
         }
 
         // Check initial test status on page load
@@ -10156,7 +10119,7 @@
 
                     // Sort markers by time (required by Lightweight Charts)
                     markers.sort((a, b) => a.time - b.time);
-                    candleSeries.setMarkers(markers);
+                    safeSetMarkers(candleSeries, markers, 'backtestTradeMarkers');
                 }
             }
 
