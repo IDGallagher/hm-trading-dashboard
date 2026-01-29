@@ -6983,45 +6983,62 @@
                     }
                 } else if (config.type === 'devdiststat_bands') {
                     // DevDistStat bands from parsed log data
-                    if (devDistStatIndicatorData.mean.length > 0) {
-                        // Mean line (yellow - moving average)
-                        const meanSeries = liveMarketChart.addLineSeries({
-                            color: config.colorMean || '#ffeb3b',
-                            lineWidth: 2,
-                            title: 'Mean',
-                            priceLineVisible: false,
-                            lastValueVisible: true
-                        });
-                        meanSeries.setData(devDistStatIndicatorData.mean);
-                        indicatorSeries['devdist_mean'] = meanSeries;
+                    // Validate data - filter out any null/undefined/invalid points
+                    const isValidPoint = (p) => p && typeof p.time === 'number' && p.time > 0 && typeof p.value === 'number' && !isNaN(p.value);
+                    const validMean = (devDistStatIndicatorData.mean || []).filter(isValidPoint);
+                    const validUpper = (devDistStatIndicatorData.upper || []).filter(isValidPoint);
+                    const validLower = (devDistStatIndicatorData.lower || []).filter(isValidPoint);
 
-                        // Upper band (green - overbought zone)
-                        const upperSeries = liveMarketChart.addLineSeries({
-                            color: config.colorUpper || '#4caf50',
-                            lineWidth: 1,
-                            lineStyle: 2, // Dashed
-                            title: 'Upper',
-                            priceLineVisible: false,
-                            lastValueVisible: false
-                        });
-                        upperSeries.setData(devDistStatIndicatorData.upper);
-                        indicatorSeries['devdist_upper'] = upperSeries;
+                    console.log(`[Indicators] DevDistStat validation: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
 
-                        // Lower band (red - oversold zone)
-                        const lowerSeries = liveMarketChart.addLineSeries({
-                            color: config.colorLower || '#f44336',
-                            lineWidth: 1,
-                            lineStyle: 2, // Dashed
-                            title: 'Lower',
-                            priceLineVisible: false,
-                            lastValueVisible: false
-                        });
-                        lowerSeries.setData(devDistStatIndicatorData.lower);
-                        indicatorSeries['devdist_lower'] = lowerSeries;
+                    if (validMean.length > 0) {
+                        try {
+                            // Mean line (yellow - moving average)
+                            const meanSeries = liveMarketChart.addLineSeries({
+                                color: config.colorMean || '#ffeb3b',
+                                lineWidth: 2,
+                                title: 'Mean',
+                                priceLineVisible: false,
+                                lastValueVisible: true
+                            });
+                            meanSeries.setData(validMean);
+                            indicatorSeries['devdist_mean'] = meanSeries;
 
-                        console.log(`[Indicators] Added DevDistStat bands with ${devDistStatIndicatorData.mean.length} points`);
+                            // Upper band (green - overbought zone) - only if has data
+                            if (validUpper.length > 0) {
+                                const upperSeries = liveMarketChart.addLineSeries({
+                                    color: config.colorUpper || '#4caf50',
+                                    lineWidth: 1,
+                                    lineStyle: 2, // Dashed
+                                    title: 'Upper',
+                                    priceLineVisible: false,
+                                    lastValueVisible: false
+                                });
+                                upperSeries.setData(validUpper);
+                                indicatorSeries['devdist_upper'] = upperSeries;
+                            }
+
+                            // Lower band (red - oversold zone) - only if has data
+                            if (validLower.length > 0) {
+                                const lowerSeries = liveMarketChart.addLineSeries({
+                                    color: config.colorLower || '#f44336',
+                                    lineWidth: 1,
+                                    lineStyle: 2, // Dashed
+                                    title: 'Lower',
+                                    priceLineVisible: false,
+                                    lastValueVisible: false
+                                });
+                                lowerSeries.setData(validLower);
+                                indicatorSeries['devdist_lower'] = lowerSeries;
+                            }
+
+                            console.log(`[Indicators] Added DevDistStat bands: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
+                        } catch (chartErr) {
+                            console.error('[Indicators] DevDistStat chart error:', chartErr);
+                            logJsError('ChartError', `DevDistStat setData: ${chartErr.message}`, '', '', '', chartErr.stack);
+                        }
                     } else {
-                        console.log('[Indicators] No DevDistStat indicator data available');
+                        console.log('[Indicators] No valid DevDistStat indicator data available');
                     }
                 }
             }
