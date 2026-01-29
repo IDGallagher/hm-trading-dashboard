@@ -4177,6 +4177,7 @@
 
         // Safe wrapper for chart setData calls - logs errors with source identification
         function safeSetData(series, data, sourceName) {
+            console.log("SAFESETDATA CALLED:", sourceName);
             if (!series) {
                 console.warn(`[Chart] safeSetData: series is null for ${sourceName}`);
                 return false;
@@ -4240,6 +4241,7 @@
 
         // Safe wrapper for chart update calls (single point updates)
         function safeUpdate(series, point, sourceName) {
+            console.log("SAFEUPDATE CALLED:", sourceName);
             if (!series) {
                 console.warn(`[Chart] safeUpdate: series is null for ${sourceName}`);
                 return false;
