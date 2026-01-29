@@ -4274,9 +4274,12 @@
                 }
             }
             try {
+                console.log("SAFEUPDATE: BEFORE series.update()");
                 series.update(point);
+                console.log("SAFEUPDATE: AFTER series.update() - SUCCESS");
                 return true;
             } catch (err) {
+                console.log("SAFEUPDATE: CAUGHT ERROR in series.update()");
                 logJsError('ChartUpdate', `${sourceName}: ${err.message}`, '', '', '', err.stack);
                 console.error(`[Chart] update failed for ${sourceName}:`, err);
                 return false;
@@ -4350,7 +4353,13 @@
             timeScale.subscribeVisibleLogicalRangeChange(() => {
                 // Trigger a re-render by slightly updating options
                 // This ensures tick marks get recalculated with new zoom level
-                chart.applyOptions({});
+                try {
+                    console.log("VISIBLERANGE: calling chart.applyOptions()");
+                    chart.applyOptions({});
+                    console.log("VISIBLERANGE: applyOptions completed");
+                } catch (err) {
+                    console.log("VISIBLERANGE: ERROR in applyOptions:", err.message);
+                }
             });
         }
 
@@ -7489,7 +7498,11 @@
 
             // Subscribe to crosshair move for OHLC display
             liveMarketChart.subscribeCrosshairMove((param) => {
-                updateOHLCDisplay(param);
+                try {
+                    updateOHLCDisplay(param);
+                } catch (err) {
+                    console.log("CROSSHAIR: ERROR in updateOHLCDisplay:", err.message);
+                }
             });
 
             // ResizeObserver to handle container size changes - update BOTH width AND height
