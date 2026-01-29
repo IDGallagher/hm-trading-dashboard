@@ -7126,6 +7126,12 @@
                             }
 
                             console.log(`[Indicators] Added DevDistStat bands: mean=${validMean.length}, upper=${validUpper.length}, lower=${validLower.length}`);
+
+                            // Auto-fit visible range to include indicators (fixes timestamp misalignment)
+                            if (liveMarketChart) {
+                                liveMarketChart.timeScale().fitContent();
+                                console.log('[Indicators] Called fitContent() to show indicators');
+                            }
                         } catch (chartErr) {
                             console.error('[Indicators] DevDistStat chart error:', chartErr);
                             logJsError('ChartError', `DevDistStat setData: ${chartErr.message}`, '', '', '', chartErr.stack);
