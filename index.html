@@ -5271,6 +5271,11 @@
             document.getElementById('new-session-modal').classList.remove('active');
             // Reset form
             document.getElementById('new-session-name').value = '';
+            // Clear precise timestamps (used by launchBacktestFromSession)
+            const startInput = document.getElementById('new-session-start');
+            const endInput = document.getElementById('new-session-end');
+            if (startInput) delete startInput.dataset.preciseTimestamp;
+            if (endInput) delete endInput.dataset.preciseTimestamp;
         }
 
         // Update form based on session type
@@ -5380,13 +5385,25 @@
             }
 
             // Add date range for backtest
-            // IMPORTANT: datetime-local inputs give "YYYY-MM-DDTHH:mm" without timezone
-            // We append ":00Z" to force UTC interpretation (fixes 9-hour timezone bug)
+            // Use precise timestamps from data attributes if available (set by launchBacktestFromSession)
+            // Otherwise fall back to parsing datetime-local input (which loses seconds precision)
             if (type === 'backtest') {
-                const startDate = document.getElementById('new-session-start').value;
-                const endDate = document.getElementById('new-session-end').value;
-                if (startDate) body.range_start = Math.floor(new Date(startDate + ':00Z').getTime() / 1000);
-                if (endDate) body.range_end = Math.floor(new Date(endDate + ':00Z').getTime() / 1000);
+                const startInput = document.getElementById('new-session-start');
+                const endInput = document.getElementById('new-session-end');
+
+                // Prefer precise timestamp from data attribute (preserves seconds)
+                if (startInput.dataset.preciseTimestamp) {
+                    body.range_start = parseInt(startInput.dataset.preciseTimestamp, 10);
+                } else if (startInput.value) {
+                    // Fallback: parse datetime-local (append :00Z for UTC)
+                    body.range_start = Math.floor(new Date(startInput.value + ':00Z').getTime() / 1000);
+                }
+
+                if (endInput.dataset.preciseTimestamp) {
+                    body.range_end = parseInt(endInput.dataset.preciseTimestamp, 10);
+                } else if (endInput.value) {
+                    body.range_end = Math.floor(new Date(endInput.value + ':00Z').getTime() / 1000);
+                }
             }
 
             try {
@@ -5497,11 +5514,16 @@
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
                 // Set date range
+                // Store PRECISE timestamps in data attributes (datetime-local loses seconds)
+                const startInput = document.getElementById('new-session-start');
+                const endInput = document.getElementById('new-session-end');
                 if (startTime) {
-                    document.getElementById('new-session-start').value = startTime.toISOString().slice(0, 16);
+                    startInput.value = startTime.toISOString().slice(0, 16);
+                    startInput.dataset.preciseTimestamp = Math.floor(startTime.getTime() / 1000);
                 }
                 if (endTime) {
-                    document.getElementById('new-session-end').value = endTime.toISOString().slice(0, 16);
+                    endInput.value = endTime.toISOString().slice(0, 16);
+                    endInput.dataset.preciseTimestamp = Math.floor(endTime.getTime() / 1000);
                 }
 
                 // Wait for strategy params to load, then fill them
