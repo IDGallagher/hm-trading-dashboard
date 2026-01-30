@@ -5265,6 +5265,17 @@
             document.getElementById('new-session-modal').classList.add('active');
             document.getElementById('new-session-type').value = type;
             updateNewSessionForm();
+
+            // Clear exact timestamps (will be set by launchBacktestFromSession if needed)
+            const startInput = document.getElementById('new-session-start');
+            const endInput = document.getElementById('new-session-end');
+            delete startInput.dataset.exactTimestamp;
+            delete endInput.dataset.exactTimestamp;
+
+            // Add listeners to clear exact timestamps when user manually edits dates
+            // (so manual changes take precedence over pre-filled exact values)
+            startInput.oninput = () => { delete startInput.dataset.exactTimestamp; };
+            endInput.oninput = () => { delete endInput.dataset.exactTimestamp; };
         }
 
         function closeNewSessionModal() {
@@ -5381,10 +5392,20 @@
 
             // Add date range for backtest
             if (type === 'backtest') {
-                const startDate = document.getElementById('new-session-start').value;
-                const endDate = document.getElementById('new-session-end').value;
-                if (startDate) body.range_start = Math.floor(new Date(startDate).getTime() / 1000);
-                if (endDate) body.range_end = Math.floor(new Date(endDate).getTime() / 1000);
+                const startInput = document.getElementById('new-session-start');
+                const endInput = document.getElementById('new-session-end');
+                // Use exact timestamps from data attributes if available (preserves seconds)
+                // Otherwise fall back to parsing the datetime-local value (minute precision only)
+                if (startInput.dataset.exactTimestamp) {
+                    body.range_start = parseInt(startInput.dataset.exactTimestamp, 10);
+                } else if (startInput.value) {
+                    body.range_start = Math.floor(new Date(startInput.value).getTime() / 1000);
+                }
+                if (endInput.dataset.exactTimestamp) {
+                    body.range_end = parseInt(endInput.dataset.exactTimestamp, 10);
+                } else if (endInput.value) {
+                    body.range_end = Math.floor(new Date(endInput.value).getTime() / 1000);
+                }
             }
 
             try {
@@ -5494,12 +5515,17 @@
                 document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
-                // Set date range
+                // Set date range - datetime-local only supports minute precision,
+                // so store exact Unix timestamps in data attributes for accurate backtest
+                const startInput = document.getElementById('new-session-start');
+                const endInput = document.getElementById('new-session-end');
                 if (startTime) {
-                    document.getElementById('new-session-start').value = startTime.toISOString().slice(0, 16);
+                    startInput.value = startTime.toISOString().slice(0, 16);
+                    startInput.dataset.exactTimestamp = Math.floor(startTime.getTime() / 1000);
                 }
                 if (endTime) {
-                    document.getElementById('new-session-end').value = endTime.toISOString().slice(0, 16);
+                    endInput.value = endTime.toISOString().slice(0, 16);
+                    endInput.dataset.exactTimestamp = Math.floor(endTime.getTime() / 1000);
                 }
 
                 // Wait for strategy params to load, then fill them
