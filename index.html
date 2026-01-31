@@ -2290,6 +2290,28 @@
             color: #8b949e;
             font-size: 14px;
         }
+        /* Millisecond precision datetime input */
+        .datetime-ms-input {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .datetime-ms-input .form-input:first-child {
+            flex: 1;
+        }
+        .datetime-ms-input .ms-input {
+            width: 60px;
+            text-align: center;
+            padding: 10px 6px;
+        }
+        .datetime-ms-input .ms-separator {
+            color: #8b949e;
+            font-weight: bold;
+        }
+        .datetime-ms-input .ms-label {
+            color: #6e7681;
+            font-size: 12px;
+        }
         .form-hint {
             font-size: 11px;
             color: #6e7681;
@@ -2697,7 +2719,28 @@
             gap: 16px;
             color: #8b949e;
             font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .inline-detail-timestamps {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #8b949e;
+            font-size: 11px;
+            font-family: 'SF Mono', Consolas, monospace;
             margin-bottom: 16px;
+            padding: 6px 10px;
+            background: #161b22;
+            border-radius: 4px;
+        }
+        .inline-detail-timestamps .timestamp-label {
+            color: #6e7681;
+        }
+        .inline-detail-timestamps .timestamp-value {
+            color: #58a6ff;
+        }
+        .inline-detail-timestamps .timestamp-separator {
+            color: #484f58;
         }
         .inline-metrics-grid {
             display: grid;
@@ -3199,6 +3242,13 @@
                     <span id="inline-session-runtime">00:00:00</span>
                     <span id="inline-session-params" class="session-params" style="display: none;"></span>
                 </div>
+                <div class="inline-detail-timestamps">
+                    <span class="timestamp-label">Start:</span>
+                    <span id="inline-session-start" class="timestamp-value">--</span>
+                    <span class="timestamp-separator">→</span>
+                    <span class="timestamp-label">End:</span>
+                    <span id="inline-session-end" class="timestamp-value">--</span>
+                </div>
 
                 <!-- Metrics Summary -->
                 <div class="inline-metrics-grid">
@@ -3322,12 +3372,22 @@
                 <!-- Backtest date range (shown only for backtest type) -->
                 <div class="form-row" id="backtest-range-fields" style="display: none;">
                     <div class="form-group">
-                        <label class="form-label">Start Date</label>
-                        <input type="datetime-local" class="form-input" id="new-session-start">
+                        <label class="form-label">Start Time</label>
+                        <div class="datetime-ms-input">
+                            <input type="datetime-local" class="form-input" id="new-session-start" step="1">
+                            <span class="ms-separator">.</span>
+                            <input type="number" class="form-input ms-input" id="new-session-start-ms" min="0" max="999" value="0" placeholder="000">
+                            <span class="ms-label">ms</span>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">End Date</label>
-                        <input type="datetime-local" class="form-input" id="new-session-end">
+                        <label class="form-label">End Time</label>
+                        <div class="datetime-ms-input">
+                            <input type="datetime-local" class="form-input" id="new-session-end" step="1">
+                            <span class="ms-separator">.</span>
+                            <input type="number" class="form-input ms-input" id="new-session-end-ms" min="0" max="999" value="0" placeholder="000">
+                            <span class="ms-label">ms</span>
+                        </div>
                     </div>
                 </div>
 
@@ -5265,17 +5325,47 @@
             document.getElementById('new-session-modal').classList.add('active');
             document.getElementById('new-session-type').value = type;
             updateNewSessionForm();
+
+            // Clear exact timestamps (will be set by launchBacktestFromSession if needed)
+            const startInput = document.getElementById('new-session-start');
+            const endInput = document.getElementById('new-session-end');
+            delete startInput.dataset.exactTimestamp;
+            delete endInput.dataset.exactTimestamp;
+            delete startInput.dataset.exactTimestampMs;
+            delete endInput.dataset.exactTimestampMs;
+
+            // Add listeners to clear exact timestamps when user manually edits dates
+            // (so manual changes take precedence over pre-filled exact values)
+            startInput.oninput = () => {
+                delete startInput.dataset.exactTimestamp;
+                delete startInput.dataset.exactTimestampMs;
+            };
+            endInput.oninput = () => {
+                delete endInput.dataset.exactTimestamp;
+                delete endInput.dataset.exactTimestampMs;
+            };
         }
 
         function closeNewSessionModal() {
             document.getElementById('new-session-modal').classList.remove('active');
             // Reset form
             document.getElementById('new-session-name').value = '';
-            // Clear precise timestamps (used by launchBacktestFromSession)
+            // Reset millisecond inputs
+            const startMsInput = document.getElementById('new-session-start-ms');
+            const endMsInput = document.getElementById('new-session-end-ms');
+            if (startMsInput) startMsInput.value = '0';
+            if (endMsInput) endMsInput.value = '0';
+            // Clear exact timestamps
             const startInput = document.getElementById('new-session-start');
             const endInput = document.getElementById('new-session-end');
-            if (startInput) delete startInput.dataset.preciseTimestamp;
-            if (endInput) delete endInput.dataset.preciseTimestamp;
+            if (startInput) {
+                delete startInput.dataset.exactTimestamp;
+                delete startInput.dataset.exactTimestampMs;
+            }
+            if (endInput) {
+                delete endInput.dataset.exactTimestamp;
+                delete endInput.dataset.exactTimestampMs;
+            }
         }
 
         // Update form based on session type
@@ -5384,25 +5474,34 @@
                 if (!isNaN(takerFee)) body.taker_fee = takerFee;
             }
 
-            // Add date range for backtest
-            // Use precise timestamps from data attributes if available (set by launchBacktestFromSession)
-            // Otherwise fall back to parsing datetime-local input (which loses seconds precision)
+            // Add date range for backtest with MILLISECOND precision
             if (type === 'backtest') {
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
+                const startMsInput = document.getElementById('new-session-start-ms');
+                const endMsInput = document.getElementById('new-session-end-ms');
 
-                // Prefer precise timestamp from data attribute (preserves seconds)
-                if (startInput.dataset.preciseTimestamp) {
-                    body.range_start = parseInt(startInput.dataset.preciseTimestamp, 10);
+                // Priority: exact ms timestamp > datetime + ms input > datetime only
+                if (startInput.dataset.exactTimestampMs) {
+                    // Use exact millisecond timestamp from Launch Backtest
+                    body.range_start_ms = parseInt(startInput.dataset.exactTimestampMs, 10);
+                    body.range_start = Math.floor(body.range_start_ms / 1000);
                 } else if (startInput.value) {
-                    // Fallback: parse datetime-local (append :00Z for UTC)
-                    body.range_start = Math.floor(new Date(startInput.value + ':00Z').getTime() / 1000);
+                    // Parse datetime-local (includes seconds with step=1) + ms input
+                    const baseMs = new Date(startInput.value + 'Z').getTime();
+                    const ms = parseInt(startMsInput.value, 10) || 0;
+                    body.range_start_ms = baseMs + ms;
+                    body.range_start = Math.floor(body.range_start_ms / 1000);
                 }
 
-                if (endInput.dataset.preciseTimestamp) {
-                    body.range_end = parseInt(endInput.dataset.preciseTimestamp, 10);
+                if (endInput.dataset.exactTimestampMs) {
+                    body.range_end_ms = parseInt(endInput.dataset.exactTimestampMs, 10);
+                    body.range_end = Math.floor(body.range_end_ms / 1000);
                 } else if (endInput.value) {
-                    body.range_end = Math.floor(new Date(endInput.value + ':00Z').getTime() / 1000);
+                    const baseMs = new Date(endInput.value + 'Z').getTime();
+                    const ms = parseInt(endMsInput.value, 10) || 0;
+                    body.range_end_ms = baseMs + ms;
+                    body.range_end = Math.floor(body.range_end_ms / 1000);
                 }
             }
 
@@ -5495,9 +5594,25 @@
         // Launch backtest from a finished test session
         async function launchBacktestFromSession(session) {
             try {
-                // Get session time range from started_at and stopped_at
+                // Get session time range - use started_at + duration for accurate end time
+                // (stopped_at includes shutdown overhead which causes extra trades in backtest)
                 const startTime = session.started_at ? new Date(session.started_at) : null;
-                const endTime = session.stopped_at ? new Date(session.stopped_at) : null;
+
+                // Calculate actual trading end time from duration, NOT stopped_at
+                let endTime = null;
+                const params = session.strategy_params ?
+                    (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params)
+                    : {};
+
+                if (startTime && params.duration) {
+                    // Use started_at + duration for exact trading window
+                    endTime = new Date(startTime.getTime() + (params.duration * 1000));
+                    console.log(`[Sessions] Using duration-based end time: ${params.duration}s after start`);
+                } else if (session.stopped_at) {
+                    // Fallback to stopped_at if no duration available
+                    endTime = new Date(session.stopped_at);
+                    console.warn('[Sessions] No duration found, falling back to stopped_at (may include shutdown overhead)');
+                }
 
                 // Open the new session modal with pre-filled values
                 openNewSessionModal();
@@ -5513,17 +5628,24 @@
                 document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
-                // Set date range
-                // Store PRECISE timestamps in data attributes (datetime-local loses seconds)
+                // Set date range with MILLISECOND precision
+                // datetime-local shows seconds, ms input shows milliseconds
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
+                const startMsInput = document.getElementById('new-session-start-ms');
+                const endMsInput = document.getElementById('new-session-end-ms');
+
                 if (startTime) {
-                    startInput.value = startTime.toISOString().slice(0, 16);
-                    startInput.dataset.preciseTimestamp = Math.floor(startTime.getTime() / 1000);
+                    // datetime-local with step=1 supports seconds: YYYY-MM-DDTHH:mm:ss
+                    startInput.value = startTime.toISOString().slice(0, 19);
+                    startMsInput.value = startTime.getMilliseconds();
+                    // Store exact timestamp in MILLISECONDS for precision
+                    startInput.dataset.exactTimestampMs = startTime.getTime();
                 }
                 if (endTime) {
-                    endInput.value = endTime.toISOString().slice(0, 16);
-                    endInput.dataset.preciseTimestamp = Math.floor(endTime.getTime() / 1000);
+                    endInput.value = endTime.toISOString().slice(0, 19);
+                    endMsInput.value = endTime.getMilliseconds();
+                    endInput.dataset.exactTimestampMs = endTime.getTime();
                 }
 
                 // Wait for strategy params to load, then fill them
@@ -5656,6 +5778,17 @@
                 runtime = formatDuration(endTime - startTime);
             }
             document.getElementById('inline-session-runtime').textContent = runtime;
+
+            // Display precise timestamps with milliseconds
+            const formatTimestampMs = (isoString) => {
+                if (!isoString) return '--';
+                const d = new Date(isoString);
+                const time = d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const ms = d.getMilliseconds().toString().padStart(3, '0');
+                return `${time}.${ms}`;
+            };
+            document.getElementById('inline-session-start').textContent = formatTimestampMs(session.started_at);
+            document.getElementById('inline-session-end').textContent = session.stopped_at ? formatTimestampMs(session.stopped_at) : (session.status === 'running' ? 'running...' : '--');
 
             // Setup action buttons
             document.getElementById('inline-restart-btn').onclick = () => { restartSession(sessionId); };
