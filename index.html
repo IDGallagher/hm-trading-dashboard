@@ -5395,18 +5395,21 @@
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
                 // Use exact timestamps from data attributes if available (preserves milliseconds)
-                // Otherwise fall back to parsing the datetime-local value (minute precision only)
+                // Otherwise fall back to parsing the datetime-local value
+                // CRITICAL: Preserve millisecond precision for TEST/BACKTEST parity
                 if (startInput.dataset.exactTimestamp) {
                     // parseFloat preserves millisecond precision (e.g., 1769815183.456)
                     body.range_start = parseFloat(startInput.dataset.exactTimestamp);
                 } else if (startInput.value) {
-                    body.range_start = Math.floor(new Date(startInput.value).getTime() / 1000);
+                    // Preserve milliseconds - datetime-local has second precision at minimum
+                    body.range_start = new Date(startInput.value).getTime() / 1000;
                 }
                 if (endInput.dataset.exactTimestamp) {
                     // parseFloat preserves millisecond precision (e.g., 1769815213.456)
                     body.range_end = parseFloat(endInput.dataset.exactTimestamp);
                 } else if (endInput.value) {
-                    body.range_end = Math.floor(new Date(endInput.value).getTime() / 1000);
+                    // Preserve milliseconds - datetime-local has second precision at minimum
+                    body.range_end = new Date(endInput.value).getTime() / 1000;
                 }
             }
 
