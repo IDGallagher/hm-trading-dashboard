@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>HM Trading Dashboard</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
+    <!-- Pako for zlib decompression of FlatBuffer archive files -->
+    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js" crossorigin="anonymous"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html {
@@ -4353,6 +4355,332 @@
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
+        // ORDERBOOK MANAGER - FlatBuffer decoder + state management
+        // Frontend maintains orderbook state from raw actions
+        // ==========================================
+        const OrderbookManager = (function() {
+            // Encoding constants (matching Swift/C++)
+            const PRECISION = 0.00000001; // 1e-8
+
+            // Action types (magnitude only)
+            const Action = {
+                INSERT: 1,
+                UPDATE: 2,
+                DELETE: 3,
+                REPLACE_START: 4,
+                REPLACE_END: 5,
+                DIFF_START: 6,
+                DIFF_END: 7
+            };
+
+            // State per market
+            const state = {};
+
+            function getMarketState(market) {
+                if (!state[market]) {
+                    state[market] = {
+                        bids: new Map(), // order_id -> { price, amount }
+                        asks: new Map(),
+                        lastTimestamp: 0,
+                        inReplace: false
+                    };
+                }
+                return state[market];
+            }
+
+            // Decode price from order_id
+            function decodePrice(orderId) {
+                return Number(orderId) * PRECISION;
+            }
+
+            // Decode signed action
+            function decodeAction(signedAction) {
+                const action = Math.abs(signedAction);
+                const isBid = signedAction > 0;
+                return { action, isBid };
+            }
+
+            // Parse FlatBuffer book data (decompressed buffer)
+            // Format: 4-byte root offset, vtable, vector of 32-byte BookUpdate structs
+            function parseFlatBuffer(buffer) {
+                const updates = [];
+                const view = new DataView(buffer.buffer || buffer);
+
+                if (buffer.length < 4) return updates;
+
+                // Read root offset
+                const rootOffset = view.getUint32(0, true);
+                const root = rootOffset;
+
+                // Read vtable offset (signed)
+                const vtableOffset = view.getInt32(root, true);
+                const vtable = root - vtableOffset;
+
+                // Read vtable size
+                const vtableSize = view.getUint16(vtable, true);
+
+                if (vtableSize < 6) return updates;
+
+                // First field offset (updates vector)
+                const updatesOffset = view.getUint16(vtable + 4, true);
+                if (updatesOffset === 0) return updates;
+
+                // Navigate to vector
+                const vectorField = root + updatesOffset;
+                const vectorOffset2 = view.getInt32(vectorField, true);
+                const vectorPtr = vectorField + vectorOffset2;
+
+                // Vector length
+                const vectorLen = view.getUint32(vectorPtr, true);
+
+                // Each BookUpdate is 32 bytes (8-byte aligned)
+                const BOOK_UPDATE_SIZE = 32;
+                let pos = vectorPtr + 4;
+
+                for (let i = 0; i < vectorLen; i++) {
+                    // timestamp: uint64 at offset 0
+                    const timestampLo = view.getUint32(pos, true);
+                    const timestampHi = view.getUint32(pos + 4, true);
+                    const timestamp = timestampLo + (timestampHi * 0x100000000);
+
+                    // action: int8 at offset 8 (signed)
+                    const action = view.getInt8(pos + 8);
+
+                    // order_id: uint64 at offset 16
+                    const orderIdLo = view.getUint32(pos + 16, true);
+                    const orderIdHi = view.getUint32(pos + 20, true);
+                    const orderId = BigInt(orderIdLo) + (BigInt(orderIdHi) << 32n);
+
+                    // amount: double at offset 24
+                    const amount = view.getFloat64(pos + 24, true);
+
+                    updates.push({
+                        timestamp,
+                        action,
+                        orderId: orderId.toString(),
+                        amount
+                    });
+
+                    pos += BOOK_UPDATE_SIZE;
+                }
+
+                return updates;
+            }
+
+            // Apply a single delta to market state
+            function applyDelta(market, delta) {
+                const s = getMarketState(market);
+                const { action: actionType, isBid } = decodeAction(delta.action || delta.a);
+                const orderId = delta.orderId || delta.o;
+                const price = decodePrice(orderId);
+                const amount = delta.amount || delta.m || 0;
+                const book = isBid ? s.bids : s.asks;
+
+                switch (actionType) {
+                    case Action.REPLACE_START:
+                        s.inReplace = true;
+                        s.bids.clear();
+                        s.asks.clear();
+                        break;
+
+                    case Action.REPLACE_END:
+                        s.inReplace = false;
+                        break;
+
+                    case Action.INSERT:
+                    case Action.UPDATE:
+                        if (amount > 0) {
+                            book.set(orderId, { price, amount });
+                        } else {
+                            book.delete(orderId);
+                        }
+                        break;
+
+                    case Action.DELETE:
+                        book.delete(orderId);
+                        break;
+                }
+
+                // Track latest timestamp
+                const ts = delta.timestamp || delta.t;
+                if (ts > s.lastTimestamp) {
+                    s.lastTimestamp = ts;
+                }
+            }
+
+            // Apply multiple deltas
+            function applyDeltas(market, deltas) {
+                for (const delta of deltas) {
+                    applyDelta(market, delta);
+                }
+            }
+
+            // Get current orderbook (sorted by price)
+            function getOrderbook(market, maxDepth = 25) {
+                const s = getMarketState(market);
+
+                // Convert maps to arrays and sort
+                const bids = Array.from(s.bids.values())
+                    .sort((a, b) => b.price - a.price) // Highest first
+                    .slice(0, maxDepth);
+
+                const asks = Array.from(s.asks.values())
+                    .sort((a, b) => a.price - b.price) // Lowest first
+                    .slice(0, maxDepth);
+
+                return {
+                    bids,
+                    asks,
+                    lastTimestamp: s.lastTimestamp
+                };
+            }
+
+            // Fetch and decode archive file
+            async function fetchArchiveFile(market, timestamp = 'latest') {
+                try {
+                    const response = await fetch(
+                        `${CONTROL_API_URL}/api/archive/book/file?market=${market}&timestamp=${timestamp}`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                    );
+
+                    if (!response.ok) {
+                        console.warn(`[Orderbook] Archive file not found for ${market}@${timestamp}`);
+                        return [];
+                    }
+
+                    // Get binary data
+                    const compressedBuffer = await response.arrayBuffer();
+                    const compressed = new Uint8Array(compressedBuffer);
+
+                    // Decompress with pako
+                    let decompressed;
+                    try {
+                        decompressed = pako.inflate(compressed);
+                    } catch (e) {
+                        console.error('[Orderbook] Decompression failed:', e);
+                        return [];
+                    }
+
+                    // Parse FlatBuffer
+                    return parseFlatBuffer(decompressed);
+                } catch (err) {
+                    console.error('[Orderbook] Error fetching archive:', err);
+                    return [];
+                }
+            }
+
+            // Fetch deltas from API
+            async function fetchDeltas(market, since) {
+                try {
+                    const response = await fetch(
+                        `${CONTROL_API_URL}/api/orderbook/deltas?market=${market}&since=${since}`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                    );
+
+                    if (!response.ok) {
+                        console.warn(`[Orderbook] Deltas fetch failed for ${market}`);
+                        return { deltas: [], latestTimestamp: since };
+                    }
+
+                    const data = await response.json();
+                    return {
+                        deltas: data.deltas || [],
+                        latestTimestamp: data.latestTimestamp || since
+                    };
+                } catch (err) {
+                    console.error('[Orderbook] Error fetching deltas:', err);
+                    return { deltas: [], latestTimestamp: since };
+                }
+            }
+
+            // Get archive info
+            async function getArchiveInfo(market) {
+                try {
+                    const response = await fetch(
+                        `${CONTROL_API_URL}/api/archive/book/info?market=${market}`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                    );
+
+                    if (!response.ok) return { available: false };
+
+                    const data = await response.json();
+                    return data.book || { available: false };
+                } catch (err) {
+                    console.error('[Orderbook] Error getting archive info:', err);
+                    return { available: false };
+                }
+            }
+
+            // Initialize orderbook for a market
+            // 1. Fetch latest archive file
+            // 2. Apply archive deltas
+            // 3. Fetch DB deltas from archive end time to now
+            // 4. Apply DB deltas
+            async function initialize(market) {
+                console.log(`[Orderbook] Initializing ${market}...`);
+
+                // Clear existing state
+                state[market] = null;
+                getMarketState(market);
+
+                // Check archive availability
+                const archiveInfo = await getArchiveInfo(market);
+
+                let archiveEndTime = Date.now() - (60 * 60 * 1000); // Default: 1 hour ago
+
+                if (archiveInfo.available && archiveInfo.maxTime) {
+                    console.log(`[Orderbook] Loading archive for ${market} (up to ${archiveInfo.maxTime})`);
+
+                    // Fetch latest archive file
+                    const archiveUpdates = await fetchArchiveFile(market, 'latest');
+                    console.log(`[Orderbook] Loaded ${archiveUpdates.length} updates from archive`);
+
+                    // Apply archive updates
+                    applyDeltas(market, archiveUpdates.map(u => ({
+                        a: u.action,
+                        o: u.orderId,
+                        m: u.amount,
+                        t: u.timestamp
+                    })));
+
+                    archiveEndTime = archiveInfo.maxTime * 1000; // Convert to ms
+                }
+
+                // Fetch DB deltas from archive end to now
+                console.log(`[Orderbook] Fetching deltas since ${archiveEndTime}`);
+                const { deltas, latestTimestamp } = await fetchDeltas(market, archiveEndTime);
+                console.log(`[Orderbook] Loaded ${deltas.length} deltas from DB`);
+
+                // Apply DB deltas
+                applyDeltas(market, deltas);
+
+                const ob = getOrderbook(market);
+                console.log(`[Orderbook] Initialized: ${ob.bids.length} bids, ${ob.asks.length} asks`);
+
+                return ob;
+            }
+
+            // Clear state for a market
+            function clear(market) {
+                state[market] = null;
+            }
+
+            return {
+                initialize,
+                applyDelta,
+                applyDeltas,
+                getOrderbook,
+                fetchDeltas,
+                fetchArchiveFile,
+                getArchiveInfo,
+                clear,
+                decodePrice,
+                decodeAction,
+                Action
+            };
+        })();
+
+        // ==========================================
         // SESSION DATA API HELPERS (Phase 3 Migration)
         // Try new DB endpoints first, fall back to file-based
         // ==========================================
@@ -8057,30 +8385,70 @@
             }
         }
 
-        // Load orderbook data
+        // Load orderbook data using OrderbookManager (stateless API)
+        // Orderbook state is maintained in the frontend
+        let orderbookInitialized = {};
+
         async function loadOrderbookData() {
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch orderbook');
-                const data = await response.json();
-                if (data.success) {
-                    // Use professional orderbook rendering
-                    renderOrderbookPro(data.bids || [], data.asks || []);
-                    if (data.bids?.length && data.asks?.length) {
-                        const spread = data.asks[0].price - data.bids[0].price;
-                        const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
+                let ob;
+
+                // Initialize orderbook from archive + deltas on first load
+                if (!orderbookInitialized[currentMarket]) {
+                    console.log(`[Orderbook] First load for ${currentMarket}, initializing from archive...`);
+                    ob = await OrderbookManager.initialize(currentMarket);
+                    orderbookInitialized[currentMarket] = true;
+                } else {
+                    // Subsequent loads: fetch new deltas and update state
+                    const state = OrderbookManager.getOrderbook(currentMarket, 15);
+                    const { deltas } = await OrderbookManager.fetchDeltas(currentMarket, state.lastTimestamp);
+
+                    if (deltas.length > 0) {
+                        OrderbookManager.applyDeltas(currentMarket, deltas);
+                    }
+
+                    ob = OrderbookManager.getOrderbook(currentMarket, 15);
+                }
+
+                // Render the orderbook
+                if (ob.bids.length > 0 || ob.asks.length > 0) {
+                    renderOrderbookPro(ob.bids, ob.asks);
+
+                    if (ob.bids.length > 0 && ob.asks.length > 0) {
+                        const spread = ob.asks[0].price - ob.bids[0].price;
+                        const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
                         if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
                     } else {
                         if (spreadEl) spreadEl.textContent = 'No data';
                     }
+                } else {
+                    if (spreadEl) spreadEl.textContent = 'No data';
                 }
             } catch (err) {
                 console.error('Error loading orderbook:', err);
                 spreadEl.textContent = 'Error loading';
+
+                // Fallback to API reconstruction if frontend decode fails
+                try {
+                    const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            renderOrderbookPro(data.bids || [], data.asks || []);
+                            if (data.bids?.length && data.asks?.length) {
+                                const spread = data.asks[0].price - data.bids[0].price;
+                                const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
+                                if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                            }
+                        }
+                    }
+                } catch (fallbackErr) {
+                    console.error('Fallback orderbook fetch also failed:', fallbackErr);
+                }
             }
         }
 
@@ -8363,6 +8731,8 @@
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
                 isLoadingOlderCandles = false;
+                orderbookInitialized[newMarket] = false; // Reset orderbook to re-initialize from archive
+                OrderbookManager.clear(newMarket); // Clear orderbook state
                 clearIndicators(); // Clear indicators before loading new data
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
