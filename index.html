@@ -5497,9 +5497,25 @@
         // Launch backtest from a finished test session
         async function launchBacktestFromSession(session) {
             try {
-                // Get session time range from started_at and stopped_at
+                // Get session time range - use started_at + duration for accurate end time
+                // (stopped_at includes shutdown overhead which causes extra trades in backtest)
                 const startTime = session.started_at ? new Date(session.started_at) : null;
-                const endTime = session.stopped_at ? new Date(session.stopped_at) : null;
+
+                // Calculate actual trading end time from duration, NOT stopped_at
+                let endTime = null;
+                const params = session.strategy_params ?
+                    (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params)
+                    : {};
+
+                if (startTime && params.duration) {
+                    // Use started_at + duration for exact trading window
+                    endTime = new Date(startTime.getTime() + (params.duration * 1000));
+                    console.log(`[Sessions] Using duration-based end time: ${params.duration}s after start`);
+                } else if (session.stopped_at) {
+                    // Fallback to stopped_at if no duration available
+                    endTime = new Date(session.stopped_at);
+                    console.warn('[Sessions] No duration found, falling back to stopped_at (may include shutdown overhead)');
+                }
 
                 // Open the new session modal with pre-filled values
                 openNewSessionModal();
