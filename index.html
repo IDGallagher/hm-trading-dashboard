@@ -950,22 +950,6 @@
             font-size: 1.2rem;
             color: #00d4ff;
         }
-        .parity-badge {
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-        .parity-badge.match {
-            background: rgba(0,200,83,0.2);
-            color: #00c853;
-            border: 1px solid rgba(0,200,83,0.3);
-        }
-        .parity-badge.mismatch {
-            background: rgba(255,82,82,0.2);
-            color: #ff5252;
-            border: 1px solid rgba(255,82,82,0.3);
-        }
         .comparison-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -3068,15 +3052,15 @@
     <div id="tab-bots" class="tab-content active">
         <!-- Sub-tabs for Running Sessions / Scrapers / History -->
         <div class="session-sub-tabs">
-            <div class="session-sub-tab active" data-panel="running" onclick="switchSessionTab('running')">
+            <div class="session-sub-tab active" data-panel="running">
                 🤖 Running Sessions
                 <span class="tab-count-badge" id="running-count">0</span>
             </div>
-            <div class="session-sub-tab" data-panel="scrapers" onclick="switchSessionTab('scrapers')">
+            <div class="session-sub-tab" data-panel="scrapers">
                 📡 Scrapers
                 <span class="tab-count-badge" id="scrapers-count">0</span>
             </div>
-            <div class="session-sub-tab" data-panel="history" onclick="switchSessionTab('history')">
+            <div class="session-sub-tab" data-panel="history">
                 📜 History
                 <span class="tab-count-badge" id="history-count">0</span>
             </div>
@@ -3633,7 +3617,6 @@
         <div id="comparison-container" class="comparison-container">
             <div class="comparison-header">
                 <span class="comparison-title">📊 Session Comparison: TEST vs BACKTEST</span>
-                <span id="parity-status" class="parity-badge match">✓ PARITY ACHIEVED</span>
             </div>
 
             <div class="comparison-grid">
@@ -3670,10 +3653,6 @@
                     <div class="summary-item">
                         <div id="different-count" class="number negative">0</div>
                         <div class="label">Different Metrics</div>
-                    </div>
-                    <div class="summary-item">
-                        <div id="parity-percent" class="number positive">0%</div>
-                        <div class="label">Parity Rate</div>
                     </div>
                 </div>
             </div>
@@ -5226,41 +5205,7 @@
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // Sub-tab switching (onclick handler for automation compatibility)
-        function switchSessionTab(panelId) {
-            // Hide inline detail when switching tabs
-            document.getElementById('inline-session-detail').style.display = 'none';
-            currentInlineSessionId = null;
-            currentSessionTradeData = null;
-
-            // Clear chart markers
-            if (liveMarketCandleSeries) {
-                safeSetMarkers(liveMarketCandleSeries, [], 'clearOnTabSwitch');
-            }
-
-            // Update active tab
-            document.querySelectorAll('.session-sub-tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.session-sub-tab[data-panel="${panelId}"]`).classList.add('active');
-
-            // Update active panel
-            document.querySelectorAll('.session-panel').forEach(p => {
-                p.classList.remove('active');
-                p.style.display = 'none';
-            });
-            const targetPanel = document.getElementById(`panel-${panelId}`);
-            targetPanel.classList.add('active');
-            targetPanel.style.display = 'flex';
-
-            // Reset state
-            previousPanelId = panelId;
-
-            // Load data for the panel
-            if (panelId === 'history') {
-                loadHistoryPage();
-            }
-        }
-
-        // Sub-tab switching (addEventListener backup)
+        // Sub-tab switching
         function initSessionSubTabs() {
             document.querySelectorAll('.session-sub-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -5429,18 +5374,20 @@
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
                 // Use exact timestamps from data attributes if available (preserves milliseconds)
-                // Otherwise fall back to parsing the datetime-local value (minute precision only)
+                // Otherwise fall back to parsing the datetime-local value
                 if (startInput.dataset.exactTimestamp) {
                     // parseFloat preserves millisecond precision (e.g., 1769815183.456)
                     body.range_start = parseFloat(startInput.dataset.exactTimestamp);
                 } else if (startInput.value) {
-                    body.range_start = Math.floor(new Date(startInput.value).getTime() / 1000);
+                    // Preserve milliseconds - datetime-local has second precision at minimum
+                    body.range_start = new Date(startInput.value).getTime() / 1000;
                 }
                 if (endInput.dataset.exactTimestamp) {
                     // parseFloat preserves millisecond precision (e.g., 1769815213.456)
                     body.range_end = parseFloat(endInput.dataset.exactTimestamp);
                 } else if (endInput.value) {
-                    body.range_end = Math.floor(new Date(endInput.value).getTime() / 1000);
+                    // Preserve milliseconds - datetime-local has second precision at minimum
+                    body.range_end = new Date(endInput.value).getTime() / 1000;
                 }
             }
 
@@ -5533,25 +5480,33 @@
         // Launch backtest from a finished test session
         async function launchBacktestFromSession(session) {
             try {
-                // Get session time range - use started_at + duration for accurate end time
-                // (stopped_at includes shutdown overhead which causes extra trades in backtest)
-                const startTime = session.started_at ? new Date(session.started_at) : null;
+                // For TEST sessions, fetch the actual trading_start_time from logs
+                // This is the wall clock time when trading actually started (after warmup)
+                // Using this ensures BACKTEST starts at exactly the same moment as TEST
+                let actualTradingStart = null;
+                if (session.type === 'test') {
+                    try {
+                        const response = await fetch(`${CONTROL_API_URL}/sessions/${session.id}/trading-start`, {
+                            headers: { 'x-api-key': CONTROL_API_KEY }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.trading_start_time) {
+                                actualTradingStart = data.trading_start_time;
+                                console.log('[Sessions] Got actual trading_start_time from logs:', actualTradingStart, 'source:', data.source);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Sessions] Could not fetch trading_start_time, using started_at:', e.message);
+                    }
+                }
 
-                // Calculate actual trading end time from duration, NOT stopped_at
-                let endTime = null;
+                // Fallback to session timestamps
+                const startTime = session.started_at ? new Date(session.started_at) : null;
+                const endTime = session.stopped_at ? new Date(session.stopped_at) : null;
                 const params = session.strategy_params ?
                     (typeof session.strategy_params === 'string' ? JSON.parse(session.strategy_params) : session.strategy_params)
                     : {};
-
-                if (startTime && params.duration) {
-                    // Use started_at + duration for exact trading window
-                    endTime = new Date(startTime.getTime() + (params.duration * 1000));
-                    console.log(`[Sessions] Using duration-based end time: ${params.duration}s after start`);
-                } else if (session.stopped_at) {
-                    // Fallback to stopped_at if no duration available
-                    endTime = new Date(session.stopped_at);
-                    console.warn('[Sessions] No duration found, falling back to stopped_at (may include shutdown overhead)');
-                }
 
                 // Open the new session modal with pre-filled values
                 openNewSessionModal();
@@ -5567,34 +5522,32 @@
                 document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
-                // Set date range - datetime-local only supports minute precision,
-                // so store exact Unix timestamps in data attributes for accurate backtest
-                // Use millisecond precision (3 decimal places) for exact parity
+                // Set date range - use actualTradingStart if available (for TEST->BACKTEST parity)
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
-                if (startTime) {
+                if (actualTradingStart) {
+                    // Use the actual wall clock trading start time from logs
+                    const startDate = new Date(actualTradingStart * 1000);
+                    startInput.value = startDate.toISOString().slice(0, 16);
+                    startInput.dataset.exactTimestamp = actualTradingStart.toFixed(3);
+                    console.log('[Sessions] Using actual trading_start_time for BACKTEST parity:', actualTradingStart);
+                } else if (startTime) {
                     startInput.value = startTime.toISOString().slice(0, 16);
-                    // Store with millisecond precision (e.g., 1769815183.456)
                     startInput.dataset.exactTimestamp = (startTime.getTime() / 1000).toFixed(3);
                 }
                 if (endTime) {
                     endInput.value = endTime.toISOString().slice(0, 16);
-                    // Store with millisecond precision (e.g., 1769815213.456)
                     endInput.dataset.exactTimestamp = (endTime.getTime() / 1000).toFixed(3);
                 }
 
                 // Wait for strategy params to load, then fill them
                 await new Promise(resolve => setTimeout(resolve, 200));
-                if (session.strategy_params) {
-                    const params = typeof session.strategy_params === 'string' ?
-                        JSON.parse(session.strategy_params) : session.strategy_params;
-                    document.querySelectorAll('.strategy-param').forEach(input => {
-                        const param = input.dataset.param;
-                        if (params[param] !== undefined) {
-                            input.value = params[param];
-                        }
-                    });
-                }
+                document.querySelectorAll('.strategy-param').forEach(input => {
+                    const param = input.dataset.param;
+                    if (params[param] !== undefined) {
+                        input.value = params[param];
+                    }
+                });
 
                 showSessionNotification(`Backtest form pre-filled with "${session.name || session.strategy}" parameters`);
             } catch (error) {
@@ -8613,7 +8566,7 @@
         // Flag to prevent double-clicking during API call
         let isStartingTest = false;
 
-        // Start live test (uses archive replay for deterministic parity testing)
+        // Start live test
         async function startLiveTest() {
             const btn = document.getElementById('btn-start-test');
             console.log('[startLiveTest] Function called');
@@ -8638,7 +8591,6 @@
                 updateLiveTestUI('running');
                 liveTestStartTime = Date.now();
 
-                // Use /test/start for archive replay (deterministic, enables parity with backtest)
                 const url = `${CONTROL_API_URL}/test/start`;
                 console.log('[startLiveTest] Fetching:', url);
                 console.log('[startLiveTest] API Key:', CONTROL_API_KEY ? 'present' : 'MISSING');
@@ -8684,14 +8636,12 @@
             }
         }
 
-        // Stop live test and trigger backtest (uses same archive time range for parity)
+        // Stop live test and trigger backtest
         async function stopAndBacktest() {
             try {
                 updateLiveTestUI('backtesting');
                 stopPolling();
 
-                // Use /test/stop-and-backtest to ensure backtest uses SAME archive time range as test
-                // This is critical for achieving 100% parity
                 const response = await fetch(`${CONTROL_API_URL}/test/stop-and-backtest`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY }
@@ -9616,27 +9566,11 @@
             document.getElementById('test-metrics').innerHTML = testMetricsHtml;
             document.getElementById('backtest-metrics').innerHTML = backtestMetricsHtml;
 
-            // Update summary
-            const parityPercent = Math.round((matchCount / totalCount) * 100);
+            // Update summary counts
             document.getElementById('matching-count').textContent = matchCount;
             document.getElementById('matching-count').className = 'number ' + (matchCount > 0 ? 'positive' : 'negative');
             document.getElementById('different-count').textContent = totalCount - matchCount;
             document.getElementById('different-count').className = 'number ' + (totalCount - matchCount > 0 ? 'negative' : 'positive');
-            document.getElementById('parity-percent').textContent = parityPercent + '%';
-            document.getElementById('parity-percent').className = 'number ' + (parityPercent >= 80 ? 'positive' : 'negative');
-
-            // Update parity badge
-            const parityStatus = document.getElementById('parity-status');
-            if (parityPercent === 100) {
-                parityStatus.textContent = '✓ PARITY ACHIEVED';
-                parityStatus.className = 'parity-badge match';
-            } else if (parityPercent >= 80) {
-                parityStatus.textContent = '~ PARTIAL MATCH';
-                parityStatus.className = 'parity-badge match';
-            } else {
-                parityStatus.textContent = '✗ MISMATCH';
-                parityStatus.className = 'parity-badge mismatch';
-            }
 
             // Render side-by-side trade logs comparison
             renderTradeLogsComparison(testData, backtestData);
@@ -10907,4 +10841,3 @@
     </script>
 </body>
 </html>
-<!-- Cache bust: 1769837090 -->
