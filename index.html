@@ -5394,15 +5394,17 @@
             if (type === 'backtest') {
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
-                // Use exact timestamps from data attributes if available (preserves seconds)
+                // Use exact timestamps from data attributes if available (preserves milliseconds)
                 // Otherwise fall back to parsing the datetime-local value (minute precision only)
                 if (startInput.dataset.exactTimestamp) {
-                    body.range_start = parseInt(startInput.dataset.exactTimestamp, 10);
+                    // parseFloat preserves millisecond precision (e.g., 1769815183.456)
+                    body.range_start = parseFloat(startInput.dataset.exactTimestamp);
                 } else if (startInput.value) {
                     body.range_start = Math.floor(new Date(startInput.value).getTime() / 1000);
                 }
                 if (endInput.dataset.exactTimestamp) {
-                    body.range_end = parseInt(endInput.dataset.exactTimestamp, 10);
+                    // parseFloat preserves millisecond precision (e.g., 1769815213.456)
+                    body.range_end = parseFloat(endInput.dataset.exactTimestamp);
                 } else if (endInput.value) {
                     body.range_end = Math.floor(new Date(endInput.value).getTime() / 1000);
                 }
@@ -5533,15 +5535,18 @@
 
                 // Set date range - datetime-local only supports minute precision,
                 // so store exact Unix timestamps in data attributes for accurate backtest
+                // Use millisecond precision (3 decimal places) for exact parity
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
                 if (startTime) {
                     startInput.value = startTime.toISOString().slice(0, 16);
-                    startInput.dataset.exactTimestamp = Math.floor(startTime.getTime() / 1000);
+                    // Store with millisecond precision (e.g., 1769815183.456)
+                    startInput.dataset.exactTimestamp = (startTime.getTime() / 1000).toFixed(3);
                 }
                 if (endTime) {
                     endInput.value = endTime.toISOString().slice(0, 16);
-                    endInput.dataset.exactTimestamp = Math.floor(endTime.getTime() / 1000);
+                    // Store with millisecond precision (e.g., 1769815213.456)
+                    endInput.dataset.exactTimestamp = (endTime.getTime() / 1000).toFixed(3);
                 }
 
                 // Wait for strategy params to load, then fill them
