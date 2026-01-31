@@ -8773,6 +8773,7 @@
             liveMarketWs.onopen = () => {
                 console.log('[LiveMarket WS] Connected');
                 subscribeToMarket(currentMarket);
+                subscribeToOrderbook(currentMarket);
             };
 
             liveMarketWs.onmessage = (event) => {
@@ -8780,6 +8781,8 @@
                     const data = JSON.parse(event.data);
                     if (data.type === 'market_update') {
                         handleMarketUpdate(data);
+                    } else if (data.type === 'orderbook_update') {
+                        handleOrderbookUpdate(data);
                     }
                 } catch (err) {
                     console.error('[LiveMarket WS] Parse error:', err);
@@ -8800,6 +8803,31 @@
             if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
                 liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'market', market: market }));
                 console.log('[LiveMarket WS] Subscribed to:', market);
+            }
+        }
+
+        function subscribeToOrderbook(market) {
+            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
+                liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'orderbook', market: market }));
+                console.log('[LiveMarket WS] Subscribed to orderbook:', market);
+            }
+        }
+
+        function handleOrderbookUpdate(data) {
+            // Apply deltas to OrderbookManager and re-render
+            if (data.deltas && data.deltas.length > 0 && data.market === currentMarket) {
+                console.log(`[Orderbook WS] Received ${data.deltas.length} deltas for ${data.market}`);
+                OrderbookManager.applyDeltas(data.market, data.deltas);
+                const ob = OrderbookManager.getOrderbook(data.market, 15);
+                renderOrderbookPro(ob.bids, ob.asks);
+
+                // Update spread
+                if (ob.bids.length > 0 && ob.asks.length > 0) {
+                    const spread = ob.asks[0].price - ob.bids[0].price;
+                    const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
+                    const spreadEl = document.getElementById('orderbook-spread-header');
+                    if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
+                }
             }
         }
 
