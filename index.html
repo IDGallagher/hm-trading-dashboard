@@ -8430,25 +8430,6 @@
             } catch (err) {
                 console.error('Error loading orderbook:', err);
                 spreadEl.textContent = 'Error loading';
-
-                // Fallback to API reconstruction if frontend decode fails
-                try {
-                    const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } });
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success) {
-                            renderOrderbookPro(data.bids || [], data.asks || []);
-                            if (data.bids?.length && data.asks?.length) {
-                                const spread = data.asks[0].price - data.bids[0].price;
-                                const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
-                                if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
-                            }
-                        }
-                    }
-                } catch (fallbackErr) {
-                    console.error('Fallback orderbook fetch also failed:', fallbackErr);
-                }
             }
         }
 
