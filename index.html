@@ -5480,10 +5480,11 @@
         // Launch backtest from a finished test session
         async function launchBacktestFromSession(session) {
             try {
-                // For TEST sessions, fetch the actual trading_start_time and trade_count from logs
+                // For TEST sessions, fetch exact trading timestamps from logs
                 // This ensures BACKTEST has EXACT same trading window as TEST
-                let actualTradingStart = null;
-                let actualTradeCount = null;
+                let firstTradeTs = null;
+                let lastTradeTs = null;
+                let tradingStartTime = null;
                 if (session.type === 'test') {
                     try {
                         const response = await fetch(`${CONTROL_API_URL}/sessions/${session.id}/trading-start`, {
@@ -5491,18 +5492,20 @@
                         });
                         if (response.ok) {
                             const data = await response.json();
-                            if (data.success && data.trading_start_time) {
-                                actualTradingStart = data.trading_start_time;
-                                actualTradeCount = data.trade_count || 0;
-                                console.log('[Sessions] Got trading parity data:', {
-                                    trading_start_time: actualTradingStart,
-                                    trade_count: actualTradeCount,
-                                    source: data.source
+                            if (data.success) {
+                                tradingStartTime = data.trading_start_time;
+                                firstTradeTs = data.first_trade_ts;
+                                lastTradeTs = data.last_trade_ts;
+                                console.log('[Sessions] Got exact trading parity data:', {
+                                    trading_start_time: tradingStartTime,
+                                    first_trade_ts: firstTradeTs,
+                                    last_trade_ts: lastTradeTs,
+                                    trade_count: data.trade_count
                                 });
                             }
                         }
                     } catch (e) {
-                        console.warn('[Sessions] Could not fetch trading_start_time, using started_at:', e.message);
+                        console.warn('[Sessions] Could not fetch trading timestamps, using started_at:', e.message);
                     }
                 }
 
@@ -5527,28 +5530,40 @@
                 document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
-                // Set date range - use actual trading data for TEST->BACKTEST parity
+                // Set date range - use actual trade timestamps for TEST->BACKTEST parity
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
-                if (actualTradingStart && actualTradeCount > 0) {
-                    // Calculate exact trading window from actual data
-                    // For TestBot (1s interval): range_end = trading_start + trade_count
-                    const calculatedEnd = actualTradingStart + actualTradeCount;
+                if (firstTradeTs && lastTradeTs) {
+                    // Use exact trade timestamps from TEST logs
+                    // range_start = trading_start_time (for proper warmup)
+                    // range_end = last_trade_ts + 1 (to include the last trade)
+                    const rangeStart = tradingStartTime;
+                    const rangeEnd = lastTradeTs + 1;  // +1 to ensure last trade is included
 
-                    const startDate = new Date(actualTradingStart * 1000);
-                    const endDate = new Date(calculatedEnd * 1000);
+                    const startDate = new Date(rangeStart * 1000);
+                    const endDate = new Date(rangeEnd * 1000);
 
                     startInput.value = startDate.toISOString().slice(0, 16);
-                    startInput.dataset.exactTimestamp = actualTradingStart.toFixed(3);
+                    startInput.dataset.exactTimestamp = rangeStart.toFixed(3);
 
                     endInput.value = endDate.toISOString().slice(0, 16);
-                    endInput.dataset.exactTimestamp = calculatedEnd.toFixed(3);
+                    endInput.dataset.exactTimestamp = rangeEnd.toFixed(3);
 
-                    console.log('[Sessions] Calculated BACKTEST parity window:', {
-                        range_start: actualTradingStart,
-                        range_end: calculatedEnd,
-                        duration: actualTradeCount + 's'
+                    console.log('[Sessions] Using exact trade timestamps for BACKTEST parity:', {
+                        range_start: rangeStart,
+                        range_end: rangeEnd,
+                        first_trade_ts: firstTradeTs,
+                        last_trade_ts: lastTradeTs
                     });
+                } else if (tradingStartTime) {
+                    // Fallback: use trading_start_time with stopped_at
+                    const startDate = new Date(tradingStartTime * 1000);
+                    startInput.value = startDate.toISOString().slice(0, 16);
+                    startInput.dataset.exactTimestamp = tradingStartTime.toFixed(3);
+                    if (endTime) {
+                        endInput.value = endTime.toISOString().slice(0, 16);
+                        endInput.dataset.exactTimestamp = (endTime.getTime() / 1000).toFixed(3);
+                    }
                 } else {
                     // Fallback to session timestamps
                     if (startTime) {
