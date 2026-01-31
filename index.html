@@ -4491,6 +4491,12 @@
                     case Action.UPDATE:
                         if (amount > 0) {
                             book.set(orderId, { price, amount });
+                            // CRITICAL: Delete from opposite side if same price level exists there
+                            // This handles the case where a bid becomes an ask or vice versa
+                            const oppositeBook = isBid ? s.asks : s.bids;
+                            if (oppositeBook.has(orderId)) {
+                                oppositeBook.delete(orderId);
+                            }
                         } else {
                             book.delete(orderId);
                         }
