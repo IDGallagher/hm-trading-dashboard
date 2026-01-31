@@ -8719,6 +8719,7 @@
                 loadLiveMarketData();
                 console.log('[Market] Calling subscribeToMarket for:', currentMarket);
                 subscribeToMarket(currentMarket);
+                subscribeToOrderbook(currentMarket);
 
                 // Sync the other selector
                 if (sourceSelector !== marketSelector && marketSelector) {
