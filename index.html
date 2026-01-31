@@ -4618,10 +4618,8 @@
             }
 
             // Initialize orderbook for a market
-            // 1. Fetch latest archive file
-            // 2. Apply archive deltas
-            // 3. Fetch DB deltas from archive end time to now
-            // 4. Apply DB deltas
+            // CRITICAL FIX: Must fetch ALL deltas from DB to ensure we get REPLACE_START/REPLACE_END
+            // Archive files don't contain REPLACE_START actions, so we can't rely on them for orderbook state
             async function initialize(market) {
                 console.log(`[Orderbook] Initializing ${market}...`);
 
@@ -4629,39 +4627,52 @@
                 state[market] = null;
                 getMarketState(market);
 
-                // Check archive availability
-                const archiveInfo = await getArchiveInfo(market);
-
-                let archiveEndTime = Date.now() - (60 * 60 * 1000); // Default: 1 hour ago
-
-                if (archiveInfo.available && archiveInfo.maxTime) {
-                    console.log(`[Orderbook] Loading archive for ${market} (up to ${archiveInfo.maxTime})`);
-
-                    // Fetch latest archive file
-                    const archiveUpdates = await fetchArchiveFile(market, 'latest');
-                    console.log(`[Orderbook] Loaded ${archiveUpdates.length} updates from archive`);
-
-                    // Apply archive updates
-                    applyDeltas(market, archiveUpdates.map(u => ({
-                        a: u.action,
-                        o: u.orderId,
-                        m: u.amount,
-                        t: u.timestamp
-                    })));
-
-                    archiveEndTime = archiveInfo.maxTime * 1000; // Convert to ms
-                }
-
-                // Fetch DB deltas from archive end to now
-                console.log(`[Orderbook] Fetching deltas since ${archiveEndTime}`);
-                const { deltas, latestTimestamp } = await fetchDeltas(market, archiveEndTime);
+                // Fetch ALL available deltas from DB to ensure we get REPLACE_START/REPLACE_END
+                // The REPLACE_START action clears the orderbook and applies a fresh snapshot
+                // Without it, we'd be applying incremental deltas on top of corrupted state
+                const fetchStartTime = 0; // Fetch from beginning
+                console.log(`[Orderbook] Fetching ALL deltas from DB for ${market}...`);
+                const { deltas, latestTimestamp } = await fetchDeltas(market, fetchStartTime);
                 console.log(`[Orderbook] Loaded ${deltas.length} deltas from DB`);
 
-                // Apply DB deltas
-                applyDeltas(market, deltas);
+                // Find the most recent REPLACE_START to ensure we have a clean snapshot
+                let lastReplaceStartIdx = -1;
+                for (let i = deltas.length - 1; i >= 0; i--) {
+                    const actionType = Math.abs(deltas[i].a);
+                    if (actionType === Action.REPLACE_START) {
+                        lastReplaceStartIdx = i;
+                        console.log(`[Orderbook] Found REPLACE_START at index ${i}`);
+                        break;
+                    }
+                }
+
+                // If we found a REPLACE_START, only apply deltas from that point forward
+                // This ensures we start with a clean snapshot, not corrupted incremental state
+                let deltasToApply = deltas;
+                if (lastReplaceStartIdx >= 0) {
+                    deltasToApply = deltas.slice(lastReplaceStartIdx);
+                    console.log(`[Orderbook] Applying ${deltasToApply.length} deltas from REPLACE_START`);
+                } else {
+                    console.warn(`[Orderbook] WARNING: No REPLACE_START found! Orderbook may be incorrect.`);
+                }
+
+                // Apply the deltas (starting from REPLACE_START if found)
+                applyDeltas(market, deltasToApply);
 
                 const ob = getOrderbook(market);
                 console.log(`[Orderbook] Initialized: ${ob.bids.length} bids, ${ob.asks.length} asks`);
+
+                // Sanity check: log if orderbook appears crossed
+                if (ob.bids.length > 0 && ob.asks.length > 0) {
+                    const bestBid = ob.bids[0].price;
+                    const bestAsk = ob.asks[0].price;
+                    const spread = bestAsk - bestBid;
+                    if (spread < 0) {
+                        console.error(`[Orderbook] ERROR: Crossed orderbook! bestBid=${bestBid}, bestAsk=${bestAsk}, spread=${spread}`);
+                    } else {
+                        console.log(`[Orderbook] Spread OK: ${spread.toFixed(2)}`);
+                    }
+                }
 
                 return ob;
             }
