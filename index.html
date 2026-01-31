@@ -5480,7 +5480,28 @@
         // Launch backtest from a finished test session
         async function launchBacktestFromSession(session) {
             try {
-                // Get session time range
+                // For TEST sessions, fetch the actual trading_start_time from logs
+                // This is the wall clock time when trading actually started (after warmup)
+                // Using this ensures BACKTEST starts at exactly the same moment as TEST
+                let actualTradingStart = null;
+                if (session.type === 'test') {
+                    try {
+                        const response = await fetch(`${CONTROL_API_URL}/sessions/${session.id}/trading-start`, {
+                            headers: { 'x-api-key': CONTROL_API_KEY }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.trading_start_time) {
+                                actualTradingStart = data.trading_start_time;
+                                console.log('[Sessions] Got actual trading_start_time from logs:', actualTradingStart, 'source:', data.source);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Sessions] Could not fetch trading_start_time, using started_at:', e.message);
+                    }
+                }
+
+                // Fallback to session timestamps
                 const startTime = session.started_at ? new Date(session.started_at) : null;
                 const endTime = session.stopped_at ? new Date(session.stopped_at) : null;
                 const params = session.strategy_params ?
@@ -5501,10 +5522,16 @@
                 document.getElementById('new-session-strategy').dispatchEvent(new Event('change'));
                 document.getElementById('new-session-name').value = `Backtest: ${session.name || session.strategy}`;
 
-                // Set date range
+                // Set date range - use actualTradingStart if available (for TEST->BACKTEST parity)
                 const startInput = document.getElementById('new-session-start');
                 const endInput = document.getElementById('new-session-end');
-                if (startTime) {
+                if (actualTradingStart) {
+                    // Use the actual wall clock trading start time from logs
+                    const startDate = new Date(actualTradingStart * 1000);
+                    startInput.value = startDate.toISOString().slice(0, 16);
+                    startInput.dataset.exactTimestamp = actualTradingStart.toFixed(3);
+                    console.log('[Sessions] Using actual trading_start_time for BACKTEST parity:', actualTradingStart);
+                } else if (startTime) {
                     startInput.value = startTime.toISOString().slice(0, 16);
                     startInput.dataset.exactTimestamp = (startTime.getTime() / 1000).toFixed(3);
                 }
