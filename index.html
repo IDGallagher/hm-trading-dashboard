@@ -4350,8 +4350,8 @@
         }
 
         // Live Test Control State
-        const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
-        const CONTROL_WS_URL = 'wss://agent-company.atamatch.com:8443/trades/stream';
+        const CONTROL_API_URL = 'http://85.10.203.62:3001';
+        const CONTROL_WS_URL = 'ws://85.10.203.62:3001/trades/stream';
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
@@ -4575,11 +4575,12 @@
                 }
             }
 
-            // Fetch deltas from API
+            // Fetch deltas from API using binary format
+            // Binary format: 21 bytes per delta (Float64 ts, Int8 action, Float64 order_id, Int32 amount)
             async function fetchDeltas(market, since) {
                 try {
                     const response = await fetch(
-                        `${CONTROL_API_URL}/api/orderbook/deltas?market=${market}&since=${since}`,
+                        `${CONTROL_API_URL}/api/orderbook/deltas/binary?market=${market}&since=${since}`,
                         { headers: { 'x-api-key': CONTROL_API_KEY } }
                     );
 
@@ -4588,11 +4589,27 @@
                         return { deltas: [], latestTimestamp: since };
                     }
 
-                    const data = await response.json();
-                    return {
-                        deltas: data.deltas || [],
-                        latestTimestamp: data.latestTimestamp || since
-                    };
+                    // Get metadata from headers
+                    const deltaCount = parseInt(response.headers.get('X-Delta-Count') || '0');
+                    const latestTimestamp = parseInt(response.headers.get('X-Latest-Timestamp') || since);
+
+                    // Parse binary data
+                    const buffer = await response.arrayBuffer();
+                    const view = new DataView(buffer);
+                    const BYTES_PER_DELTA = 21;
+                    const deltas = [];
+
+                    for (let i = 0; i < deltaCount; i++) {
+                        const offset = i * BYTES_PER_DELTA;
+                        deltas.push({
+                            t: view.getFloat64(offset, true),         // timestamp (little-endian)
+                            a: view.getInt8(offset + 8),              // signed action
+                            o: view.getFloat64(offset + 9, true).toString(), // order_id as string
+                            m: view.getInt32(offset + 17, true)       // amount
+                        });
+                    }
+
+                    return { deltas, latestTimestamp };
                 } catch (err) {
                     console.error('[Orderbook] Error fetching deltas:', err);
                     return { deltas: [], latestTimestamp: since };
@@ -4630,6 +4647,7 @@
                 // Fetch ALL available deltas from DB to ensure we get REPLACE_START/REPLACE_END
                 // The REPLACE_START action clears the orderbook and applies a fresh snapshot
                 // Without it, we'd be applying incremental deltas on top of corrupted state
+                // Binary endpoint returns ALL data with no limit
                 const fetchStartTime = 0; // Fetch from beginning
                 console.log(`[Orderbook] Fetching ALL deltas from DB for ${market}...`);
                 const { deltas, latestTimestamp } = await fetchDeltas(market, fetchStartTime);
@@ -8844,13 +8862,16 @@
             console.log('[Orderbook] Starting 1-second polling for', currentMarket);
 
             // Poll every 1 second
+            console.log('[Orderbook] Setting interval...');
             orderbookPollingInterval = setInterval(async () => {
+                console.log('[Orderbook Poll] tick');
                 try {
                     await pollOrderbookDeltas();
                 } catch (err) {
                     console.error('[Orderbook Poll] Error:', err);
                 }
             }, 1000);
+            console.log('[Orderbook] Interval ID:', orderbookPollingInterval);
         }
 
         function stopOrderbookPolling() {
@@ -8862,12 +8883,16 @@
         }
 
         async function pollOrderbookDeltas() {
+            console.log('[Orderbook Poll] pollOrderbookDeltas called');
             // Get current state to find last timestamp
             const state = OrderbookManager.getOrderbook(currentMarket, 15);
             const sinceTs = state.lastTimestamp || 0;
+            console.log('[Orderbook Poll] sinceTs:', sinceTs);
 
             // Fetch new deltas
-            const { deltas } = await OrderbookManager.fetchDeltas(currentMarket, sinceTs);
+            const result = await OrderbookManager.fetchDeltas(currentMarket, sinceTs);
+            console.log('[Orderbook Poll] fetchDeltas result:', result ? 'ok' : 'null', 'deltas:', result?.deltas?.length);
+            const { deltas } = result;
 
             if (deltas.length > 0) {
                 OrderbookManager.applyDeltas(currentMarket, deltas);
