@@ -8287,7 +8287,8 @@
             const refreshBtn = document.getElementById('refresh-market-btn');
             if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳ Loading...'; }
             try {
-                await Promise.all([loadPriceData(), loadOrderbookData(), loadTradesData()]);
+                // Orderbook is handled by polling, not initial load
+                await Promise.all([loadPriceData(), loadTradesData()]);
             } catch (err) { console.error('Error loading market data:', err); }
             finally { if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh'; } }
         }
@@ -8722,7 +8723,7 @@
             });
 
             // Common handler for market change
-            function handleMarketChange(newMarket, sourceSelector) {
+            async function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
                 currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
@@ -8736,7 +8737,10 @@
                 loadLiveMarketData();
                 console.log('[Market] Calling subscribeToMarket for:', currentMarket);
                 subscribeToMarket(currentMarket);
-                subscribeToOrderbook(currentMarket);
+
+                // Restart orderbook polling for new market (polling handles initialization)
+                stopOrderbookPolling();
+                startOrderbookPolling();
 
                 // Sync the other selector
                 if (sourceSelector !== marketSelector && marketSelector) {
@@ -8773,12 +8777,17 @@
         }
 
         // ==========================================
-        // LIVE MARKET WEBSOCKET
+        // LIVE MARKET WEBSOCKET (for price/trades only)
         // ==========================================
         let liveMarketWs = null;
         let liveMarketWsReconnectTimer = null;
 
         function connectLiveMarketWebSocket() {
+            // Start orderbook polling only if not already running (truly independent of WebSocket)
+            if (!orderbookPollingInterval) {
+                startOrderbookPolling();
+            }
+
             if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) return;
 
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -8791,7 +8800,6 @@
             liveMarketWs.onopen = () => {
                 console.log('[LiveMarket WS] Connected');
                 subscribeToMarket(currentMarket);
-                subscribeToOrderbook(currentMarket);
             };
 
             liveMarketWs.onmessage = (event) => {
@@ -8799,9 +8807,8 @@
                     const data = JSON.parse(event.data);
                     if (data.type === 'market_update') {
                         handleMarketUpdate(data);
-                    } else if (data.type === 'orderbook_update') {
-                        handleOrderbookUpdate(data);
                     }
+                    // Orderbook updates now come from polling, not WebSocket
                 } catch (err) {
                     console.error('[LiveMarket WS] Parse error:', err);
                 }
@@ -8809,6 +8816,7 @@
 
             liveMarketWs.onclose = () => {
                 console.log('[LiveMarket WS] Disconnected, reconnecting in 5s...');
+                // Note: Don't stop orderbook polling - it runs independently of WebSocket
                 liveMarketWsReconnectTimer = setTimeout(connectLiveMarketWebSocket, 5000);
             };
 
@@ -8824,19 +8832,46 @@
             }
         }
 
-        function subscribeToOrderbook(market) {
-            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
-                liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'orderbook', market: market }));
-                console.log('[LiveMarket WS] Subscribed to orderbook:', market);
+        // ==========================================
+        // ORDERBOOK POLLING (1-second interval)
+        // ==========================================
+        let orderbookPollingInterval = null;
+
+        function startOrderbookPolling() {
+            // Stop any existing polling first
+            stopOrderbookPolling();
+
+            console.log('[Orderbook] Starting 1-second polling for', currentMarket);
+
+            // Poll every 1 second
+            orderbookPollingInterval = setInterval(async () => {
+                try {
+                    await pollOrderbookDeltas();
+                } catch (err) {
+                    console.error('[Orderbook Poll] Error:', err);
+                }
+            }, 1000);
+        }
+
+        function stopOrderbookPolling() {
+            if (orderbookPollingInterval) {
+                console.log('[Orderbook] Stopping polling');
+                clearInterval(orderbookPollingInterval);
+                orderbookPollingInterval = null;
             }
         }
 
-        function handleOrderbookUpdate(data) {
-            // Apply deltas to OrderbookManager and re-render
-            if (data.deltas && data.deltas.length > 0 && data.market === currentMarket) {
-                console.log(`[Orderbook WS] Received ${data.deltas.length} deltas for ${data.market}`);
-                OrderbookManager.applyDeltas(data.market, data.deltas);
-                const ob = OrderbookManager.getOrderbook(data.market, 15);
+        async function pollOrderbookDeltas() {
+            // Get current state to find last timestamp
+            const state = OrderbookManager.getOrderbook(currentMarket, 15);
+            const sinceTs = state.lastTimestamp || 0;
+
+            // Fetch new deltas
+            const { deltas } = await OrderbookManager.fetchDeltas(currentMarket, sinceTs);
+
+            if (deltas.length > 0) {
+                OrderbookManager.applyDeltas(currentMarket, deltas);
+                const ob = OrderbookManager.getOrderbook(currentMarket, 15);
                 renderOrderbookPro(ob.bids, ob.asks);
 
                 // Update spread
@@ -8844,7 +8879,7 @@
                     const spread = ob.asks[0].price - ob.bids[0].price;
                     const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
                     const spreadEl = document.getElementById('orderbook-spread-header');
-                    if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
+                    if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
                 }
             }
         }
@@ -8900,6 +8935,9 @@
         }
 
         function disconnectLiveMarketWebSocket() {
+            // Stop orderbook polling
+            stopOrderbookPolling();
+
             if (liveMarketWsReconnectTimer) {
                 clearTimeout(liveMarketWsReconnectTimer);
                 liveMarketWsReconnectTimer = null;
