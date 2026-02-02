@@ -8751,6 +8751,28 @@
                 orderbookInitialized[newMarket] = false; // Reset orderbook to re-initialize from archive
                 OrderbookManager.clear(newMarket); // Clear orderbook state
                 clearIndicators(); // Clear indicators before loading new data
+
+                // Immediately clear all UI elements to avoid showing old market's data
+                // Clear orderbook display
+                renderOrderbookPro([], []);
+                const spreadEl = document.getElementById('orderbook-spread');
+                const spreadHeader = document.getElementById('orderbook-spread-header');
+                if (spreadEl) spreadEl.textContent = 'Loading...';
+                if (spreadHeader) spreadHeader.textContent = 'Spread: --';
+
+                // Clear price displays
+                const priceDisplay = document.getElementById('current-market-price');
+                const chartTitle = document.getElementById('live-chart-title');
+                const changeValue = document.getElementById('price-change-value');
+                const changeBadge = document.getElementById('price-change-badge');
+                if (priceDisplay) priceDisplay.textContent = '...';
+                if (chartTitle) chartTitle.textContent = `${MARKET_NAMES[newMarket]} Price (Loading...)`;
+                if (changeValue) changeValue.textContent = '...';
+                if (changeBadge) changeBadge.className = 'price-change';
+
+                // Clear trades display
+                renderTradesPro([]);
+
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
                 console.log('[Market] Calling subscribeToMarket for:', currentMarket);
