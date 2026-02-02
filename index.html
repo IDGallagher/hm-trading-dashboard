@@ -8854,6 +8854,7 @@
         // ORDERBOOK POLLING (1-second interval)
         // ==========================================
         let orderbookPollingInterval = null;
+        let orderbookPollingInProgress = false;
 
         function startOrderbookPolling() {
             // Stop any existing polling first
@@ -8864,11 +8865,19 @@
             // Poll every 1 second
             console.log('[Orderbook] Setting interval...');
             orderbookPollingInterval = setInterval(async () => {
+                // Skip if previous request is still in progress
+                if (orderbookPollingInProgress) {
+                    console.log('[Orderbook Poll] skipping - previous request still in progress');
+                    return;
+                }
                 console.log('[Orderbook Poll] tick');
+                orderbookPollingInProgress = true;
                 try {
                     await pollOrderbookDeltas();
                 } catch (err) {
                     console.error('[Orderbook Poll] Error:', err);
+                } finally {
+                    orderbookPollingInProgress = false;
                 }
             }, 1000);
             console.log('[Orderbook] Interval ID:', orderbookPollingInterval);
@@ -8879,6 +8888,7 @@
                 console.log('[Orderbook] Stopping polling');
                 clearInterval(orderbookPollingInterval);
                 orderbookPollingInterval = null;
+                orderbookPollingInProgress = false;
             }
         }
 
