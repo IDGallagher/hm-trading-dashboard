@@ -8506,6 +8506,9 @@
                     // Update volume series
                     updateVolumeSeries(candles);
 
+                    // Update OHLC display with latest candle
+                    updateOHLCDisplay(null);
+
                     // Configure chart for probability display (0-100%)
                     liveMarketChart.priceScale('right').applyOptions({
                         autoScale: false,
@@ -9067,6 +9070,12 @@
                 if (!isPolymarket(currentMarket)) {
                     console.log('[Market] Calling subscribeToMarket for:', currentMarket);
                     subscribeToMarket(currentMarket);
+                } else {
+                    // For Polymarket, unsubscribe from any previous market to stop receiving trades
+                    console.log('[Market] Polymarket selected - unsubscribing from live trades');
+                    if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
+                        liveMarketWs.send(JSON.stringify({ type: 'unsubscribe', channel: 'market' }));
+                    }
                 }
 
                 // Restart orderbook polling for new market (polling handles initialization)
