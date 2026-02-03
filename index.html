@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>HM Trading Dashboard</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
-    <!-- Pako for zlib decompression of FlatBuffer archive files -->
-    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js" crossorigin="anonymous"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html {
@@ -2942,11 +2940,17 @@
         <div class="chart-section">
             <div class="chart-toolbar">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <select id="market-selector" class="period-btn" style="min-width: 140px;">
-                        <option value="xbtusd">BTC/USD</option>
-                        <option value="ethusd">ETH/USD</option>
-                        <option value="solusd">SOL/USD</option>
-                        <option value="xrpusd">XRP/USD</option>
+                    <select id="market-selector" class="period-btn" style="min-width: 180px;">
+                        <optgroup label="BitMEX Perpetuals">
+                            <option value="xbtusd">BTC/USD</option>
+                            <option value="ethusd">ETH/USD</option>
+                            <option value="solusd">SOL/USD</option>
+                            <option value="xrpusd">XRP/USD</option>
+                        </optgroup>
+                        <optgroup label="Polymarket">
+                            <option value="polymarket:btc-15m-closing">BTC 15min Closing</option>
+                            <option value="polymarket:btc-15m-next">BTC 15min Next</option>
+                        </optgroup>
                     </select>
                     <div class="period-dropdown">
                         <button class="period-btn" id="period-btn">
@@ -2966,6 +2970,7 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="color: #8b949e; font-size: 11px;" id="candle-count">-- candles</span>
                     <span class="instrument-badge" id="live-indicator">● LIVE</span>
+                    <span class="instrument-badge" id="polymarket-countdown" style="display: none; background: #ff9800; color: #000;">⏱ --:--</span>
                 </div>
             </div>
             <!-- OHLC Display -->
@@ -3705,11 +3710,17 @@
                 <div class="market-control-group">
                     <span class="market-control-label">Market:</span>
                     <select id="market-selector-secondary" class="market-select">
-                        <option value="xbtusd">BTC/USD (XBTUSD)</option>
-                        <option value="ethusd">ETH/USD (ETHUSD)</option>
-                        <option value="solusd">SOL/USD (SOLUSD)</option>
-                        <option value="xrpusd">XRP/USD (XRPUSD)</option>
-                        <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
+                        <optgroup label="BitMEX Perpetuals">
+                            <option value="xbtusd">BTC/USD (XBTUSD)</option>
+                            <option value="ethusd">ETH/USD (ETHUSD)</option>
+                            <option value="solusd">SOL/USD (SOLUSD)</option>
+                            <option value="xrpusd">XRP/USD (XRPUSD)</option>
+                            <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
+                        </optgroup>
+                        <optgroup label="Polymarket">
+                            <option value="polymarket:btc-15m-closing">BTC 15min Closing</option>
+                            <option value="polymarket:btc-15m-next">BTC 15min Next</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="market-control-group">
@@ -4350,370 +4361,9 @@
         }
 
         // Live Test Control State
-        const CONTROL_API_URL = 'http://85.10.203.62:3001';
-        const CONTROL_WS_URL = 'ws://85.10.203.62:3001/trades/stream';
+        const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
+        const CONTROL_WS_URL = 'wss://agent-company.atamatch.com:8443/trades/stream';
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
-
-        // ==========================================
-        // ORDERBOOK MANAGER - FlatBuffer decoder + state management
-        // Frontend maintains orderbook state from raw actions
-        // ==========================================
-        const OrderbookManager = (function() {
-            // Encoding constants (matching Swift/C++)
-            const PRECISION = 0.00000001; // 1e-8
-
-            // Action types (magnitude only)
-            const Action = {
-                INSERT: 1,
-                UPDATE: 2,
-                DELETE: 3,
-                REPLACE_START: 4,
-                REPLACE_END: 5,
-                DIFF_START: 6,
-                DIFF_END: 7
-            };
-
-            // State per market
-            const state = {};
-
-            function getMarketState(market) {
-                if (!state[market]) {
-                    state[market] = {
-                        bids: new Map(), // order_id -> { price, amount }
-                        asks: new Map(),
-                        lastTimestamp: 0,
-                        inReplace: false
-                    };
-                }
-                return state[market];
-            }
-
-            // Decode price from order_id
-            function decodePrice(orderId) {
-                return Number(orderId) * PRECISION;
-            }
-
-            // Decode signed action
-            function decodeAction(signedAction) {
-                const action = Math.abs(signedAction);
-                const isBid = signedAction > 0;
-                return { action, isBid };
-            }
-
-            // Parse FlatBuffer book data (decompressed buffer)
-            // Format: 4-byte root offset, vtable, vector of 32-byte BookUpdate structs
-            function parseFlatBuffer(buffer) {
-                const updates = [];
-                const view = new DataView(buffer.buffer || buffer);
-
-                if (buffer.length < 4) return updates;
-
-                // Read root offset
-                const rootOffset = view.getUint32(0, true);
-                const root = rootOffset;
-
-                // Read vtable offset (signed)
-                const vtableOffset = view.getInt32(root, true);
-                const vtable = root - vtableOffset;
-
-                // Read vtable size
-                const vtableSize = view.getUint16(vtable, true);
-
-                if (vtableSize < 6) return updates;
-
-                // First field offset (updates vector)
-                const updatesOffset = view.getUint16(vtable + 4, true);
-                if (updatesOffset === 0) return updates;
-
-                // Navigate to vector
-                const vectorField = root + updatesOffset;
-                const vectorOffset2 = view.getInt32(vectorField, true);
-                const vectorPtr = vectorField + vectorOffset2;
-
-                // Vector length
-                const vectorLen = view.getUint32(vectorPtr, true);
-
-                // Each BookUpdate is 32 bytes (8-byte aligned)
-                const BOOK_UPDATE_SIZE = 32;
-                let pos = vectorPtr + 4;
-
-                for (let i = 0; i < vectorLen; i++) {
-                    // timestamp: uint64 at offset 0
-                    const timestampLo = view.getUint32(pos, true);
-                    const timestampHi = view.getUint32(pos + 4, true);
-                    const timestamp = timestampLo + (timestampHi * 0x100000000);
-
-                    // action: int8 at offset 8 (signed)
-                    const action = view.getInt8(pos + 8);
-
-                    // order_id: uint64 at offset 16
-                    const orderIdLo = view.getUint32(pos + 16, true);
-                    const orderIdHi = view.getUint32(pos + 20, true);
-                    const orderId = BigInt(orderIdLo) + (BigInt(orderIdHi) << 32n);
-
-                    // amount: double at offset 24
-                    const amount = view.getFloat64(pos + 24, true);
-
-                    updates.push({
-                        timestamp,
-                        action,
-                        orderId: orderId.toString(),
-                        amount
-                    });
-
-                    pos += BOOK_UPDATE_SIZE;
-                }
-
-                return updates;
-            }
-
-            // Apply a single delta to market state
-            function applyDelta(market, delta) {
-                const s = getMarketState(market);
-                const { action: actionType, isBid } = decodeAction(delta.action || delta.a);
-                const orderId = delta.orderId || delta.o;
-                const price = decodePrice(orderId);
-                const amount = delta.amount || delta.m || 0;
-                const book = isBid ? s.bids : s.asks;
-
-                switch (actionType) {
-                    case Action.REPLACE_START:
-                        s.inReplace = true;
-                        s.bids.clear();
-                        s.asks.clear();
-                        break;
-
-                    case Action.REPLACE_END:
-                        s.inReplace = false;
-                        break;
-
-                    case Action.INSERT:
-                    case Action.UPDATE:
-                        if (amount > 0) {
-                            book.set(orderId, { price, amount });
-                            // CRITICAL: Delete from opposite side if same price level exists there
-                            // This handles the case where a bid becomes an ask or vice versa
-                            const oppositeBook = isBid ? s.asks : s.bids;
-                            if (oppositeBook.has(orderId)) {
-                                oppositeBook.delete(orderId);
-                            }
-                        } else {
-                            book.delete(orderId);
-                        }
-                        break;
-
-                    case Action.DELETE:
-                        book.delete(orderId);
-                        break;
-                }
-
-                // Track latest timestamp
-                const ts = delta.timestamp || delta.t;
-                if (ts > s.lastTimestamp) {
-                    s.lastTimestamp = ts;
-                }
-            }
-
-            // Apply multiple deltas
-            function applyDeltas(market, deltas) {
-                for (const delta of deltas) {
-                    applyDelta(market, delta);
-                }
-            }
-
-            // Get current orderbook (sorted by price)
-            function getOrderbook(market, maxDepth = 25) {
-                const s = getMarketState(market);
-
-                // Convert maps to arrays and sort
-                const bids = Array.from(s.bids.values())
-                    .sort((a, b) => b.price - a.price) // Highest first
-                    .slice(0, maxDepth);
-
-                const asks = Array.from(s.asks.values())
-                    .sort((a, b) => a.price - b.price) // Lowest first
-                    .slice(0, maxDepth);
-
-                return {
-                    bids,
-                    asks,
-                    lastTimestamp: s.lastTimestamp
-                };
-            }
-
-            // Fetch and decode archive file
-            async function fetchArchiveFile(market, timestamp = 'latest') {
-                try {
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/archive/book/file?market=${market}&timestamp=${timestamp}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-
-                    if (!response.ok) {
-                        console.warn(`[Orderbook] Archive file not found for ${market}@${timestamp}`);
-                        return [];
-                    }
-
-                    // Get binary data
-                    const compressedBuffer = await response.arrayBuffer();
-                    const compressed = new Uint8Array(compressedBuffer);
-
-                    // Decompress with pako
-                    let decompressed;
-                    try {
-                        decompressed = pako.inflate(compressed);
-                    } catch (e) {
-                        console.error('[Orderbook] Decompression failed:', e);
-                        return [];
-                    }
-
-                    // Parse FlatBuffer
-                    return parseFlatBuffer(decompressed);
-                } catch (err) {
-                    console.error('[Orderbook] Error fetching archive:', err);
-                    return [];
-                }
-            }
-
-            // Fetch deltas from API using binary format
-            // Binary format: 21 bytes per delta (Float64 ts, Int8 action, Float64 order_id, Int32 amount)
-            async function fetchDeltas(market, since) {
-                try {
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/orderbook/deltas/binary?market=${market}&since=${since}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-
-                    if (!response.ok) {
-                        console.warn(`[Orderbook] Deltas fetch failed for ${market}`);
-                        return { deltas: [], latestTimestamp: since };
-                    }
-
-                    // Get metadata from headers
-                    const deltaCount = parseInt(response.headers.get('X-Delta-Count') || '0');
-                    const latestTimestamp = parseInt(response.headers.get('X-Latest-Timestamp') || since);
-
-                    // Parse binary data
-                    const buffer = await response.arrayBuffer();
-                    const view = new DataView(buffer);
-                    const BYTES_PER_DELTA = 21;
-                    const deltas = [];
-
-                    for (let i = 0; i < deltaCount; i++) {
-                        const offset = i * BYTES_PER_DELTA;
-                        deltas.push({
-                            t: view.getFloat64(offset, true),         // timestamp (little-endian)
-                            a: view.getInt8(offset + 8),              // signed action
-                            o: view.getFloat64(offset + 9, true).toString(), // order_id as string
-                            m: view.getInt32(offset + 17, true)       // amount
-                        });
-                    }
-
-                    return { deltas, latestTimestamp };
-                } catch (err) {
-                    console.error('[Orderbook] Error fetching deltas:', err);
-                    return { deltas: [], latestTimestamp: since };
-                }
-            }
-
-            // Get archive info
-            async function getArchiveInfo(market) {
-                try {
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/archive/book/info?market=${market}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-
-                    if (!response.ok) return { available: false };
-
-                    const data = await response.json();
-                    return data.book || { available: false };
-                } catch (err) {
-                    console.error('[Orderbook] Error getting archive info:', err);
-                    return { available: false };
-                }
-            }
-
-            // Initialize orderbook for a market
-            // CRITICAL FIX: Must fetch ALL deltas from DB to ensure we get REPLACE_START/REPLACE_END
-            // Archive files don't contain REPLACE_START actions, so we can't rely on them for orderbook state
-            async function initialize(market) {
-                console.log(`[Orderbook] Initializing ${market}...`);
-
-                // Clear existing state
-                state[market] = null;
-                getMarketState(market);
-
-                // Fetch ALL available deltas from DB to ensure we get REPLACE_START/REPLACE_END
-                // The REPLACE_START action clears the orderbook and applies a fresh snapshot
-                // Without it, we'd be applying incremental deltas on top of corrupted state
-                // Binary endpoint returns ALL data with no limit
-                const fetchStartTime = 0; // Fetch from beginning
-                console.log(`[Orderbook] Fetching ALL deltas from DB for ${market}...`);
-                const { deltas, latestTimestamp } = await fetchDeltas(market, fetchStartTime);
-                console.log(`[Orderbook] Loaded ${deltas.length} deltas from DB`);
-
-                // Find the most recent REPLACE_START to ensure we have a clean snapshot
-                let lastReplaceStartIdx = -1;
-                for (let i = deltas.length - 1; i >= 0; i--) {
-                    const actionType = Math.abs(deltas[i].a);
-                    if (actionType === Action.REPLACE_START) {
-                        lastReplaceStartIdx = i;
-                        console.log(`[Orderbook] Found REPLACE_START at index ${i}`);
-                        break;
-                    }
-                }
-
-                // If we found a REPLACE_START, only apply deltas from that point forward
-                // This ensures we start with a clean snapshot, not corrupted incremental state
-                let deltasToApply = deltas;
-                if (lastReplaceStartIdx >= 0) {
-                    deltasToApply = deltas.slice(lastReplaceStartIdx);
-                    console.log(`[Orderbook] Applying ${deltasToApply.length} deltas from REPLACE_START`);
-                } else {
-                    console.warn(`[Orderbook] WARNING: No REPLACE_START found! Orderbook may be incorrect.`);
-                }
-
-                // Apply the deltas (starting from REPLACE_START if found)
-                applyDeltas(market, deltasToApply);
-
-                const ob = getOrderbook(market);
-                console.log(`[Orderbook] Initialized: ${ob.bids.length} bids, ${ob.asks.length} asks`);
-
-                // Sanity check: log if orderbook appears crossed
-                if (ob.bids.length > 0 && ob.asks.length > 0) {
-                    const bestBid = ob.bids[0].price;
-                    const bestAsk = ob.asks[0].price;
-                    const spread = bestAsk - bestBid;
-                    if (spread < 0) {
-                        console.error(`[Orderbook] ERROR: Crossed orderbook! bestBid=${bestBid}, bestAsk=${bestAsk}, spread=${spread}`);
-                    } else {
-                        console.log(`[Orderbook] Spread OK: ${spread.toFixed(2)}`);
-                    }
-                }
-
-                return ob;
-            }
-
-            // Clear state for a market
-            function clear(market) {
-                state[market] = null;
-            }
-
-            return {
-                initialize,
-                applyDelta,
-                applyDeltas,
-                getOrderbook,
-                fetchDeltas,
-                fetchArchiveFile,
-                getArchiveInfo,
-                clear,
-                decodePrice,
-                decodeAction,
-                Action
-            };
-        })();
 
         // ==========================================
         // SESSION DATA API HELPERS (Phase 3 Migration)
@@ -7257,8 +6907,23 @@
             'ethusd': 'ETH/USD',
             'solusd': 'SOL/USD',
             'xrpusd': 'XRP/USD',
-            'dogeusd': 'DOGE/USD'
+            'dogeusd': 'DOGE/USD',
+            'polymarket:btc-15m-closing': 'BTC 15min Closing (Polymarket)',
+            'polymarket:btc-15m-next': 'BTC 15min Next (Polymarket)'
         };
+
+        // Helper function to check if a market is a Polymarket synthetic
+        function isPolymarket(market) {
+            return market && market.startsWith('polymarket:');
+        }
+
+        // Get the Polymarket market ID from the full market string
+        function getPolymarketId(market) {
+            return market ? market.replace('polymarket:', '') : null;
+        }
+
+        // Polymarket countdown timer state
+        let polymarketCountdownInterval = null;
 
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
@@ -8305,8 +7970,7 @@
             const refreshBtn = document.getElementById('refresh-market-btn');
             if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳ Loading...'; }
             try {
-                // Orderbook is handled by polling, not initial load
-                await Promise.all([loadPriceData(), loadTradesData()]);
+                await Promise.all([loadPriceData(), loadOrderbookData(), loadTradesData()]);
             } catch (err) { console.error('Error loading market data:', err); }
             finally { if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh'; } }
         }
@@ -8317,10 +7981,16 @@
             const priceDisplay = document.getElementById('current-market-price');
 
             // Show loading state
-            chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (⏳ Loading...)`;
+            chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (⏳ Loading...)`;
             priceDisplay.textContent = '...';
 
             try {
+                // Handle Polymarket markets differently
+                if (isPolymarket(currentMarket)) {
+                    await loadPolymarketPriceData();
+                    return;
+                }
+
                 // Use hybrid source to combine archive (historical) + MySQL (recent) data
                 const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
@@ -8416,57 +8086,285 @@
                 }
             } catch (err) {
                 console.error('Error loading price data:', err);
-                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (Error)`;
+                chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (Error)`;
                 priceDisplay.textContent = '--';
             }
         }
 
-        // Load orderbook data using OrderbookManager (stateless API)
-        // Orderbook state is maintained in the frontend
-        let orderbookInitialized = {};
+        // Load Polymarket price data (probability-based)
+        async function loadPolymarketPriceData() {
+            const chartTitle = document.getElementById('live-chart-title');
+            const priceDisplay = document.getElementById('current-market-price');
+            const polymarketId = getPolymarketId(currentMarket);
 
+            try {
+                // Fetch price history
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=${polymarketId}`,
+                    { headers: { 'X-API-Key': 'hm-trading-dev-key-2025' } });
+                if (!response.ok) throw new Error('Failed to fetch Polymarket prices');
+                const data = await response.json();
+
+                if (data.success && data.prices && data.prices.length > 0) {
+                    // Convert probability prices to candle-like format for charting
+                    // Polymarket prices are 0.00-1.00 (probabilities)
+                    const candles = data.prices.map(p => ({
+                        time: p.time,
+                        open: p.probability * 100,  // Convert to percentage
+                        high: p.probability * 100,
+                        low: p.probability * 100,
+                        close: p.probability * 100,
+                        volume: p.volume || 0
+                    }));
+
+                    lastCandleData = candles;
+                    earliestCandleTime = candles[0]?.time;
+                    safeSetData(liveMarketCandleSeries, candles, 'loadPolymarketPriceData');
+
+                    // Update volume series
+                    updateVolumeSeries(candles);
+
+                    // Configure chart for probability display (0-100%)
+                    liveMarketChart.priceScale('right').applyOptions({
+                        autoScale: false,
+                        scaleMargins: { top: 0.05, bottom: 0.05 }
+                    });
+
+                    // Set visible range for probabilities
+                    const lastTime = candles[candles.length - 1].time;
+                    liveMarketChart.timeScale().setVisibleRange({
+                        from: lastTime - (2 * 3600), // Show last 2 hours
+                        to: lastTime + 300
+                    });
+
+                    const lastPrice = candles[candles.length - 1];
+                    priceDisplay.textContent = `${lastPrice.close.toFixed(1)}%`;
+
+                    // Calculate change
+                    const firstPrice = candles[0];
+                    const change = (lastPrice.close - firstPrice.close).toFixed(2);
+                    const changeBadge = document.getElementById('price-change-badge');
+                    const changeValue = document.getElementById('price-change-value');
+                    if (changeValue) changeValue.textContent = `${change >= 0 ? '+' : ''}${change}%`;
+                    if (changeBadge) changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (${candles.length} points · Probability)`;
+
+                    // Update candle count
+                    const candleCountEl = document.getElementById('candle-count');
+                    if (candleCountEl) candleCountEl.textContent = `${candles.length} points`;
+                } else {
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (No data)`;
+                    priceDisplay.textContent = '--';
+                }
+
+                // Fetch current market info for countdown timer
+                await updatePolymarketCountdown();
+
+            } catch (err) {
+                console.error('Error loading Polymarket price data:', err);
+                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (Error)`;
+                priceDisplay.textContent = '--';
+            }
+        }
+
+        // Update Polymarket countdown timer from /api/polymarket/current
+        async function updatePolymarketCountdown() {
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/current`,
+                    { headers: { 'X-API-Key': 'hm-trading-dev-key-2025' } });
+                if (!response.ok) return;
+                const data = await response.json();
+
+                if (data.success && data.time_remaining !== undefined) {
+                    startPolymarketCountdown(data.time_remaining);
+                }
+            } catch (err) {
+                console.error('Error fetching Polymarket current:', err);
+            }
+        }
+
+        // Start countdown timer for Polymarket market closing
+        function startPolymarketCountdown(timeRemaining) {
+            const countdownEl = document.getElementById('polymarket-countdown');
+            if (!countdownEl) return;
+
+            // Clear any existing countdown
+            if (polymarketCountdownInterval) {
+                clearInterval(polymarketCountdownInterval);
+            }
+
+            countdownEl.style.display = 'inline';
+            let remaining = timeRemaining * 1000; // Convert to milliseconds
+
+            function updateCountdown() {
+                if (remaining <= 0) {
+                    countdownEl.textContent = '⏱ CLOSED';
+                    countdownEl.style.background = '#f44336';
+                    clearInterval(polymarketCountdownInterval);
+                    return;
+                }
+
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                countdownEl.textContent = `⏱ ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                // Change color based on urgency
+                if (remaining < 60000) {
+                    countdownEl.style.background = '#f44336'; // Red - less than 1 min
+                } else if (remaining < 300000) {
+                    countdownEl.style.background = '#ff9800'; // Orange - less than 5 min
+                } else {
+                    countdownEl.style.background = '#4caf50'; // Green
+                }
+
+                remaining -= 1000;
+            }
+
+            updateCountdown();
+            polymarketCountdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        // Stop Polymarket countdown
+        function stopPolymarketCountdown() {
+            const countdownEl = document.getElementById('polymarket-countdown');
+            if (countdownEl) countdownEl.style.display = 'none';
+            if (polymarketCountdownInterval) {
+                clearInterval(polymarketCountdownInterval);
+                polymarketCountdownInterval = null;
+            }
+        }
+
+        // Load orderbook data
         async function loadOrderbookData() {
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
 
+            // Handle Polymarket orderbook separately
+            if (isPolymarket(currentMarket)) {
+                await loadPolymarketOrderbook();
+                return;
+            }
+
             try {
-                let ob;
-
-                // Initialize orderbook from archive + deltas on first load
-                if (!orderbookInitialized[currentMarket]) {
-                    console.log(`[Orderbook] First load for ${currentMarket}, initializing from archive...`);
-                    ob = await OrderbookManager.initialize(currentMarket);
-                    orderbookInitialized[currentMarket] = true;
-                } else {
-                    // Subsequent loads: fetch new deltas and update state
-                    const state = OrderbookManager.getOrderbook(currentMarket, 15);
-                    const { deltas } = await OrderbookManager.fetchDeltas(currentMarket, state.lastTimestamp);
-
-                    if (deltas.length > 0) {
-                        OrderbookManager.applyDeltas(currentMarket, deltas);
-                    }
-
-                    ob = OrderbookManager.getOrderbook(currentMarket, 15);
-                }
-
-                // Render the orderbook
-                if (ob.bids.length > 0 || ob.asks.length > 0) {
-                    renderOrderbookPro(ob.bids, ob.asks);
-
-                    if (ob.bids.length > 0 && ob.asks.length > 0) {
-                        const spread = ob.asks[0].price - ob.bids[0].price;
-                        const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
+                const response = await fetch(`${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`,
+                    { headers: { 'x-api-key': CONTROL_API_KEY } });
+                if (!response.ok) throw new Error('Failed to fetch orderbook');
+                const data = await response.json();
+                if (data.success) {
+                    // Use professional orderbook rendering
+                    renderOrderbookPro(data.bids || [], data.asks || []);
+                    if (data.bids?.length && data.asks?.length) {
+                        const spread = data.asks[0].price - data.bids[0].price;
+                        const spreadPct = (spread / data.asks[0].price * 100).toFixed(3);
                         if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
                     } else {
                         if (spreadEl) spreadEl.textContent = 'No data';
                     }
-                } else {
-                    if (spreadEl) spreadEl.textContent = 'No data';
                 }
             } catch (err) {
                 console.error('Error loading orderbook:', err);
                 spreadEl.textContent = 'Error loading';
             }
+        }
+
+        // Load Polymarket orderbook (probability-based prices)
+        async function loadPolymarketOrderbook() {
+            const spreadEl = document.getElementById('orderbook-spread');
+            const polymarketId = getPolymarketId(currentMarket);
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/orderbook?market=${polymarketId}`,
+                    { headers: { 'X-API-Key': 'hm-trading-dev-key-2025' } });
+                if (!response.ok) throw new Error('Failed to fetch Polymarket orderbook');
+                const data = await response.json();
+
+                if (data.success && (data.bids?.length > 0 || data.asks?.length > 0)) {
+                    // Convert probability prices (0.00-1.00) to percentage display
+                    const bids = (data.bids || []).map(b => ({
+                        price: b.price,
+                        amount: b.size || b.amount
+                    }));
+                    const asks = (data.asks || []).map(a => ({
+                        price: a.price,
+                        amount: a.size || a.amount
+                    }));
+
+                    // Use custom Polymarket orderbook renderer
+                    renderPolymarketOrderbook(bids, asks);
+
+                    if (bids.length > 0 && asks.length > 0) {
+                        const spread = asks[0].price - bids[0].price;
+                        const spreadPct = (spread * 100).toFixed(2);
+                        if (spreadEl) spreadEl.textContent = `Spread: ${spreadPct}%`;
+                    } else {
+                        if (spreadEl) spreadEl.textContent = 'No data';
+                    }
+                } else {
+                    if (spreadEl) spreadEl.textContent = 'No data';
+                    renderOrderbookPro([], []);
+                }
+            } catch (err) {
+                console.error('Error loading Polymarket orderbook:', err);
+                if (spreadEl) spreadEl.textContent = 'Error loading';
+            }
+        }
+
+        // Render Polymarket orderbook with probability display
+        function renderPolymarketOrderbook(bids, asks) {
+            const panel = document.getElementById('orderbook-panel');
+            if (!panel) {
+                // Fallback to regular orderbook rendering with formatted prices
+                renderOrderbookPro(bids, asks);
+                return;
+            }
+
+            // Sort bids high to low, asks low to high
+            const sortedBids = [...bids].sort((a, b) => b.price - a.price).slice(0, 15);
+            const sortedAsks = [...asks].sort((a, b) => a.price - b.price).slice(0, 15);
+
+            // Calculate max amounts for bar sizing
+            const maxBidAmount = Math.max(...sortedBids.map(b => b.amount), 1);
+            const maxAskAmount = Math.max(...sortedAsks.map(a => a.amount), 1);
+
+            // Render asks (reversed so lowest ask is at bottom)
+            const asksHtml = sortedAsks.slice().reverse().map(ask => {
+                const barWidth = (ask.amount / maxAskAmount * 100).toFixed(1);
+                const priceDisplay = (ask.price * 100).toFixed(1) + '%';
+                return `<div class="orderbook-row ask">
+                    <span class="bar ask-bar" style="width: ${barWidth}%"></span>
+                    <span class="ob-price">${priceDisplay}</span>
+                    <span class="ob-size">${formatMarketAmount(ask.amount)}</span>
+                    <span class="ob-total"></span>
+                </div>`;
+            }).join('');
+
+            // Spread row
+            const spreadValue = sortedAsks.length > 0 && sortedBids.length > 0
+                ? ((sortedAsks[0].price - sortedBids[0].price) * 100).toFixed(2) + '%'
+                : '--';
+
+            // Render bids
+            const bidsHtml = sortedBids.map(bid => {
+                const barWidth = (bid.amount / maxBidAmount * 100).toFixed(1);
+                const priceDisplay = (bid.price * 100).toFixed(1) + '%';
+                return `<div class="orderbook-row bid">
+                    <span class="bar bid-bar" style="width: ${barWidth}%"></span>
+                    <span class="ob-price">${priceDisplay}</span>
+                    <span class="ob-size">${formatMarketAmount(bid.amount)}</span>
+                    <span class="ob-total"></span>
+                </div>`;
+            }).join('');
+
+            panel.innerHTML = `
+                <div class="orderbook-row header">
+                    <span class="ob-price">Prob</span>
+                    <span class="ob-size">Size</span>
+                    <span class="ob-total"></span>
+                </div>
+                <div class="orderbook-asks">${asksHtml}</div>
+                <div class="orderbook-spread-row" id="orderbook-spread">Spread: ${spreadValue}</div>
+                <div class="orderbook-bids">${bidsHtml}</div>
+            `;
         }
 
         // Render orderbook (legacy + pro)
@@ -8741,24 +8639,26 @@
             });
 
             // Common handler for market change
-            async function handleMarketChange(newMarket, sourceSelector) {
+            function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
                 currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
                 isLoadingOlderCandles = false;
-                orderbookInitialized[newMarket] = false; // Reset orderbook to re-initialize from archive
-                OrderbookManager.clear(newMarket); // Clear orderbook state
                 clearIndicators(); // Clear indicators before loading new data
+
+                // Stop Polymarket countdown if switching away from Polymarket
+                stopPolymarketCountdown();
+
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
-                console.log('[Market] Calling subscribeToMarket for:', currentMarket);
-                subscribeToMarket(currentMarket);
 
-                // Restart orderbook polling for new market (polling handles initialization)
-                stopOrderbookPolling();
-                startOrderbookPolling();
+                // Only subscribe to WebSocket for non-Polymarket markets
+                if (!isPolymarket(currentMarket)) {
+                    console.log('[Market] Calling subscribeToMarket for:', currentMarket);
+                    subscribeToMarket(currentMarket);
+                }
 
                 // Sync the other selector
                 if (sourceSelector !== marketSelector && marketSelector) {
@@ -8795,17 +8695,12 @@
         }
 
         // ==========================================
-        // LIVE MARKET WEBSOCKET (for price/trades only)
+        // LIVE MARKET WEBSOCKET
         // ==========================================
         let liveMarketWs = null;
         let liveMarketWsReconnectTimer = null;
 
         function connectLiveMarketWebSocket() {
-            // Start orderbook polling only if not already running (truly independent of WebSocket)
-            if (!orderbookPollingInterval) {
-                startOrderbookPolling();
-            }
-
             if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) return;
 
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -8826,7 +8721,6 @@
                     if (data.type === 'market_update') {
                         handleMarketUpdate(data);
                     }
-                    // Orderbook updates now come from polling, not WebSocket
                 } catch (err) {
                     console.error('[LiveMarket WS] Parse error:', err);
                 }
@@ -8834,7 +8728,6 @@
 
             liveMarketWs.onclose = () => {
                 console.log('[LiveMarket WS] Disconnected, reconnecting in 5s...');
-                // Note: Don't stop orderbook polling - it runs independently of WebSocket
                 liveMarketWsReconnectTimer = setTimeout(connectLiveMarketWebSocket, 5000);
             };
 
@@ -8847,75 +8740,6 @@
             if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
                 liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'market', market: market }));
                 console.log('[LiveMarket WS] Subscribed to:', market);
-            }
-        }
-
-        // ==========================================
-        // ORDERBOOK POLLING (1-second interval)
-        // ==========================================
-        let orderbookPollingInterval = null;
-        let orderbookPollingInProgress = false;
-
-        function startOrderbookPolling() {
-            // Stop any existing polling first
-            stopOrderbookPolling();
-
-            console.log('[Orderbook] Starting 1-second polling for', currentMarket);
-
-            // Poll every 1 second
-            console.log('[Orderbook] Setting interval...');
-            orderbookPollingInterval = setInterval(async () => {
-                // Skip if previous request is still in progress
-                if (orderbookPollingInProgress) {
-                    console.log('[Orderbook Poll] skipping - previous request still in progress');
-                    return;
-                }
-                console.log('[Orderbook Poll] tick');
-                orderbookPollingInProgress = true;
-                try {
-                    await pollOrderbookDeltas();
-                } catch (err) {
-                    console.error('[Orderbook Poll] Error:', err);
-                } finally {
-                    orderbookPollingInProgress = false;
-                }
-            }, 1000);
-            console.log('[Orderbook] Interval ID:', orderbookPollingInterval);
-        }
-
-        function stopOrderbookPolling() {
-            if (orderbookPollingInterval) {
-                console.log('[Orderbook] Stopping polling');
-                clearInterval(orderbookPollingInterval);
-                orderbookPollingInterval = null;
-                orderbookPollingInProgress = false;
-            }
-        }
-
-        async function pollOrderbookDeltas() {
-            console.log('[Orderbook Poll] pollOrderbookDeltas called');
-            // Get current state to find last timestamp
-            const state = OrderbookManager.getOrderbook(currentMarket, 15);
-            const sinceTs = state.lastTimestamp || 0;
-            console.log('[Orderbook Poll] sinceTs:', sinceTs);
-
-            // Fetch new deltas
-            const result = await OrderbookManager.fetchDeltas(currentMarket, sinceTs);
-            console.log('[Orderbook Poll] fetchDeltas result:', result ? 'ok' : 'null', 'deltas:', result?.deltas?.length);
-            const { deltas } = result;
-
-            if (deltas.length > 0) {
-                OrderbookManager.applyDeltas(currentMarket, deltas);
-                const ob = OrderbookManager.getOrderbook(currentMarket, 15);
-                renderOrderbookPro(ob.bids, ob.asks);
-
-                // Update spread
-                if (ob.bids.length > 0 && ob.asks.length > 0) {
-                    const spread = ob.asks[0].price - ob.bids[0].price;
-                    const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
-                    const spreadEl = document.getElementById('orderbook-spread-header');
-                    if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
-                }
             }
         }
 
@@ -8970,9 +8794,6 @@
         }
 
         function disconnectLiveMarketWebSocket() {
-            // Stop orderbook polling
-            stopOrderbookPolling();
-
             if (liveMarketWsReconnectTimer) {
                 clearTimeout(liveMarketWsReconnectTimer);
                 liveMarketWsReconnectTimer = null;
