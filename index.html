@@ -2942,11 +2942,25 @@
         <div class="chart-section">
             <div class="chart-toolbar">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <select id="market-selector" class="period-btn" style="min-width: 140px;">
-                        <option value="xbtusd">BTC/USD</option>
-                        <option value="ethusd">ETH/USD</option>
-                        <option value="solusd">SOL/USD</option>
-                        <option value="xrpusd">XRP/USD</option>
+                    <select id="market-selector" class="period-btn" style="min-width: 180px;">
+                        <optgroup label="BitMEX Perpetuals">
+                            <option value="xbtusd">BTC/USD</option>
+                            <option value="ethusd">ETH/USD</option>
+                            <option value="solusd">SOL/USD</option>
+                            <option value="xrpusd">XRP/USD</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot A)">
+                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
+                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot B)">
+                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
+                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot C)">
+                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
+                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
+                        </optgroup>
                     </select>
                     <div class="period-dropdown">
                         <button class="period-btn" id="period-btn">
@@ -2966,6 +2980,7 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="color: #8b949e; font-size: 11px;" id="candle-count">-- candles</span>
                     <span class="instrument-badge" id="live-indicator">● LIVE</span>
+                    <span class="instrument-badge" id="polymarket-countdown" style="display: none; background: #ff9800; color: #000;">⏱ --:--</span>
                 </div>
             </div>
             <!-- OHLC Display -->
@@ -3705,11 +3720,25 @@
                 <div class="market-control-group">
                     <span class="market-control-label">Market:</span>
                     <select id="market-selector-secondary" class="market-select">
-                        <option value="xbtusd">BTC/USD (XBTUSD)</option>
-                        <option value="ethusd">ETH/USD (ETHUSD)</option>
-                        <option value="solusd">SOL/USD (SOLUSD)</option>
-                        <option value="xrpusd">XRP/USD (XRPUSD)</option>
-                        <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
+                        <optgroup label="BitMEX Perpetuals">
+                            <option value="xbtusd">BTC/USD (XBTUSD)</option>
+                            <option value="ethusd">ETH/USD (ETHUSD)</option>
+                            <option value="solusd">SOL/USD (SOLUSD)</option>
+                            <option value="xrpusd">XRP/USD (XRPUSD)</option>
+                            <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot A)">
+                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
+                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot B)">
+                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
+                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot C)">
+                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
+                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="market-control-group">
@@ -7257,8 +7286,27 @@
             'ethusd': 'ETH/USD',
             'solusd': 'SOL/USD',
             'xrpusd': 'XRP/USD',
-            'dogeusd': 'DOGE/USD'
+            'dogeusd': 'DOGE/USD',
+            'polymarket:btc-15m-a-up': 'BTC 15m A-UP (Polymarket)',
+            'polymarket:btc-15m-a-down': 'BTC 15m A-DOWN (Polymarket)',
+            'polymarket:btc-15m-b-up': 'BTC 15m B-UP (Polymarket)',
+            'polymarket:btc-15m-b-down': 'BTC 15m B-DOWN (Polymarket)',
+            'polymarket:btc-15m-c-up': 'BTC 15m C-UP (Polymarket)',
+            'polymarket:btc-15m-c-down': 'BTC 15m C-DOWN (Polymarket)'
         };
+
+        // Helper function to check if a market is a Polymarket synthetic
+        function isPolymarket(market) {
+            return market && market.startsWith('polymarket:');
+        }
+
+        // Get the Polymarket market ID from the full market string
+        function getPolymarketId(market) {
+            return market ? market.replace('polymarket:', '') : null;
+        }
+
+        // Polymarket countdown timer state
+        let polymarketCountdownInterval = null;
 
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
@@ -8317,10 +8365,16 @@
             const priceDisplay = document.getElementById('current-market-price');
 
             // Show loading state
-            chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (⏳ Loading...)`;
+            chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (⏳ Loading...)`;
             priceDisplay.textContent = '...';
 
             try {
+                // Handle Polymarket markets differently
+                if (isPolymarket(currentMarket)) {
+                    await loadPolymarketPriceData();
+                    return;
+                }
+
                 // Use hybrid source to combine archive (historical) + MySQL (recent) data
                 const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
@@ -8416,8 +8470,136 @@
                 }
             } catch (err) {
                 console.error('Error loading price data:', err);
-                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (Error)`;
+                chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (Error)`;
                 priceDisplay.textContent = '--';
+            }
+        }
+
+        // Load Polymarket price data (probability-based)
+        async function loadPolymarketPriceData() {
+            const chartTitle = document.getElementById('live-chart-title');
+            const priceDisplay = document.getElementById('current-market-price');
+            const polymarketId = getPolymarketId(currentMarket);
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=${polymarketId}`,
+                    { headers: { 'x-api-key': CONTROL_API_KEY } });
+                if (!response.ok) throw new Error('Failed to fetch Polymarket prices');
+                const data = await response.json();
+
+                if (data.success && data.prices && data.prices.length > 0) {
+                    // Convert probability prices to candle-like format for charting
+                    // Polymarket prices are 0.00-1.00 (probabilities)
+                    const candles = data.prices.map(p => ({
+                        time: p.time,
+                        open: p.probability * 100,  // Convert to percentage
+                        high: p.probability * 100,
+                        low: p.probability * 100,
+                        close: p.probability * 100,
+                        volume: p.volume || 0
+                    }));
+
+                    lastCandleData = candles;
+                    earliestCandleTime = candles[0]?.time;
+                    safeSetData(liveMarketCandleSeries, candles, 'loadPolymarketPriceData');
+
+                    // Update volume series
+                    updateVolumeSeries(candles);
+
+                    // Configure chart for probability display (0-100%)
+                    liveMarketChart.priceScale('right').applyOptions({
+                        autoScale: false,
+                        scaleMargins: { top: 0.05, bottom: 0.05 }
+                    });
+
+                    // Set visible range for probabilities
+                    const lastTime = candles[candles.length - 1].time;
+                    liveMarketChart.timeScale().setVisibleRange({
+                        from: lastTime - (2 * 3600), // Show last 2 hours
+                        to: lastTime + 300
+                    });
+
+                    const lastPrice = candles[candles.length - 1];
+                    priceDisplay.textContent = `${lastPrice.close.toFixed(1)}%`;
+
+                    // Calculate change
+                    const firstPrice = candles[0];
+                    const change = (lastPrice.close - firstPrice.close).toFixed(2);
+                    const changeBadge = document.getElementById('price-change-badge');
+                    const changeValue = document.getElementById('price-change-value');
+                    if (changeValue) changeValue.textContent = `${change >= 0 ? '+' : ''}${change}%`;
+                    if (changeBadge) changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+
+                    // Update countdown timer
+                    if (data.closesAt) {
+                        startPolymarketCountdown(data.closesAt);
+                    }
+
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (${candles.length} points · Probability)`;
+
+                    // Update candle count
+                    const candleCountEl = document.getElementById('candle-count');
+                    if (candleCountEl) candleCountEl.textContent = `${candles.length} points`;
+                } else {
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (No data)`;
+                    priceDisplay.textContent = '--';
+                }
+            } catch (err) {
+                console.error('Error loading Polymarket price data:', err);
+                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (Error)`;
+                priceDisplay.textContent = '--';
+            }
+        }
+
+        // Start countdown timer for Polymarket market closing
+        function startPolymarketCountdown(closesAt) {
+            const countdownEl = document.getElementById('polymarket-countdown');
+            if (!countdownEl) return;
+
+            // Clear any existing countdown
+            if (polymarketCountdownInterval) {
+                clearInterval(polymarketCountdownInterval);
+            }
+
+            countdownEl.style.display = 'inline';
+            const closeTime = new Date(closesAt).getTime();
+
+            function updateCountdown() {
+                const now = Date.now();
+                const remaining = closeTime - now;
+
+                if (remaining <= 0) {
+                    countdownEl.textContent = '⏱ CLOSED';
+                    countdownEl.style.background = '#f44336';
+                    clearInterval(polymarketCountdownInterval);
+                    return;
+                }
+
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                countdownEl.textContent = `⏱ ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                // Change color based on urgency
+                if (remaining < 60000) {
+                    countdownEl.style.background = '#f44336'; // Red - less than 1 min
+                } else if (remaining < 300000) {
+                    countdownEl.style.background = '#ff9800'; // Orange - less than 5 min
+                } else {
+                    countdownEl.style.background = '#4caf50'; // Green
+                }
+            }
+
+            updateCountdown();
+            polymarketCountdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        // Stop Polymarket countdown
+        function stopPolymarketCountdown() {
+            const countdownEl = document.getElementById('polymarket-countdown');
+            if (countdownEl) countdownEl.style.display = 'none';
+            if (polymarketCountdownInterval) {
+                clearInterval(polymarketCountdownInterval);
+                polymarketCountdownInterval = null;
             }
         }
 
@@ -8428,6 +8610,12 @@
         async function loadOrderbookData() {
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
+
+            // Handle Polymarket orderbook separately
+            if (isPolymarket(currentMarket)) {
+                await loadPolymarketOrderbook();
+                return;
+            }
 
             try {
                 let ob;
@@ -8467,6 +8655,102 @@
                 console.error('Error loading orderbook:', err);
                 spreadEl.textContent = 'Error loading';
             }
+        }
+
+        // Load Polymarket orderbook (probability-based prices)
+        async function loadPolymarketOrderbook() {
+            const spreadEl = document.getElementById('orderbook-spread');
+            const polymarketId = getPolymarketId(currentMarket);
+
+            try {
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/orderbook?market=${polymarketId}`,
+                    { headers: { 'x-api-key': CONTROL_API_KEY } });
+                if (!response.ok) throw new Error('Failed to fetch Polymarket orderbook');
+                const data = await response.json();
+
+                if (data.success && (data.bids?.length > 0 || data.asks?.length > 0)) {
+                    // Convert probability prices (0.00-1.00) to percentage display
+                    const bids = (data.bids || []).map(b => ({
+                        price: b.price,
+                        amount: b.size || b.amount
+                    }));
+                    const asks = (data.asks || []).map(a => ({
+                        price: a.price,
+                        amount: a.size || a.amount
+                    }));
+
+                    // Use custom Polymarket orderbook renderer
+                    renderPolymarketOrderbook(bids, asks);
+
+                    if (bids.length > 0 && asks.length > 0) {
+                        const spread = asks[0].price - bids[0].price;
+                        const spreadPct = (spread * 100).toFixed(2);
+                        if (spreadEl) spreadEl.textContent = `Spread: ${spreadPct}%`;
+                    } else {
+                        if (spreadEl) spreadEl.textContent = 'No data';
+                    }
+                } else {
+                    if (spreadEl) spreadEl.textContent = 'No data';
+                    renderOrderbookPro([], []);
+                }
+            } catch (err) {
+                console.error('Error loading Polymarket orderbook:', err);
+                if (spreadEl) spreadEl.textContent = 'Error loading';
+            }
+        }
+
+        // Render Polymarket orderbook with probability display
+        function renderPolymarketOrderbook(bids, asks) {
+            const panel = document.getElementById('orderbook-panel');
+            if (!panel) return;
+
+            // Sort bids high to low, asks low to high
+            const sortedBids = [...bids].sort((a, b) => b.price - a.price).slice(0, 15);
+            const sortedAsks = [...asks].sort((a, b) => a.price - b.price).slice(0, 15);
+
+            // Calculate max amounts for bar sizing
+            const maxBidAmount = Math.max(...sortedBids.map(b => b.amount), 1);
+            const maxAskAmount = Math.max(...sortedAsks.map(a => a.amount), 1);
+
+            // Render asks (reversed so lowest ask is at bottom)
+            const asksHtml = sortedAsks.slice().reverse().map(ask => {
+                const barWidth = (ask.amount / maxAskAmount * 100).toFixed(1);
+                const priceDisplay = (ask.price * 100).toFixed(1) + '%';
+                return `<div class="orderbook-row ask">
+                    <span class="bar ask-bar" style="width: ${barWidth}%"></span>
+                    <span class="ob-price">${priceDisplay}</span>
+                    <span class="ob-size">${formatMarketAmount(ask.amount)}</span>
+                    <span class="ob-total"></span>
+                </div>`;
+            }).join('');
+
+            // Spread row
+            const spreadValue = sortedAsks.length > 0 && sortedBids.length > 0
+                ? ((sortedAsks[0].price - sortedBids[0].price) * 100).toFixed(2) + '%'
+                : '--';
+
+            // Render bids
+            const bidsHtml = sortedBids.map(bid => {
+                const barWidth = (bid.amount / maxBidAmount * 100).toFixed(1);
+                const priceDisplay = (bid.price * 100).toFixed(1) + '%';
+                return `<div class="orderbook-row bid">
+                    <span class="bar bid-bar" style="width: ${barWidth}%"></span>
+                    <span class="ob-price">${priceDisplay}</span>
+                    <span class="ob-size">${formatMarketAmount(bid.amount)}</span>
+                    <span class="ob-total"></span>
+                </div>`;
+            }).join('');
+
+            panel.innerHTML = `
+                <div class="orderbook-row header">
+                    <span class="ob-price">Prob</span>
+                    <span class="ob-size">Size</span>
+                    <span class="ob-total"></span>
+                </div>
+                <div class="orderbook-asks">${asksHtml}</div>
+                <div class="orderbook-spread-row" id="orderbook-spread">Spread: ${spreadValue}</div>
+                <div class="orderbook-bids">${bidsHtml}</div>
+            `;
         }
 
         // Render orderbook (legacy + pro)
@@ -8752,6 +9036,9 @@
                 OrderbookManager.clear(newMarket); // Clear orderbook state
                 clearIndicators(); // Clear indicators before loading new data
 
+                // Stop Polymarket countdown if switching away from Polymarket
+                stopPolymarketCountdown();
+
                 // Immediately clear all UI elements to avoid showing old market's data
                 // Clear orderbook display
                 renderOrderbookPro([], []);
@@ -8766,7 +9053,7 @@
                 const changeValue = document.getElementById('price-change-value');
                 const changeBadge = document.getElementById('price-change-badge');
                 if (priceDisplay) priceDisplay.textContent = '...';
-                if (chartTitle) chartTitle.textContent = `${MARKET_NAMES[newMarket]} Price (Loading...)`;
+                if (chartTitle) chartTitle.textContent = `${MARKET_NAMES[newMarket] || newMarket} Price (Loading...)`;
                 if (changeValue) changeValue.textContent = '...';
                 if (changeBadge) changeBadge.className = 'price-change';
 
@@ -8775,8 +9062,12 @@
 
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
-                console.log('[Market] Calling subscribeToMarket for:', currentMarket);
-                subscribeToMarket(currentMarket);
+
+                // Only subscribe to WebSocket for non-Polymarket markets
+                if (!isPolymarket(currentMarket)) {
+                    console.log('[Market] Calling subscribeToMarket for:', currentMarket);
+                    subscribeToMarket(currentMarket);
+                }
 
                 // Restart orderbook polling for new market (polling handles initialization)
                 stopOrderbookPolling();
