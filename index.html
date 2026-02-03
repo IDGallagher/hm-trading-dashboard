@@ -8139,6 +8139,12 @@
                     const lastPrice = candles[candles.length - 1];
                     priceDisplay.textContent = `${lastPrice.close.toFixed(1)}%`;
 
+                    // Update the header price for Polymarket (probability %)
+                    const headerPriceValue = document.getElementById('price-value');
+                    if (headerPriceValue) {
+                        headerPriceValue.textContent = `${lastPrice.close.toFixed(2)}% UP`;
+                    }
+
                     // Calculate change
                     const firstPrice = candles[0];
                     const change = (lastPrice.close - firstPrice.close).toFixed(2);
@@ -8278,13 +8284,18 @@
                 if (!response.ok) throw new Error('Failed to fetch Polymarket orderbook');
                 const data = await response.json();
 
-                if (data.success && (data.bids?.length > 0 || data.asks?.length > 0)) {
+                // API returns nested structure: data.orderbook.up/down.bids/asks
+                // We display the UP outcome orderbook (probability of BTC going up)
+                const upBook = data.orderbook?.up || {};
+                const hasData = (upBook.bids?.length > 0 || upBook.asks?.length > 0);
+
+                if (data.success && hasData) {
                     // Convert probability prices (0.00-1.00) to percentage display
-                    const bids = (data.bids || []).map(b => ({
+                    const bids = (upBook.bids || []).map(b => ({
                         price: b.price,
                         amount: b.size || b.amount
                     }));
-                    const asks = (data.asks || []).map(a => ({
+                    const asks = (upBook.asks || []).map(a => ({
                         price: a.price,
                         amount: a.size || a.amount
                     }));
@@ -8651,6 +8662,9 @@
                 // Stop Polymarket countdown if switching away from Polymarket
                 stopPolymarketCountdown();
 
+                // Update UI based on market type
+                updateMarketUI(newMarket);
+
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
 
@@ -8670,6 +8684,87 @@
                 }
                 if (sourceSelector !== marketSelectorSecondary && marketSelectorSecondary) {
                     marketSelectorSecondary.value = newMarket;
+                }
+            }
+
+            // Update UI elements based on market type (Polymarket vs BitMEX)
+            function updateMarketUI(market) {
+                const isPoly = isPolymarket(market);
+
+                // Header elements
+                const instrumentType = document.querySelector('.instrument-type');
+                const instrumentBadges = document.querySelector('.instrument-badges');
+                const headerStats = document.querySelector('.header-stats');
+                const headerInstrument = document.getElementById('header-instrument');
+                const priceValue = document.getElementById('price-value');
+                const priceArrow = document.getElementById('price-arrow');
+                const headerChange = document.getElementById('header-change');
+
+                // Right panel sections
+                const tradesSection = document.querySelector('.trades-section');
+                const orderbookSection = document.querySelector('.orderbook-section');
+
+                if (isPoly) {
+                    // === POLYMARKET UI ===
+                    console.log('[UI] Switching to Polymarket UI mode');
+
+                    // Update header text
+                    if (headerInstrument) {
+                        const marketName = market.includes('closing') ? 'BTC 15min Closing' : 'BTC 15min Next';
+                        headerInstrument.textContent = marketName;
+                    }
+                    if (instrumentType) {
+                        instrumentType.textContent = 'Prediction';
+                        instrumentType.style.display = 'inline';
+                    }
+
+                    // Hide BitMEX-specific badges
+                    if (instrumentBadges) instrumentBadges.style.display = 'none';
+
+                    // Hide BitMEX header stats (Mark Price, Funding Rate, etc.)
+                    if (headerStats) headerStats.style.display = 'none';
+
+                    // Reset price display (will be updated by loadPolymarketPriceData)
+                    if (priceValue) priceValue.textContent = '--';
+                    if (priceArrow) priceArrow.style.display = 'none';
+                    if (headerChange) headerChange.style.display = 'none';
+
+                    // Hide Recent Trades panel (Polymarket doesn't have trade data)
+                    if (tradesSection) tradesSection.style.display = 'none';
+
+                    // Show orderbook section (resize to fill space)
+                    if (orderbookSection) {
+                        orderbookSection.style.display = 'block';
+                        orderbookSection.style.flex = '1';
+                    }
+
+                } else {
+                    // === BITMEX UI ===
+                    console.log('[UI] Switching to BitMEX UI mode');
+
+                    // Restore header elements
+                    if (instrumentType) {
+                        instrumentType.textContent = 'Perpetual';
+                        instrumentType.style.display = 'inline';
+                    }
+                    if (instrumentBadges) instrumentBadges.style.display = 'flex';
+                    if (headerStats) headerStats.style.display = 'flex';
+                    if (priceArrow) priceArrow.style.display = 'inline';
+                    if (headerChange) headerChange.style.display = 'block';
+
+                    // Show Recent Trades panel
+                    if (tradesSection) tradesSection.style.display = 'flex';
+
+                    // Restore orderbook flex
+                    if (orderbookSection) {
+                        orderbookSection.style.flex = '';
+                    }
+
+                    // Update header instrument name
+                    if (headerInstrument) {
+                        const names = { 'xbtusd': 'BTCUSD', 'ethusd': 'ETHUSD', 'solusd': 'SOLUSD', 'xrpusd': 'XRPUSD' };
+                        headerInstrument.textContent = names[market] || market.toUpperCase();
+                    }
                 }
             }
 
