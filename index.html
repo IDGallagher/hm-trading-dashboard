@@ -8658,6 +8658,10 @@
                 if (!isPolymarket(currentMarket)) {
                     console.log('[Market] Calling subscribeToMarket for:', currentMarket);
                     subscribeToMarket(currentMarket);
+                } else {
+                    // Disconnect WebSocket for Polymarket markets to stop BTC updates
+                    console.log('[Market] Disconnecting WebSocket for Polymarket market');
+                    disconnectLiveMarketWebSocket();
                 }
 
                 // Sync the other selector
