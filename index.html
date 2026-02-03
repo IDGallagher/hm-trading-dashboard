@@ -8161,6 +8161,13 @@
                 } else {
                     chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (No data)`;
                     priceDisplay.textContent = '--';
+                    // Clear the chart to not show stale BTC data
+                    lastCandleData = [];
+                    safeSetData(liveMarketCandleSeries, [], 'loadPolymarketPriceData-nodata');
+                    updateVolumeSeries([]);
+                    // Update header price
+                    const headerPriceValue = document.getElementById('price-value');
+                    if (headerPriceValue) headerPriceValue.textContent = 'No data';
                 }
 
                 // Fetch current market info for countdown timer
@@ -8798,6 +8805,7 @@
         // ==========================================
         let liveMarketWs = null;
         let liveMarketWsReconnectTimer = null;
+        let liveMarketWsIntentionalClose = false; // Flag to prevent auto-reconnect
 
         function connectLiveMarketWebSocket() {
             if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) return;
@@ -8826,6 +8834,11 @@
             };
 
             liveMarketWs.onclose = () => {
+                if (liveMarketWsIntentionalClose) {
+                    console.log('[LiveMarket WS] Disconnected intentionally');
+                    liveMarketWsIntentionalClose = false;
+                    return;
+                }
                 console.log('[LiveMarket WS] Disconnected, reconnecting in 5s...');
                 liveMarketWsReconnectTimer = setTimeout(connectLiveMarketWebSocket, 5000);
             };
@@ -8898,6 +8911,7 @@
                 liveMarketWsReconnectTimer = null;
             }
             if (liveMarketWs) {
+                liveMarketWsIntentionalClose = true; // Prevent auto-reconnect
                 liveMarketWs.close();
                 liveMarketWs = null;
             }
