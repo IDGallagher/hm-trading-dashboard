@@ -8106,14 +8106,14 @@
 
                 if (data.success && data.prices && data.prices.length > 0) {
                     // Convert probability prices to candle-like format for charting
-                    // Polymarket prices are 0.00-1.00 (probabilities)
+                    // API returns: { timestamp, up_price, down_price } where prices are 0.00-1.00
                     const candles = data.prices.map(p => ({
-                        time: p.time,
-                        open: p.probability * 100,  // Convert to percentage
-                        high: p.probability * 100,
-                        low: p.probability * 100,
-                        close: p.probability * 100,
-                        volume: p.volume || 0
+                        time: p.timestamp,
+                        open: p.up_price * 100,  // Convert to percentage (0-100)
+                        high: p.up_price * 100,
+                        low: p.up_price * 100,
+                        close: p.up_price * 100,
+                        volume: 0
                     }));
 
                     lastCandleData = candles;
