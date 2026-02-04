@@ -4379,8 +4379,9 @@
         }
 
         // Live Test Control State
-        const CONTROL_API_URL = 'https://agent-company.atamatch.com:8443';
-        const CONTROL_WS_URL = 'wss://agent-company.atamatch.com:8443/trades/stream';
+        // Use same origin - dashboard is served from the Control API server
+        const CONTROL_API_URL = '';  // Empty = relative URLs (same origin)
+        const CONTROL_WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/trades/stream`;
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
