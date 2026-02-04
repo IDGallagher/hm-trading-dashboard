@@ -4379,8 +4379,8 @@
         }
 
         // Live Test Control State
-        const CONTROL_API_URL = 'http://85.10.203.62:3001';
-        const CONTROL_WS_URL = 'ws://85.10.203.62:3001/trades/stream';
+        const CONTROL_API_URL = 'https://85.10.203.62:8443';
+        const CONTROL_WS_URL = 'wss://85.10.203.62:8443/trades/stream';
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
 
         // ==========================================
@@ -4606,11 +4606,13 @@
 
             // Fetch deltas from API using binary format
             // Binary format: 21 bytes per delta (Float64 ts, Int8 action, Float64 order_id, Int32 amount)
-            async function fetchDeltas(market, since) {
+            async function fetchDeltas(market, since, signal = null) {
                 try {
+                    const fetchOptions = { headers: { 'x-api-key': CONTROL_API_KEY } };
+                    if (signal) fetchOptions.signal = signal;
                     const response = await fetch(
                         `${CONTROL_API_URL}/api/orderbook/deltas/binary?market=${market}&since=${since}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                        fetchOptions
                     );
 
                     if (!response.ok) {
@@ -7158,6 +7160,9 @@
         let currentMarketPeriod = '5m';
         // NOTE: liveMarketRefreshInterval removed - WebSocket handles real-time updates
 
+        // AbortController for cancelling in-flight requests when market changes
+        let orderbookAbortController = null;
+
         // Live forming candle state
         let formingCandle = null;  // { time, open, high, low, close, volume }
         let lastCandleData = [];   // Store the historical candles for reference
@@ -8479,24 +8484,35 @@
         async function loadPolymarketPriceData() {
             const chartTitle = document.getElementById('live-chart-title');
             const priceDisplay = document.getElementById('current-market-price');
-            const polymarketId = getPolymarketId(currentMarket);
+
+            // Capture market at start of request to detect if it changes
+            const requestMarket = currentMarket;
+            const requestPeriod = currentMarketPeriod;
+            const polymarketId = getPolymarketId(requestMarket);
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=${polymarketId}`,
+                // Pass period parameter to get aggregated OHLC candles
+                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=${polymarketId}&period=${requestPeriod}`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch Polymarket prices');
                 const data = await response.json();
 
-                if (data.success && data.prices && data.prices.length > 0) {
-                    // Convert probability prices to candle-like format for charting
-                    // Polymarket prices are 0.00-1.00 (probabilities)
-                    const candles = data.prices.map(p => ({
-                        time: p.time,
-                        open: p.probability * 100,  // Convert to percentage
-                        high: p.probability * 100,
-                        low: p.probability * 100,
-                        close: p.probability * 100,
-                        volume: p.volume || 0
+                // Check if market changed during fetch
+                if (requestMarket !== currentMarket) {
+                    console.log(`[Polymarket Prices] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
+                    return;
+                }
+
+                // Use candles from API (already aggregated by period) or fall back to prices
+                if (data.success && (data.candles?.length > 0 || data.prices?.length > 0)) {
+                    // Polymarket prices as dollar fractions (0.00-1.00) to 2 decimal places
+                    const candles = (data.candles || data.prices).map(c => ({
+                        time: c.time,
+                        open: c.open !== undefined ? c.open : c.probability,
+                        high: c.high !== undefined ? c.high : c.probability,
+                        low: c.low !== undefined ? c.low : c.probability,
+                        close: c.close !== undefined ? c.close : c.probability,
+                        volume: c.volume || 0
                     }));
 
                     lastCandleData = candles;
@@ -8509,28 +8525,38 @@
                     // Update OHLC display with latest candle
                     updateOHLCDisplay(null);
 
-                    // Configure chart for probability display (0-100%)
+                    // Configure chart for dollar fraction display (0.00-1.00)
                     liveMarketChart.priceScale('right').applyOptions({
-                        autoScale: false,
+                        autoScale: true,
                         scaleMargins: { top: 0.05, bottom: 0.05 }
                     });
 
-                    // Set visible range for probabilities
+                    // Set visible range based on period (matching BitMEX behavior)
                     const lastTime = candles[candles.length - 1].time;
+                    const hoursToShowByPeriod = {
+                        '1m': 2,      // 120 candles
+                        '5m': 4,      // 48 candles
+                        '15m': 6,     // 24 candles
+                        '1h': 12,     // 12 candles
+                        '4h': 48,     // 12 candles (2 days)
+                        '1d': 336,    // 14 candles (14 days)
+                        '1w': 1680    // 10 candles (70 days)
+                    };
+                    const hoursToShow = hoursToShowByPeriod[currentMarketPeriod] || 2;
                     liveMarketChart.timeScale().setVisibleRange({
-                        from: lastTime - (2 * 3600), // Show last 2 hours
+                        from: lastTime - (hoursToShow * 3600),
                         to: lastTime + 300
                     });
 
                     const lastPrice = candles[candles.length - 1];
-                    priceDisplay.textContent = `${lastPrice.close.toFixed(1)}%`;
+                    priceDisplay.textContent = `$${lastPrice.close.toFixed(2)}`;
 
-                    // Calculate change
+                    // Calculate change in dollar terms
                     const firstPrice = candles[0];
                     const change = (lastPrice.close - firstPrice.close).toFixed(2);
                     const changeBadge = document.getElementById('price-change-badge');
                     const changeValue = document.getElementById('price-change-value');
-                    if (changeValue) changeValue.textContent = `${change >= 0 ? '+' : ''}${change}%`;
+                    if (changeValue) changeValue.textContent = `${change >= 0 ? '+' : ''}$${Math.abs(change).toFixed(2)}`;
                     if (changeBadge) changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
 
                     // Update countdown timer
@@ -8538,11 +8564,11 @@
                         startPolymarketCountdown(data.closesAt);
                     }
 
-                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (${candles.length} points · Probability)`;
+                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (${candles.length} candles · ${currentMarketPeriod})`;
 
                     // Update candle count
                     const candleCountEl = document.getElementById('candle-count');
-                    if (candleCountEl) candleCountEl.textContent = `${candles.length} points`;
+                    if (candleCountEl) candleCountEl.textContent = `${candles.length} candles`;
                 } else {
                     chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (No data)`;
                     priceDisplay.textContent = '--';
@@ -8614,8 +8640,11 @@
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
 
+            // Capture market at start of request to detect if it changes
+            const requestMarket = currentMarket;
+
             // Handle Polymarket orderbook separately
-            if (isPolymarket(currentMarket)) {
+            if (isPolymarket(requestMarket)) {
                 await loadPolymarketOrderbook();
                 return;
             }
@@ -8624,20 +8653,39 @@
                 let ob;
 
                 // Initialize orderbook from archive + deltas on first load
-                if (!orderbookInitialized[currentMarket]) {
-                    console.log(`[Orderbook] First load for ${currentMarket}, initializing from archive...`);
-                    ob = await OrderbookManager.initialize(currentMarket);
-                    orderbookInitialized[currentMarket] = true;
-                } else {
-                    // Subsequent loads: fetch new deltas and update state
-                    const state = OrderbookManager.getOrderbook(currentMarket, 15);
-                    const { deltas } = await OrderbookManager.fetchDeltas(currentMarket, state.lastTimestamp);
+                if (!orderbookInitialized[requestMarket]) {
+                    console.log(`[Orderbook] First load for ${requestMarket}, initializing from archive...`);
+                    ob = await OrderbookManager.initialize(requestMarket);
 
-                    if (deltas.length > 0) {
-                        OrderbookManager.applyDeltas(currentMarket, deltas);
+                    // Check if market changed during initialization
+                    if (requestMarket !== currentMarket) {
+                        console.log(`[Orderbook] Market changed during init (${requestMarket} -> ${currentMarket}), discarding`);
+                        return;
                     }
 
-                    ob = OrderbookManager.getOrderbook(currentMarket, 15);
+                    orderbookInitialized[requestMarket] = true;
+                } else {
+                    // Subsequent loads: fetch new deltas and update state
+                    const state = OrderbookManager.getOrderbook(requestMarket, 15);
+                    const { deltas } = await OrderbookManager.fetchDeltas(requestMarket, state.lastTimestamp);
+
+                    // Check if market changed during fetch
+                    if (requestMarket !== currentMarket) {
+                        console.log(`[Orderbook] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
+                        return;
+                    }
+
+                    if (deltas.length > 0) {
+                        OrderbookManager.applyDeltas(requestMarket, deltas);
+                    }
+
+                    ob = OrderbookManager.getOrderbook(requestMarket, 15);
+                }
+
+                // Final check before rendering
+                if (requestMarket !== currentMarket) {
+                    console.log(`[Orderbook] Market changed before render (${requestMarket} -> ${currentMarket}), discarding`);
+                    return;
                 }
 
                 // Render the orderbook
@@ -8647,7 +8695,7 @@
                     if (ob.bids.length > 0 && ob.asks.length > 0) {
                         const spread = ob.asks[0].price - ob.bids[0].price;
                         const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
-                        if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                        if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, requestMarket)} (${spreadPct}%)`;
                     } else {
                         if (spreadEl) spreadEl.textContent = 'No data';
                     }
@@ -8655,15 +8703,22 @@
                     if (spreadEl) spreadEl.textContent = 'No data';
                 }
             } catch (err) {
-                console.error('Error loading orderbook:', err);
-                spreadEl.textContent = 'Error loading';
+                if (err.name === 'AbortError') {
+                    console.log('[Orderbook] Request aborted (market changed)');
+                } else {
+                    console.error('Error loading orderbook:', err);
+                    spreadEl.textContent = 'Error loading';
+                }
             }
         }
 
         // Load Polymarket orderbook (probability-based prices)
         async function loadPolymarketOrderbook() {
             const spreadEl = document.getElementById('orderbook-spread');
-            const polymarketId = getPolymarketId(currentMarket);
+
+            // Capture market at start of request to detect if it changes
+            const requestMarket = currentMarket;
+            const polymarketId = getPolymarketId(requestMarket);
 
             try {
                 const response = await fetch(`${CONTROL_API_URL}/api/polymarket/orderbook?market=${polymarketId}`,
@@ -8671,8 +8726,14 @@
                 if (!response.ok) throw new Error('Failed to fetch Polymarket orderbook');
                 const data = await response.json();
 
+                // Check if market changed during fetch
+                if (requestMarket !== currentMarket) {
+                    console.log(`[Polymarket Orderbook] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
+                    return;
+                }
+
                 if (data.success && (data.bids?.length > 0 || data.asks?.length > 0)) {
-                    // Convert probability prices (0.00-1.00) to percentage display
+                    // Polymarket prices as dollar fractions (0.00-1.00)
                     const bids = (data.bids || []).map(b => ({
                         price: b.price,
                         amount: b.size || b.amount
@@ -8687,8 +8748,7 @@
 
                     if (bids.length > 0 && asks.length > 0) {
                         const spread = asks[0].price - bids[0].price;
-                        const spreadPct = (spread * 100).toFixed(2);
-                        if (spreadEl) spreadEl.textContent = `Spread: ${spreadPct}%`;
+                        if (spreadEl) spreadEl.textContent = `Spread: ${spread.toFixed(2)}`;
                     } else {
                         if (spreadEl) spreadEl.textContent = 'No data';
                     }
@@ -8702,7 +8762,7 @@
             }
         }
 
-        // Render Polymarket orderbook with probability display
+        // Render Polymarket orderbook with dollar fraction display
         function renderPolymarketOrderbook(bids, asks) {
             const panel = document.getElementById('orderbook-panel');
             if (!panel) return;
@@ -8715,10 +8775,10 @@
             const maxBidAmount = Math.max(...sortedBids.map(b => b.amount), 1);
             const maxAskAmount = Math.max(...sortedAsks.map(a => a.amount), 1);
 
-            // Render asks (reversed so lowest ask is at bottom)
+            // Render asks (reversed so lowest ask is at bottom) - prices as dollar fractions
             const asksHtml = sortedAsks.slice().reverse().map(ask => {
                 const barWidth = (ask.amount / maxAskAmount * 100).toFixed(1);
-                const priceDisplay = (ask.price * 100).toFixed(1) + '%';
+                const priceDisplay = ask.price.toFixed(2);
                 return `<div class="orderbook-row ask">
                     <span class="bar ask-bar" style="width: ${barWidth}%"></span>
                     <span class="ob-price">${priceDisplay}</span>
@@ -8727,15 +8787,15 @@
                 </div>`;
             }).join('');
 
-            // Spread row
+            // Spread row - as dollar fraction
             const spreadValue = sortedAsks.length > 0 && sortedBids.length > 0
-                ? ((sortedAsks[0].price - sortedBids[0].price) * 100).toFixed(2) + '%'
+                ? (sortedAsks[0].price - sortedBids[0].price).toFixed(2)
                 : '--';
 
-            // Render bids
+            // Render bids - prices as dollar fractions
             const bidsHtml = sortedBids.map(bid => {
                 const barWidth = (bid.amount / maxBidAmount * 100).toFixed(1);
-                const priceDisplay = (bid.price * 100).toFixed(1) + '%';
+                const priceDisplay = bid.price.toFixed(2);
                 return `<div class="orderbook-row bid">
                     <span class="bar bid-bar" style="width: ${barWidth}%"></span>
                     <span class="ob-price">${priceDisplay}</span>
@@ -8746,7 +8806,7 @@
 
             panel.innerHTML = `
                 <div class="orderbook-row header">
-                    <span class="ob-price">Prob</span>
+                    <span class="ob-price">Price</span>
                     <span class="ob-size">Size</span>
                     <span class="ob-total"></span>
                 </div>
@@ -8818,6 +8878,8 @@
 
         // Format price based on market
         function formatMarketPrice(price, market) {
+            // Polymarket markets show dollar fractions to 2 decimal places
+            if (isPolymarket(market)) return price.toFixed(2);
             if (market === 'dogeusd' || market === 'xrpusd') return price.toFixed(4);
             else if (market === 'solusd') return price.toFixed(2);
             return price.toFixed(1);
@@ -9030,6 +9092,14 @@
             // Common handler for market change
             async function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
+
+                // CRITICAL: Abort any in-flight orderbook requests to prevent stale data
+                if (orderbookAbortController) {
+                    console.log('[Market] Aborting in-flight orderbook request');
+                    orderbookAbortController.abort();
+                    orderbookAbortController = null;
+                }
+
                 currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
@@ -9216,32 +9286,61 @@
 
         async function pollOrderbookDeltas() {
             console.log('[Orderbook Poll] pollOrderbookDeltas called');
+
+            // Capture market at start of request to detect if it changes
+            const requestMarket = currentMarket;
+
+            // Create new AbortController for this request
+            orderbookAbortController = new AbortController();
+
             // Get current state to find last timestamp
-            const state = OrderbookManager.getOrderbook(currentMarket, 15);
+            const state = OrderbookManager.getOrderbook(requestMarket, 15);
             const sinceTs = state.lastTimestamp || 0;
-            console.log('[Orderbook Poll] sinceTs:', sinceTs);
+            console.log('[Orderbook Poll] sinceTs:', sinceTs, 'market:', requestMarket);
 
-            // Fetch new deltas
-            const result = await OrderbookManager.fetchDeltas(currentMarket, sinceTs);
-            console.log('[Orderbook Poll] fetchDeltas result:', result ? 'ok' : 'null', 'deltas:', result?.deltas?.length);
-            const { deltas } = result;
+            try {
+                // Fetch new deltas with abort signal
+                const result = await OrderbookManager.fetchDeltas(requestMarket, sinceTs, orderbookAbortController.signal);
+                console.log('[Orderbook Poll] fetchDeltas result:', result ? 'ok' : 'null', 'deltas:', result?.deltas?.length);
 
-            if (deltas.length > 0) {
-                OrderbookManager.applyDeltas(currentMarket, deltas);
-                const ob = OrderbookManager.getOrderbook(currentMarket, 15);
-                renderOrderbookPro(ob.bids, ob.asks);
+                // CRITICAL: Check if market changed while request was in flight
+                if (requestMarket !== currentMarket) {
+                    console.log(`[Orderbook Poll] Market changed during request (${requestMarket} -> ${currentMarket}), discarding response`);
+                    return;
+                }
 
-                // Update spread
-                if (ob.bids.length > 0 && ob.asks.length > 0) {
-                    const spread = ob.asks[0].price - ob.bids[0].price;
-                    const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
-                    const spreadEl = document.getElementById('orderbook-spread-header');
-                    if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                const { deltas } = result;
+
+                if (deltas.length > 0) {
+                    OrderbookManager.applyDeltas(requestMarket, deltas);
+                    const ob = OrderbookManager.getOrderbook(requestMarket, 15);
+                    renderOrderbookPro(ob.bids, ob.asks);
+
+                    // Update spread
+                    if (ob.bids.length > 0 && ob.asks.length > 0) {
+                        const spread = ob.asks[0].price - ob.bids[0].price;
+                        const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
+                        const spreadEl = document.getElementById('orderbook-spread-header');
+                        if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, requestMarket)} (${spreadPct}%)`;
+                    }
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    console.log('[Orderbook Poll] Request aborted (market changed)');
+                } else {
+                    throw err;
                 }
             }
         }
 
         function handleMarketUpdate(data) {
+            // CRITICAL: Ignore updates for different markets to prevent data mixing
+            // This can happen when WebSocket messages arrive after switching markets
+            if (data.market && data.market !== currentMarket) {
+                console.log(`[Market] Ignoring update for ${data.market} (current: ${currentMarket})`);
+                return;
+            }
+
             // Track if we've already updated the forming candle this message
             let candleUpdated = false;
 
