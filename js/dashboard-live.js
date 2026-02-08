@@ -211,6 +211,21 @@
             }
         }
 
+        function getLatestStaticCandleEndTimestampMs(candles, period) {
+            if (!candles || candles.length === 0) return null;
+
+            const periodSecs = PERIOD_SECONDS[period] || 300;
+            const now = Math.floor(Date.now() / 1000);
+            const currentPeriodStart = getPeriodStartTime(now, period);
+
+            let idx = candles.length - 1;
+            // If the newest candle is in current period, treat it as forming and ignore it.
+            if (candles[idx].time >= currentPeriodStart && candles.length > 1) {
+                idx -= 1;
+            }
+
+            return ((candles[idx].time + periodSecs) * 1000) - 1;
+        }
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
             'none': 'Live market data only. Select a strategy to view trade overlays and backtest results.',
@@ -1243,7 +1258,9 @@
             const refreshBtn = document.getElementById('refresh-market-btn');
             if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳ Loading...'; }
             try {
-                await Promise.all([loadPriceData(), loadOrderbookData(), loadTradesData()]);
+                stopTradePolling();
+                await loadPriceData();
+                await Promise.all([loadOrderbookData(), loadTradesData()]);
             } catch (err) { console.error('Error loading market data:', err); }
             finally { if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh'; } }
         }
@@ -1321,7 +1338,11 @@
                     });
 
                     // Initialize the forming candle from loaded data
-                    initFormingCandleFromData(candles);
+                    formingCandle = null;
+                    const staticCandleEndTsMs = getLatestStaticCandleEndTimestampMs(candles, currentMarketPeriod);
+                    if (staticCandleEndTsMs) {
+                        latestTradeTimestamp = staticCandleEndTsMs;
+                    }
 
                     const lastCandle = data.candles[data.candles.length - 1];
                     const firstCandle = data.candles[0];
@@ -1432,9 +1453,20 @@
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const data = await HM_API.live.tradesDeltas({ market: currentMarket, limit: 500 }, { signal: requestContext.signal });
+                const tradeQuery = latestTradeTimestamp
+                    ? { market: currentMarket, since: latestTradeTimestamp }
+                    : { market: currentMarket, limit: 500 };
+                const data = await HM_API.live.tradesDeltas(tradeQuery, { signal: requestContext.signal });
                 if (isStaleMarketRequest(requestContext)) return;
                 if (data.success && data.trades) {
+                    const chronological = data.trades.slice().sort((a, b) => a.t - b.t);
+                    for (const t of chronological) {
+                        updateFormingCandle({
+                            price: t.p,
+                            timestamp: t.t,
+                            amount: t.a
+                        });
+                    }
                     // Transform trades to expected format and render
                     const trades = data.trades.map(t => ({
                         timestamp: Math.floor(t.t / 1000),  // Unix seconds
