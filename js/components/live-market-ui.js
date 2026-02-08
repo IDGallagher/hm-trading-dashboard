@@ -268,6 +268,9 @@
             // Common handler for market change
             function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
+                if (typeof window.onLiveMarketContextChange === 'function') {
+                    window.onLiveMarketContextChange('market-change');
+                }
                 currentMarket = newMarket;
                 persistMarketToUrl(newMarket);
                 formingCandle = null; // Reset forming candle on market change
@@ -334,6 +337,9 @@
                 });
             }
             if (periodSelector) periodSelector.addEventListener('change', (e) => {
+                if (typeof window.onLiveMarketContextChange === 'function') {
+                    window.onLiveMarketContextChange('period-change');
+                }
                 applyPeriodToUi(e.target.value);
                 persistPeriodToUrl(currentMarketPeriod);
                 formingCandle = null; // Reset forming candle on period change

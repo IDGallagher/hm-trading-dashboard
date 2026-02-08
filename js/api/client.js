@@ -17,13 +17,14 @@
         return headers;
     }
 
-    async function request(method, path, { query, body, headers } = {}) {
+    async function request(method, path, { query, body, headers, signal } = {}) {
         const url = buildUrl(path, query);
         const includeJson = body !== undefined && body !== null;
         const response = await fetch(url, {
             method,
             headers: makeHeaders(headers, includeJson),
-            body: includeJson ? JSON.stringify(body) : undefined
+            body: includeJson ? JSON.stringify(body) : undefined,
+            signal
         });
         return response;
     }
@@ -86,11 +87,11 @@
         },
 
         live: {
-            prices: (query = {}) => requestJson('GET', '/api/prices', { query }),
-            orderbook: (query = {}) => requestJson('GET', '/api/orderbook', { query }),
-            tradesDeltas: (query = {}) => requestJson('GET', '/api/trades/deltas', { query }),
-            archiveInfo: (query = {}) => requestJson('GET', '/api/archive/info', { query }),
-            polymarketMetadata: (query = {}) => requestJson('GET', '/api/polymarket/metadata', { query })
+            prices: (query = {}, options = {}) => requestJson('GET', '/api/prices', { ...options, query }),
+            orderbook: (query = {}, options = {}) => requestJson('GET', '/api/orderbook', { ...options, query }),
+            tradesDeltas: (query = {}, options = {}) => requestJson('GET', '/api/trades/deltas', { ...options, query }),
+            archiveInfo: (query = {}, options = {}) => requestJson('GET', '/api/archive/info', { ...options, query }),
+            polymarketMetadata: (query = {}, options = {}) => requestJson('GET', '/api/polymarket/metadata', { ...options, query })
         },
 
         test: {

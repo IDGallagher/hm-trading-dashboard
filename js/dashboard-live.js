@@ -39,6 +39,54 @@
         let liveMarketCandleSeries = null;
         let currentMarket = 'xbtusd';
         let currentMarketPeriod = '5m';
+        let marketRequestVersion = 0;
+        const activeMarketRequestControllers = new Set();
+
+        function isAbortError(err) {
+            return err?.name === 'AbortError';
+        }
+
+        function beginTrackedMarketRequest() {
+            const controller = new AbortController();
+            activeMarketRequestControllers.add(controller);
+            return {
+                controller,
+                signal: controller.signal,
+                version: marketRequestVersion,
+                market: currentMarket,
+                period: currentMarketPeriod
+            };
+        }
+
+        function endTrackedMarketRequest(requestContext) {
+            if (!requestContext?.controller) return;
+            activeMarketRequestControllers.delete(requestContext.controller);
+        }
+
+        function isStaleMarketRequest(requestContext, checkPeriod = false) {
+            if (!requestContext) return true;
+            if (requestContext.version !== marketRequestVersion) return true;
+            if (requestContext.market !== currentMarket) return true;
+            if (checkPeriod && requestContext.period !== currentMarketPeriod) return true;
+            return false;
+        }
+
+        function cancelInFlightMarketRequests(reason = 'market-context-change') {
+            marketRequestVersion += 1;
+            for (const controller of activeMarketRequestControllers) {
+                try {
+                    controller.abort(reason);
+                } catch (_err) {
+                    // ignore
+                }
+            }
+            activeMarketRequestControllers.clear();
+            latestTradeTimestamp = 0;
+        }
+
+        window.onLiveMarketContextChange = function onLiveMarketContextChange(reason) {
+            cancelInFlightMarketRequests(reason || 'market-context-change');
+        };
 
         // Live forming candle state
         let formingCandle = null;  // { time, open, high, low, close, volume }
@@ -1087,6 +1135,7 @@
             }
 
             isLoadingOlderCandles = true;
+            const requestContext = beginTrackedMarketRequest();
             const chartTitle = document.getElementById('live-chart-title');
             const originalTitle = chartTitle?.textContent || '';
 
@@ -1113,7 +1162,8 @@
                     startTime,
                     endTime,
                     source: 'archive'
-                });
+                }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext, true)) return;
 
                 if (data.success && data.candles && data.candles.length > 0) {
                     const olderCandles = data.candles.map(c => ({
@@ -1160,24 +1210,31 @@
                     if (chartTitle) chartTitle.textContent = originalTitle;
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('[LazyLoad] Error:', err);
                 // Restore original title
                 if (chartTitle) chartTitle.textContent = originalTitle;
             } finally {
+                endTrackedMarketRequest(requestContext);
                 isLoadingOlderCandles = false;
             }
         }
 
         // Fetch archive info to know the available data range
         async function fetchArchiveInfo(market) {
+            const requestContext = beginTrackedMarketRequest();
             try {
-                const data = await HM_API.live.archiveInfo({ market });
+                const data = await HM_API.live.archiveInfo({ market }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext)) return;
                 if (data.success && data.archive?.available) {
                     archiveMinTime = data.archive.minTime;
                     console.log(`[Archive] Data available from ${new Date(archiveMinTime * 1000).toISOString()}`);
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('[Archive] Error fetching archive info:', err);
+            } finally {
+                endTrackedMarketRequest(requestContext);
             }
         }
 
@@ -1193,6 +1250,7 @@
 
         // Load price/candle data
         async function loadPriceData() {
+            const requestContext = beginTrackedMarketRequest();
             const chartTitle = document.getElementById('live-chart-title');
             const priceDisplay = document.getElementById('current-market-price');
 
@@ -1207,7 +1265,8 @@
                     period: currentMarketPeriod,
                     limit: 500,
                     source: 'hybrid'
-                });
+                }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext, true)) return;
                 if (data.success && data.candles && data.candles.length > 0) {
                     const candles = data.candles.map(c => ({
                         time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
@@ -1297,20 +1356,25 @@
                     priceDisplay.textContent = '--';
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('Error loading price data:', err);
                 chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (Error)`;
                 priceDisplay.textContent = '--';
+            } finally {
+                endTrackedMarketRequest(requestContext);
             }
         }
 
         // Load orderbook data
         async function loadOrderbookData() {
+            const requestContext = beginTrackedMarketRequest();
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const data = await HM_API.live.orderbook({ market: currentMarket, depth: 12 });
+                const data = await HM_API.live.orderbook({ market: currentMarket, depth: 12 }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext)) return;
                 if (data.success) {
                     // Unified endpoint returns bids/asks in consistent format
                     const bids = data.bids || [];
@@ -1326,8 +1390,11 @@
                     }
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('Error loading orderbook:', err);
                 spreadEl.textContent = 'Error loading';
+            } finally {
+                endTrackedMarketRequest(requestContext);
             }
         }
 
@@ -1359,12 +1426,14 @@
 
         // Load trades data from /api/trades/deltas endpoint
         async function loadTradesData() {
+            const requestContext = beginTrackedMarketRequest();
             const countEl = document.getElementById('trades-count');
             countEl.textContent = 'Loading...';
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const data = await HM_API.live.tradesDeltas({ market: currentMarket, limit: 500 });
+                const data = await HM_API.live.tradesDeltas({ market: currentMarket, limit: 500 }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext)) return;
                 if (data.success && data.trades) {
                     // Transform trades to expected format and render
                     const trades = data.trades.map(t => ({
@@ -1389,8 +1458,11 @@
                     countEl.textContent = 'No trades';
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('Error loading trades:', err);
                 countEl.textContent = 'Error';
+            } finally {
+                endTrackedMarketRequest(requestContext);
             }
         }
 
@@ -1405,9 +1477,11 @@
                 if (tradePollingInProgress) return;
 
                 tradePollingInProgress = true;
+                const requestContext = beginTrackedMarketRequest();
                 try {
                     // Poll for trades newer than our last timestamp
-                    const data = await HM_API.live.tradesDeltas({ market: currentMarket, since: latestTradeTimestamp });
+                    const data = await HM_API.live.tradesDeltas({ market: currentMarket, since: latestTradeTimestamp }, { signal: requestContext.signal });
+                    if (isStaleMarketRequest(requestContext)) return;
                     if (data.success && data.trades && data.trades.length > 0) {
                         // Transform and prepend new trades
                         const newTrades = data.trades.map(t => ({
@@ -1439,8 +1513,10 @@
                         }
                     }
                 } catch (err) {
+                    if (isAbortError(err)) return;
                     console.error('[Trade Poll] Error:', err.message);
                 } finally {
+                    endTrackedMarketRequest(requestContext);
                     tradePollingInProgress = false;
                 }
             }, 1000);  // Poll every 1 second
@@ -1533,6 +1609,7 @@
 
         // Fetch Price to Beat metadata for current market
         async function fetchPriceToBeat() {
+            const requestContext = beginTrackedMarketRequest();
             const market = currentMarket;
 
             // Only show for Polymarket A markets (UP or DOWN)
@@ -1555,13 +1632,17 @@
                     market: 'btc-15m-a',
                     type: 'price_to_beat',
                     limit: 1
-                });
+                }, { signal: requestContext.signal });
+                if (isStaleMarketRequest(requestContext)) return;
                 if (data.success && data.data && data.data.length > 0) {
                     priceToeBeatData = data.data[0];
                     updatePriceToBeatDisplay();
                 }
             } catch (err) {
+                if (isAbortError(err)) return;
                 console.error('[PriceToBeat] Error fetching:', err.message);
+            } finally {
+                endTrackedMarketRequest(requestContext);
             }
         }
 
@@ -1653,9 +1734,11 @@
                 if (orderbookPollingInProgress) return;
 
                 orderbookPollingInProgress = true;
+                const requestContext = beginTrackedMarketRequest();
                 try {
                     // Use unified endpoint for all markets (BitMEX and Polymarket)
-                    const data = await HM_API.live.orderbook({ market: currentMarket, depth: 20 });
+                    const data = await HM_API.live.orderbook({ market: currentMarket, depth: 20 }, { signal: requestContext.signal });
+                    if (isStaleMarketRequest(requestContext)) return;
                     if (data.success) {
                         // Unified endpoint returns bids/asks in consistent format
                         const bids = data.bids || [];
@@ -1670,8 +1753,10 @@
                         }
                     }
                 } catch (err) {
+                    if (isAbortError(err)) return;
                     // Silently ignore polling errors
                 } finally {
+                    endTrackedMarketRequest(requestContext);
                     orderbookPollingInProgress = false;
                 }
             }, 1000);  // Poll every 1 second
@@ -1692,7 +1777,7 @@
         function stopLiveMarketPolling() {
             stopTradePolling();
             stopOrderbookPolling();
-            latestTradeTimestamp = 0;
+            cancelInFlightMarketRequests('stop-live-market-polling');
         }
 
         // ==========================================
