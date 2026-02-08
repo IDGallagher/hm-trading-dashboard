@@ -196,6 +196,29 @@
             const periodSelector = document.getElementById('market-period-selector');
             const refreshBtn = document.getElementById('refresh-market-btn');
 
+            function getValidMarketFromUrl() {
+                const params = new URLSearchParams(window.location.search);
+                const market = params.get('market');
+                if (!market) return null;
+
+                const configured = window.HM_UI_OPTIONS?.LIVE_MARKETS || [];
+                const isValid = configured.some(group =>
+                    (group.options || []).some(opt => opt.value === market)
+                );
+
+                return isValid ? market : null;
+            }
+
+            function persistMarketToUrl(market) {
+                try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('market', market);
+                    window.history.replaceState({}, '', url.toString());
+                } catch (err) {
+                    console.warn('[Market] Failed to persist market in URL:', err.message);
+                }
+            }
+
             console.log('[Market] initLiveMarketControls called', {
                 marketSelector: !!marketSelector,
                 marketSelectorSecondary: !!marketSelectorSecondary
@@ -205,6 +228,7 @@
             function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
                 currentMarket = newMarket;
+                persistMarketToUrl(newMarket);
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
@@ -277,5 +301,17 @@
                 loadPriceData();
             });
             if (refreshBtn) refreshBtn.addEventListener('click', loadLiveMarketData);
+
+            // Initialize market from URL so refresh preserves selected asset.
+            const marketFromUrl = getValidMarketFromUrl();
+            if (marketFromUrl) {
+                currentMarket = marketFromUrl;
+                if (marketSelector) marketSelector.value = marketFromUrl;
+                if (marketSelectorSecondary) marketSelectorSecondary.value = marketFromUrl;
+                updateMarketUI(marketFromUrl);
+            } else {
+                // Ensure URL is synchronized with default/active market too.
+                persistMarketToUrl(currentMarket);
+            }
         }
 
