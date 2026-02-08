@@ -369,5 +369,10 @@
             } else {
                 persistPeriodToUrl(currentMarketPeriod);
             }
+
+            // Ensure market-specific panels (e.g., Polymarket Price-to-Beat) are restored on refresh.
+            if (typeof startPriceToBeatPolling === 'function') {
+                startPriceToBeatPolling();
+            }
         }
 
