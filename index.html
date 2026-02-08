@@ -8210,10 +8210,16 @@
         }
 
         // Start polling for new trades every second
+        let tradePollingInProgress = false;  // Flag to prevent overlapping requests
+
         function startTradePolling() {
             if (tradePollingInterval) return; // Already polling
 
             tradePollingInterval = setInterval(async () => {
+                // Skip if previous request hasn't completed yet
+                if (tradePollingInProgress) return;
+
+                tradePollingInProgress = true;
                 try {
                     // Poll for trades newer than our last timestamp
                     const response = await fetch(
@@ -8255,6 +8261,8 @@
                     }
                 } catch (err) {
                     console.error('[Trade Poll] Error:', err.message);
+                } finally {
+                    tradePollingInProgress = false;
                 }
             }, 1000);  // Poll every 1 second
         }
@@ -8265,6 +8273,7 @@
                 clearInterval(tradePollingInterval);
                 tradePollingInterval = null;
             }
+            tradePollingInProgress = false;  // Reset flag
         }
 
         // Append new trades to the existing trade display
@@ -8748,10 +8757,16 @@
             startOrderbookPolling();
         }
 
+        let orderbookPollingInProgress = false;  // Flag to prevent overlapping requests
+
         function startOrderbookPolling() {
             if (orderbookPollingInterval) return;
 
             orderbookPollingInterval = setInterval(async () => {
+                // Skip if previous request hasn't completed yet
+                if (orderbookPollingInProgress) return;
+
+                orderbookPollingInProgress = true;
                 try {
                     // Use unified endpoint for all markets (BitMEX and Polymarket)
                     const url = `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=20`;
@@ -8776,6 +8791,8 @@
                     }
                 } catch (err) {
                     // Silently ignore polling errors
+                } finally {
+                    orderbookPollingInProgress = false;
                 }
             }, 1000);  // Poll every 1 second
         }
@@ -8785,6 +8802,7 @@
                 clearInterval(orderbookPollingInterval);
                 orderbookPollingInterval = null;
             }
+            orderbookPollingInProgress = false;  // Reset flag
         }
 
         function subscribeToMarket(market) {
