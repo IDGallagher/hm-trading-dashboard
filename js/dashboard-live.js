@@ -2,7 +2,6 @@
         let liveTestRunning = false;
         let liveTestStartTime = null;
         let currentStrategy = 'TestBot';
-        const dashboardDebugLog = window.debugLog || function noopDebugLog() {};
 
         // Bot configurations for display
         const botConfigs = {
@@ -83,6 +82,7 @@
             }
             activeMarketRequestControllers.clear();
             latestTradeTimestamp = 0;
+            resetLiveTradeCache();
         }
 
         window.onLiveMarketContextChange = function onLiveMarketContextChange(reason) {
@@ -92,6 +92,9 @@
         // Live forming candle state
         let formingCandle = null;  // { time, open, high, low, close, volume }
         let lastCandleData = [];   // Store the historical candles for reference
+        let cachedLiveTrades = []; // Rolling cache of live polled trades
+        let liveTradeBucketsByPeriod = new Map(); // periodStart -> aggregated live-trade candle
+        const MAX_CACHED_LIVE_TRADES = 50000;
 
         // Lazy loading state for historical candles
         let earliestCandleTime = null;  // Track earliest loaded candle timestamp
@@ -115,101 +118,106 @@
             return Math.floor(timestamp / periodSecs) * periodSecs;
         }
 
-        // Initialize or update the forming candle from a trade
-        function updateFormingCandle(trade) {
-            if (!liveMarketCandleSeries) return;
-
-            // Get raw timestamp, defaulting to current time in seconds
-            const rawTimestamp = trade.timestamp || Math.floor(Date.now() / 1000);
-            // Convert milliseconds to seconds if needed (timestamps > year 2033 are likely in ms)
-            const tradeTime = rawTimestamp > 9999999999 ? Math.floor(rawTimestamp / 1000) : rawTimestamp;
-            const price = trade.price;
-            const amount = trade.amount || 0;
-            const periodStart = getPeriodStartTime(tradeTime, currentMarketPeriod);
-
-            // Check if we need to start a new candle (period rolled over)
-            if (formingCandle && periodStart > formingCandle.time) {
-                // Period ended - the forming candle is now frozen (already in the chart)
-                // Start a new forming candle
-                formingCandle = {
-                    time: periodStart,
-                    open: price,
-                    high: price,
-                    low: price,
-                    close: price,
-                    volume: amount
-                };
-                dashboardDebugLog('[LiveCandle] New period started:', new Date(periodStart * 1000).toISOString());
-            } else if (!formingCandle) {
-                // First trade - initialize forming candle
-                formingCandle = {
-                    time: periodStart,
-                    open: price,
-                    high: price,
-                    low: price,
-                    close: price,
-                    volume: amount
-                };
-                dashboardDebugLog('[LiveCandle] Initialized forming candle:', formingCandle);
-            } else {
-                // Update existing forming candle
-                formingCandle.high = Math.max(formingCandle.high, price);
-                formingCandle.low = Math.min(formingCandle.low, price);
-                formingCandle.close = price;
-                formingCandle.volume += amount;
-            }
-
-            // Update the chart with the forming candle
-            safeUpdate(liveMarketCandleSeries, {
-                time: formingCandle.time,
-                open: formingCandle.open,
-                high: formingCandle.high,
-                low: formingCandle.low,
-                close: formingCandle.close
-            }, 'liveMarketFormingCandle');
+        function resetLiveTradeCache() {
+            cachedLiveTrades = [];
+            liveTradeBucketsByPeriod = new Map();
+            formingCandle = null;
         }
 
-        // Initialize forming candle from loaded historical data
-        function initFormingCandleFromData(candles) {
-            if (!candles || candles.length === 0) return;
+        function upsertAggregatedCandle(candle) {
+            if (!candle || typeof candle.time !== 'number') return;
 
-            const lastCandle = candles[candles.length - 1];
-            const now = Math.floor(Date.now() / 1000);
-            const currentPeriodStart = getPeriodStartTime(now, currentMarketPeriod);
-
-            // If the last candle is from the current period, use it as the forming candle
-            if (lastCandle.time === currentPeriodStart) {
-                formingCandle = {
-                    time: lastCandle.time,
-                    open: lastCandle.open,
-                    high: lastCandle.high,
-                    low: lastCandle.low,
-                    close: lastCandle.close,
-                    volume: lastCandle.volume || 0
-                };
-                dashboardDebugLog('[LiveCandle] Restored forming candle from data:', formingCandle);
-            } else {
-                // Last candle is from a previous period, create a new forming candle
-                // Use the last candle's close as the starting point
-                formingCandle = {
-                    time: currentPeriodStart,
-                    open: lastCandle.close,
-                    high: lastCandle.close,
-                    low: lastCandle.close,
-                    close: lastCandle.close,
-                    volume: 0
-                };
-                dashboardDebugLog('[LiveCandle] Created new forming candle from last close:', formingCandle);
-
-                // Add this forming candle to the chart
-                safeUpdate(liveMarketCandleSeries, {
-                    time: formingCandle.time,
-                    open: formingCandle.open,
-                    high: formingCandle.high,
-                    low: formingCandle.low,
-                    close: formingCandle.close
-                }, 'liveMarketInitFormingCandle');
+            const existingIdx = lastCandleData.findIndex((c) => c.time === candle.time);
+            if (existingIdx >= 0) {
+                lastCandleData[existingIdx] = { ...lastCandleData[existingIdx], ...candle };
+                return;
             }
+
+            lastCandleData.push(candle);
+            lastCandleData.sort((a, b) => a.time - b.time);
+        }
+
+        function getBucketAsCandle(bucket) {
+            if (!bucket) return null;
+            return {
+                time: bucket.time,
+                open: bucket.open,
+                high: bucket.high,
+                low: bucket.low,
+                close: bucket.close,
+                volume: bucket.volume || 0
+            };
+        }
+
+        function applyAggregatedLiveTradesToCandles(touchedPeriods) {
+            if (!lastCandleData || lastCandleData.length === 0) return;
+            if (!touchedPeriods || touchedPeriods.size === 0) return;
+
+            const orderedPeriods = Array.from(touchedPeriods).sort((a, b) => a - b);
+            for (const periodStart of orderedPeriods) {
+                const candle = getBucketAsCandle(liveTradeBucketsByPeriod.get(periodStart));
+                if (!candle) continue;
+                upsertAggregatedCandle(candle);
+            }
+
+            safeSetData(liveMarketCandleSeries, lastCandleData, 'applyAggregatedLiveTradesToCandles');
+            updateVolumeSeries(lastCandleData);
+            updateOHLCDisplay(null);
+
+            const latestPeriod = orderedPeriods[orderedPeriods.length - 1];
+            const latestBucket = liveTradeBucketsByPeriod.get(latestPeriod);
+            formingCandle = getBucketAsCandle(latestBucket);
+        }
+
+        function cacheAndAggregateLiveTrades(chronologicalTrades) {
+            if (!chronologicalTrades || chronologicalTrades.length === 0) return;
+
+            const touchedPeriods = new Set();
+
+            for (const trade of chronologicalTrades) {
+                cachedLiveTrades.push(trade);
+                if (cachedLiveTrades.length > MAX_CACHED_LIVE_TRADES) {
+                    cachedLiveTrades.shift();
+                }
+
+                const tradeTimeSec = trade.timestampMs > 9999999999
+                    ? Math.floor(trade.timestampMs / 1000)
+                    : Math.floor(trade.timestampMs);
+                const periodStart = getPeriodStartTime(tradeTimeSec, currentMarketPeriod);
+                const price = trade.price;
+                const amount = trade.amount || 0;
+
+                let bucket = liveTradeBucketsByPeriod.get(periodStart);
+                if (!bucket) {
+                    bucket = {
+                        time: periodStart,
+                        open: price,
+                        high: price,
+                        low: price,
+                        close: price,
+                        volume: amount,
+                        firstTsMs: trade.timestampMs,
+                        lastTsMs: trade.timestampMs
+                    };
+                    liveTradeBucketsByPeriod.set(periodStart, bucket);
+                } else {
+                    if (trade.timestampMs <= bucket.firstTsMs) {
+                        bucket.firstTsMs = trade.timestampMs;
+                        bucket.open = price;
+                    }
+                    if (trade.timestampMs >= bucket.lastTsMs) {
+                        bucket.lastTsMs = trade.timestampMs;
+                        bucket.close = price;
+                    }
+                    bucket.high = Math.max(bucket.high, price);
+                    bucket.low = Math.min(bucket.low, price);
+                    bucket.volume += amount;
+                }
+
+                touchedPeriods.add(periodStart);
+            }
+
+            applyAggregatedLiveTradesToCandles(touchedPeriods);
         }
 
         function getLatestStaticCandleEndTimestampMs(candles, period) {
@@ -1339,7 +1347,7 @@
                     });
 
                     // Initialize the forming candle from loaded data
-                    formingCandle = null;
+                    resetLiveTradeCache();
                     const staticCandleEndTsMs = getLatestStaticCandleEndTimestampMs(candles, currentMarketPeriod);
                     if (staticCandleEndTsMs) {
                         latestTradeTimestamp = staticCandleEndTsMs;
@@ -1463,14 +1471,7 @@
                     const chronologicalTrades = data.trades
                         .slice()
                         .sort((a, b) => a.timestampMs - b.timestampMs);
-
-                    for (const trade of chronologicalTrades) {
-                        updateFormingCandle({
-                            price: trade.price,
-                            timestamp: trade.timestampMs,
-                            amount: trade.amount
-                        });
-                    }
+                    cacheAndAggregateLiveTrades(chronologicalTrades);
 
                     // Display newest first in trade panels
                     const trades = chronologicalTrades.slice().reverse();
@@ -1529,14 +1530,7 @@
                             latestTradeTimestamp = data.latestTimestamp;
                         }
 
-                        // Update forming candle using every newly received trade in order.
-                        for (const trade of chronologicalTrades) {
-                            updateFormingCandle({
-                                price: trade.price,
-                                timestamp: trade.timestampMs,
-                                amount: trade.amount
-                            });
-                        }
+                        cacheAndAggregateLiveTrades(chronologicalTrades);
 
                         // Update header with most recent trade price.
                         const latestTrade = chronologicalTrades[chronologicalTrades.length - 1];
