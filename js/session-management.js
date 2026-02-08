@@ -13,14 +13,9 @@
         // Fetch strategies from API
         async function fetchStrategies() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/strategies`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    strategiesData = data.strategies || [];
-                    populateStrategyDropdowns();
-                }
+                const data = await HM_API.strategies.list();
+                strategiesData = data.strategies || [];
+                populateStrategyDropdowns();
             } catch (error) {
                 console.error('[Sessions] Failed to fetch strategies:', error);
             }
@@ -56,13 +51,7 @@
         // Fetch all sessions from API
         async function fetchSessions() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions?limit=100`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                const data = await response.json();
+                const data = await HM_API.sessions.list({ limit: 100 });
                 const sessions = data.sessions || [];
 
                 // Build a map of existing session trade_count and total_pnl
@@ -126,18 +115,16 @@
                 const marketFilter = document.getElementById('filter-market-history')?.value || '';
                 const statusFilter = document.getElementById('filter-status-history')?.value || '';
 
-                let url = `${CONTROL_API_URL}/sessions?status=completed,stopped,failed&limit=${HISTORY_PER_PAGE}&offset=${offset}`;
-                if (typeFilter) url += `&type=${typeFilter}`;
-                if (marketFilter) url += `&market=${marketFilter}`;
-                if (statusFilter) url += `&status=${statusFilter}`;
+                const query = {
+                    status: 'completed,stopped,failed',
+                    limit: HISTORY_PER_PAGE,
+                    offset
+                };
+                if (typeFilter) query.type = typeFilter;
+                if (marketFilter) query.market = marketFilter;
+                if (statusFilter) query.status = statusFilter;
 
-                const response = await fetch(url, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const data = await response.json();
+                const data = await HM_API.sessions.list(query);
                 historyCurrentPage = page;
                 historyTotal = data.total || 0;
                 historyTotalPages = Math.ceil(historyTotal / HISTORY_PER_PAGE) || 1;
@@ -201,33 +188,28 @@
         // Fetch session health status
         async function fetchSessionHealth() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/health`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
+                const data = await HM_API.sessions.health();
+                const healthMap = {};
+                (data.sessions || []).forEach(s => {
+                    healthMap[s.id] = {
+                        health_status: s.health_status,
+                        seconds_since_update: s.seconds_since_update
+                    };
                 });
-                if (response.ok) {
-                    const data = await response.json();
-                    const healthMap = {};
-                    (data.sessions || []).forEach(s => {
-                        healthMap[s.id] = {
-                            health_status: s.health_status,
-                            seconds_since_update: s.seconds_since_update
-                        };
-                    });
 
-                    // Merge health data into running sessions
-                    sessionsData.running.forEach(session => {
-                        if (healthMap[session.id]) {
-                            session.health_status = healthMap[session.id].health_status;
-                            session.seconds_since_update = healthMap[session.id].seconds_since_update;
-                        }
-                    });
-                    sessionsData.scrapers.forEach(session => {
-                        if (healthMap[session.id]) {
-                            session.health_status = healthMap[session.id].health_status;
-                            session.seconds_since_update = healthMap[session.id].seconds_since_update;
-                        }
-                    });
-                }
+                // Merge health data into running sessions
+                sessionsData.running.forEach(session => {
+                    if (healthMap[session.id]) {
+                        session.health_status = healthMap[session.id].health_status;
+                        session.seconds_since_update = healthMap[session.id].seconds_since_update;
+                    }
+                });
+                sessionsData.scrapers.forEach(session => {
+                    if (healthMap[session.id]) {
+                        session.health_status = healthMap[session.id].health_status;
+                        session.seconds_since_update = healthMap[session.id].seconds_since_update;
+                    }
+                });
             } catch (error) {
                 console.error('[Sessions] Failed to fetch health:', error);
             }
@@ -236,14 +218,9 @@
         // Fetch detailed heartbeat for a specific scraper session
         async function fetchScraperHeartbeat(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/heartbeat`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.heartbeat) {
-                        return data.heartbeat;
-                    }
+                const data = await HM_API.sessions.heartbeat(sessionId);
+                if (data.success && data.heartbeat) {
+                    return data.heartbeat;
                 }
             } catch (error) {
                 console.error('[Sessions] Failed to fetch scraper heartbeat:', error);
@@ -718,21 +695,7 @@
             }
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': CONTROL_API_KEY
-                    },
-                    body: JSON.stringify(body)
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to create session');
-                }
-
-                const data = await response.json();
+                const data = await HM_API.sessions.create(body);
                 closeNewSessionModal();
 
                 // Start the session immediately
@@ -750,14 +713,7 @@
         // Start a session
         async function startSession(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/start`, {
-                    method: 'POST',
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to start session');
-                }
+                await HM_API.sessions.start(sessionId);
                 await fetchSessions();
             } catch (error) {
                 console.error('[Sessions] Failed to start session:', error);
@@ -768,14 +724,7 @@
         // Stop a session
         async function stopSession(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/stop`, {
-                    method: 'POST',
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to stop session');
-                }
+                await HM_API.sessions.stop(sessionId);
                 await fetchSessions();
             } catch (error) {
                 console.error('[Sessions] Failed to stop session:', error);
@@ -786,15 +735,7 @@
         // Restart a session
         async function restartSession(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/restart`, {
-                    method: 'POST',
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to restart session');
-                }
-                const result = await response.json();
+                const result = await HM_API.sessions.restart(sessionId);
                 console.log('[Sessions] Session restarted:', result);
                 await fetchSessions();
             } catch (error) {
@@ -813,22 +754,17 @@
                 let tradingStartTime = null;
                 if (session.type === 'test') {
                     try {
-                        const response = await fetch(`${CONTROL_API_URL}/sessions/${session.id}/trading-start`, {
-                            headers: { 'x-api-key': CONTROL_API_KEY }
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.success) {
-                                tradingStartTime = data.trading_start_time;
-                                firstTradeTs = data.first_trade_ts;
-                                lastTradeTs = data.last_trade_ts;
-                                console.log('[Sessions] Got exact trading parity data:', {
-                                    trading_start_time: tradingStartTime,
-                                    first_trade_ts: firstTradeTs,
-                                    last_trade_ts: lastTradeTs,
-                                    trade_count: data.trade_count
-                                });
-                            }
+                        const data = await HM_API.sessions.tradingStart(session.id);
+                        if (data.success) {
+                            tradingStartTime = data.trading_start_time;
+                            firstTradeTs = data.first_trade_ts;
+                            lastTradeTs = data.last_trade_ts;
+                            console.log('[Sessions] Got exact trading parity data:', {
+                                trading_start_time: tradingStartTime,
+                                first_trade_ts: firstTradeTs,
+                                last_trade_ts: lastTradeTs,
+                                trade_count: data.trade_count
+                            });
                         }
                     } catch (e) {
                         console.warn('[Sessions] Could not fetch trading timestamps, using started_at:', e.message);
@@ -921,14 +857,7 @@
         // Clone a session
         async function cloneSession(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/clone`, {
-                    method: 'POST',
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to clone session');
-                }
+                await HM_API.sessions.clone(sessionId);
                 await fetchSessions();
             } catch (error) {
                 console.error('[Sessions] Failed to clone session:', error);
@@ -941,18 +870,7 @@
             if (!confirm('Are you sure you want to delete this session?')) return;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': CONTROL_API_KEY
-                    },
-                    body: JSON.stringify({ confirm: true })
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to delete session');
-                }
+                await HM_API.sessions.delete(sessionId);
                 await fetchSessions();
             } catch (error) {
                 console.error('[Sessions] Failed to delete session:', error);
@@ -1109,20 +1027,15 @@
         // Load metrics for inline detail
         async function loadInlineMetrics(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/metrics`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const m = data.metrics;
-                    document.getElementById('inline-trades').textContent = m.total_trades || 0;
-                    const pnl = m.total_pnl || 0;
-                    const pnlEl = document.getElementById('inline-pnl');
-                    pnlEl.textContent = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
-                    pnlEl.className = `inline-metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
-                    document.getElementById('inline-winrate').textContent = `${(m.win_rate || 0).toFixed(1)}%`;
-                    document.getElementById('inline-maxdd').textContent = `$${(m.max_drawdown || 0).toFixed(0)}`;
-                }
+                const data = await HM_API.sessions.metrics(sessionId);
+                const m = data.metrics;
+                document.getElementById('inline-trades').textContent = m.total_trades || 0;
+                const pnl = m.total_pnl || 0;
+                const pnlEl = document.getElementById('inline-pnl');
+                pnlEl.textContent = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+                pnlEl.className = `inline-metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+                document.getElementById('inline-winrate').textContent = `${(m.win_rate || 0).toFixed(1)}%`;
+                document.getElementById('inline-maxdd').textContent = `$${(m.max_drawdown || 0).toFixed(0)}`;
             } catch (err) {
                 console.error('[Sessions] Failed to load metrics:', err);
             }
@@ -1192,37 +1105,30 @@
         async function loadInlineLogs(sessionId) {
             const container = document.getElementById('inline-logs-list');
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=200`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    let logs = data.logs || [];
+                const data = await HM_API.sessions.logs(sessionId, { limit: 200 });
+                let logs = data.logs || [];
 
-                    // Store last timestamp from raw logs (before filtering)
-                    if (logs.length > 0) {
-                        lastLogTimestamp = logs[logs.length - 1].timestamp;
-                    }
+                // Store last timestamp from raw logs (before filtering)
+                if (logs.length > 0) {
+                    lastLogTimestamp = logs[logs.length - 1].timestamp;
+                }
 
-                    // Filter out verbose order book and debug messages
-                    logs = filterVerboseLogs(logs);
+                // Filter out verbose order book and debug messages
+                logs = filterVerboseLogs(logs);
 
-                    if (logs.length === 0) {
-                        container.innerHTML = '<div class="inline-empty">No INFO/WARN/ERROR logs (DEBUG filtered)</div>';
-                    } else {
-                        // Show most recent logs at bottom (chronological order)
-                        container.innerHTML = logs.slice(-100).map(l => `
-                            <div class="inline-log-row ${l.level?.toLowerCase()}">
-                                <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
-                                <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
-                                ${l.message}
-                            </div>
-                        `).join('');
-                        // Auto-scroll to bottom (latest logs)
-                        container.scrollTop = container.scrollHeight;
-                    }
+                if (logs.length === 0) {
+                    container.innerHTML = '<div class="inline-empty">No INFO/WARN/ERROR logs (DEBUG filtered)</div>';
                 } else {
-                    container.innerHTML = '<div class="inline-empty">Failed to load logs</div>';
+                    // Show most recent logs at bottom (chronological order)
+                    container.innerHTML = logs.slice(-100).map(l => `
+                        <div class="inline-log-row ${l.level?.toLowerCase()}">
+                            <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                            <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
+                            ${l.message}
+                        </div>
+                    `).join('');
+                    // Auto-scroll to bottom (latest logs)
+                    container.scrollTop = container.scrollHeight;
                 }
             } catch (err) {
                 console.error('[Sessions] Failed to load logs:', err);
@@ -1240,26 +1146,21 @@
 
             try {
                 // Fetch recent logs
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=50`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    let logs = data.logs || [];
+                const data = await HM_API.sessions.logs(sessionId, { limit: 50 });
+                let logs = data.logs || [];
 
-                    // Filter to only logs newer than lastLogTimestamp (client-side)
-                    const lastTs = new Date(lastLogTimestamp).getTime();
-                    const newLogs = logs.filter(l => new Date(l.timestamp).getTime() > lastTs);
+                // Filter to only logs newer than lastLogTimestamp (client-side)
+                const lastTs = new Date(lastLogTimestamp).getTime();
+                const newLogs = logs.filter(l => new Date(l.timestamp).getTime() > lastTs);
 
-                    // Update last timestamp from raw logs (before filtering)
-                    if (logs.length > 0) {
-                        lastLogTimestamp = logs[logs.length - 1].timestamp;
-                    }
+                // Update last timestamp from raw logs (before filtering)
+                if (logs.length > 0) {
+                    lastLogTimestamp = logs[logs.length - 1].timestamp;
+                }
 
-                    // Append only the new logs (if any)
-                    if (newLogs.length > 0) {
-                        appendInlineLogs(newLogs);
-                    }
+                // Append only the new logs (if any)
+                if (newLogs.length > 0) {
+                    appendInlineLogs(newLogs);
                 }
             } catch (err) {
                 console.error('[Sessions] Failed to poll logs:', err);

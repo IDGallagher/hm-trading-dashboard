@@ -121,6 +121,49 @@
             if (countEl && !prepend) countEl.textContent = trades.length;
         }
 
+        function getConfiguredPeriods() {
+            return (window.HM_UI_OPTIONS?.PERIOD_OPTIONS || []).map((p) => p.value);
+        }
+
+        function getValidPeriodFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const period = params.get('period');
+            if (!period) return null;
+            return getConfiguredPeriods().includes(period) ? period : null;
+        }
+
+        function persistPeriodToUrl(period) {
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('period', period);
+                window.history.replaceState({}, '', url.toString());
+            } catch (err) {
+                console.warn('[Period] Failed to persist period in URL:', err.message);
+            }
+        }
+
+        function applyPeriodToUi(period) {
+            currentMarketPeriod = period;
+
+            const label = document.getElementById('period-label');
+            if (label) label.textContent = period;
+
+            document.querySelectorAll('.period-option').forEach((opt) => {
+                opt.classList.toggle('active', opt.dataset.period === period);
+            });
+
+            document.querySelectorAll('[id="market-period-selector"]').forEach((select) => {
+                if (Array.from(select.options).some((o) => o.value === period)) {
+                    select.value = period;
+                }
+            });
+
+            const candlePeriod = document.getElementById('candle-period-selector');
+            if (candlePeriod && Array.from(candlePeriod.options).some((o) => o.value === period)) {
+                candlePeriod.value = period;
+            }
+        }
+
         // Initialize period dropdown
         function initPeriodDropdown() {
             const btn = document.getElementById('period-btn');
@@ -139,10 +182,8 @@
             menu.querySelectorAll('.period-option').forEach(opt => {
                 opt.addEventListener('click', () => {
                     const period = opt.dataset.period;
-                    currentMarketPeriod = period;
-                    if (label) label.textContent = period;
-                    menu.querySelectorAll('.period-option').forEach(o => o.classList.remove('active'));
-                    opt.classList.add('active');
+                    applyPeriodToUi(period);
+                    persistPeriodToUrl(period);
                     menu.classList.remove('show');
                     formingCandle = null;
                     earliestCandleTime = null;
@@ -293,7 +334,8 @@
                 });
             }
             if (periodSelector) periodSelector.addEventListener('change', (e) => {
-                currentMarketPeriod = e.target.value;
+                applyPeriodToUi(e.target.value);
+                persistPeriodToUrl(currentMarketPeriod);
                 formingCandle = null; // Reset forming candle on period change
                 earliestCandleTime = null; // Reset lazy loading state
                 isLoadingOlderCandles = false;
@@ -312,6 +354,14 @@
             } else {
                 // Ensure URL is synchronized with default/active market too.
                 persistMarketToUrl(currentMarket);
+            }
+
+            // Initialize period from URL so refresh preserves selected timeframe.
+            const periodFromUrl = getValidPeriodFromUrl();
+            if (periodFromUrl) {
+                applyPeriodToUi(periodFromUrl);
+            } else {
+                persistPeriodToUrl(currentMarketPeriod);
             }
         }
 

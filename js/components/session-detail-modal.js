@@ -64,13 +64,7 @@
         // Load session detail info
         async function loadSessionDetail(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) throw new Error('Failed to load session');
-
-                const data = await response.json();
+                const data = await HM_API.sessions.get(sessionId);
                 const session = data.session;
 
                 // Update header
@@ -144,13 +138,7 @@
         // Load session metrics
         async function loadSessionMetrics(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/metrics`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) throw new Error('Failed to load metrics');
-
-                const data = await response.json();
+                const data = await HM_API.sessions.metrics(sessionId);
                 const m = data.metrics || {};
 
                 // Update metric cards
@@ -272,13 +260,7 @@
         // Load session logs
         async function loadSessionLogs(sessionId) {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=100`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) throw new Error('Failed to load logs');
-
-                const data = await response.json();
+                const data = await HM_API.sessions.logs(sessionId, { limit: 100 });
                 const logs = data.logs || [];
 
                 const container = document.getElementById('detail-logs-container');
@@ -334,14 +316,7 @@
                     if (!currentDetailSessionId) return;
 
                     try {
-                        const url = `${CONTROL_API_URL}/sessions/${currentDetailSessionId}/logs?since=${encodeURIComponent(lastLogTimestamp)}`;
-                        const response = await fetch(url, {
-                            headers: { 'x-api-key': CONTROL_API_KEY }
-                        });
-
-                        if (!response.ok) return;
-
-                        const data = await response.json();
+                        const data = await HM_API.sessions.logs(currentDetailSessionId, { since: lastLogTimestamp });
                         const logs = data.logs || [];
 
                         if (logs.length > 0) {
@@ -374,16 +349,7 @@
             const notes = document.getElementById('detail-notes').value;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${currentDetailSessionId}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': CONTROL_API_KEY
-                    },
-                    body: JSON.stringify({ notes })
-                });
-
-                if (!response.ok) throw new Error('Failed to save notes');
+                await HM_API.patchJson(`/sessions/${currentDetailSessionId}`, { notes });
 
                 showSessionNotification('Notes saved');
 

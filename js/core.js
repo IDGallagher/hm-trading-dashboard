@@ -307,26 +307,19 @@
          */
         async function fetchSessionTrades(sessionId, options = {}) {
             const { limit = 1000, offset = 0 } = options;
-            const headers = { 'x-api-key': CONTROL_API_KEY };
 
             // Try new DB endpoint first
             try {
-                const dbResponse = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/trades/db?limit=${limit}&offset=${offset}`,
-                    { headers }
-                );
-                if (dbResponse.ok) {
-                    const data = await dbResponse.json();
-                    // Check if DB has data
-                    if (data.trades && data.trades.length > 0) {
-                        // Map field names: direction->side, realized_pnl->pnl for compatibility
-                        const mappedTrades = data.trades.map(t => ({
-                            ...t,
-                            side: t.direction,
-                            pnl: t.realized_pnl
-                        }));
-                        return { success: true, trades: mappedTrades, count: data.count, total: data.total, source: 'db' };
-                    }
+                const data = await HM_API.sessionData.tradesDb(sessionId, { limit, offset });
+                // Check if DB has data
+                if (data.trades && data.trades.length > 0) {
+                    // Map field names: direction->side, realized_pnl->pnl for compatibility
+                    const mappedTrades = data.trades.map(t => ({
+                        ...t,
+                        side: t.direction,
+                        pnl: t.realized_pnl
+                    }));
+                    return { success: true, trades: mappedTrades, count: data.count, total: data.total, source: 'db' };
                 }
             } catch (e) {
                 console.log('[fetchSessionTrades] DB endpoint failed, trying file-based:', e.message);
@@ -334,14 +327,8 @@
 
             // Fall back to file-based endpoint
             try {
-                const fileResponse = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/trades?limit=${limit}&offset=${offset}`,
-                    { headers }
-                );
-                if (fileResponse.ok) {
-                    const data = await fileResponse.json();
-                    return { success: true, trades: data.trades || [], count: data.count || 0, total: data.count || 0, source: 'file' };
-                }
+                const data = await HM_API.sessionData.tradesFile(sessionId, { limit, offset });
+                return { success: true, trades: data.trades || [], count: data.count || 0, total: data.count || 0, source: 'file' };
             } catch (e) {
                 console.error('[fetchSessionTrades] File endpoint failed:', e.message);
             }
@@ -357,27 +344,20 @@
          */
         async function fetchSessionEquity(sessionId, options = {}) {
             const { limit = 1000 } = options;
-            const headers = { 'x-api-key': CONTROL_API_KEY };
 
             // Try new DB endpoint first
             try {
-                const dbResponse = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/equity-curve?limit=${limit}`,
-                    { headers }
-                );
-                if (dbResponse.ok) {
-                    const data = await dbResponse.json();
-                    // Check if DB has data
-                    if (data.equity_curve && data.equity_curve.length > 0) {
-                        return {
-                            success: true,
-                            equity: data.equity_curve,
-                            count: data.count,
-                            final_equity: data.final_equity,
-                            max_drawdown: data.max_drawdown,
-                            source: 'db'
-                        };
-                    }
+                const data = await HM_API.sessionData.equityCurve(sessionId, { limit });
+                // Check if DB has data
+                if (data.equity_curve && data.equity_curve.length > 0) {
+                    return {
+                        success: true,
+                        equity: data.equity_curve,
+                        count: data.count,
+                        final_equity: data.final_equity,
+                        max_drawdown: data.max_drawdown,
+                        source: 'db'
+                    };
                 }
             } catch (e) {
                 console.log('[fetchSessionEquity] DB endpoint failed, trying file-based:', e.message);
@@ -385,20 +365,14 @@
 
             // Fall back to file-based endpoint
             try {
-                const fileResponse = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/equity`,
-                    { headers }
-                );
-                if (fileResponse.ok) {
-                    const data = await fileResponse.json();
-                    return {
-                        success: true,
-                        equity: data.equity || [],
-                        count: data.count || 0,
-                        final_equity: data.final_equity || 0,
-                        source: 'file'
-                    };
-                }
+                const data = await HM_API.sessionData.equityFile(sessionId);
+                return {
+                    success: true,
+                    equity: data.equity || [],
+                    count: data.count || 0,
+                    final_equity: data.final_equity || 0,
+                    source: 'file'
+                };
             } catch (e) {
                 console.error('[fetchSessionEquity] File endpoint failed:', e.message);
             }
@@ -412,16 +386,9 @@
          * @returns {object} { success, positions, count }
          */
         async function fetchSessionPositions(sessionId) {
-            const headers = { 'x-api-key': CONTROL_API_KEY };
             try {
-                const response = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/positions`,
-                    { headers }
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    return { success: true, positions: data.positions || [], count: data.count || 0 };
-                }
+                const data = await HM_API.sessionData.positions(sessionId);
+                return { success: true, positions: data.positions || [], count: data.count || 0 };
             } catch (e) {
                 console.error('[fetchSessionPositions] Failed:', e.message);
             }
@@ -434,16 +401,9 @@
          * @returns {object} { success, summary }
          */
         async function fetchSessionTradeSummary(sessionId) {
-            const headers = { 'x-api-key': CONTROL_API_KEY };
             try {
-                const response = await fetch(
-                    `${CONTROL_API_URL}/sessions/${sessionId}/trades/summary`,
-                    { headers }
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    return { success: true, summary: data.summary };
-                }
+                const data = await HM_API.sessionData.tradeSummary(sessionId);
+                return { success: true, summary: data.summary };
             } catch (e) {
                 console.error('[fetchSessionTradeSummary] Failed:', e.message);
             }

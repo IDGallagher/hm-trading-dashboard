@@ -316,16 +316,7 @@
             try {
                 // Use server-side filtering to get only [INDICATOR] logs
                 // This avoids log volume issues - filters before returning results
-                const response = await fetch(`${CONTROL_API_URL}/sessions/${sessionId}/logs?limit=5000&filter=[INDICATOR]`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) {
-                    console.warn('[DevDistStat] Failed to load logs for indicators');
-                    return null;
-                }
-
-                const data = await response.json();
+                const data = await HM_API.sessions.logs(sessionId, { limit: 5000, filter: '[INDICATOR]' });
                 console.log('[DevDistStat] DEBUG - API response keys:', Object.keys(data));
                 console.log('[DevDistStat] DEBUG - API response sample:', JSON.stringify(data).slice(0, 1000));
                 // Try multiple possible field names for the logs array
@@ -690,10 +681,8 @@
 
             try {
                 // Try live test session first
-                console.log(`[Trade Overlays] Fetching: ${CONTROL_API_URL}/session/test`);
-                const testResponse = await fetch(`${CONTROL_API_URL}/session/test`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                console.log('[Trade Overlays] Fetching: /session/test');
+                const testResponse = await HM_API.get('/session/test');
                 console.log(`[Trade Overlays] /session/test status: ${testResponse.status}`);
                 if (testResponse.ok) {
                     const testData = await testResponse.json();
@@ -707,10 +696,8 @@
 
                 // If no live test trades, try backtest session
                 if (trades.length === 0) {
-                    console.log(`[Trade Overlays] Fetching: ${CONTROL_API_URL}/session/backtest`);
-                    const backtestResponse = await fetch(`${CONTROL_API_URL}/session/backtest`, {
-                        headers: { 'x-api-key': CONTROL_API_KEY }
-                    });
+                    console.log('[Trade Overlays] Fetching: /session/backtest');
+                    const backtestResponse = await HM_API.get('/session/backtest');
                     console.log(`[Trade Overlays] /session/backtest status: ${backtestResponse.status}`);
                     if (backtestResponse.ok) {
                         const backtestData = await backtestResponse.json();
@@ -798,9 +785,7 @@
 
             try {
                 // Fetch equity curve data from session/test endpoint
-                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                const response = await HM_API.get('/session/test');
                 if (!response.ok) {
                     console.log('[Equity Curve] No test session data available');
                     return;
@@ -1122,13 +1107,13 @@
                 console.log(`[LazyLoad] Fetching older candles: ${new Date(startTime * 1000).toISOString()} to ${new Date(endTime * 1000).toISOString()}`);
 
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const url = `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`;
-                const response = await fetch(url,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } }
-                );
-
-                if (!response.ok) throw new Error('Failed to fetch older candles');
-                const data = await response.json();
+                const data = await HM_API.live.prices({
+                    market: currentMarket,
+                    period: currentMarketPeriod,
+                    startTime,
+                    endTime,
+                    source: 'archive'
+                });
 
                 if (data.success && data.candles && data.candles.length > 0) {
                     const olderCandles = data.candles.map(c => ({
@@ -1186,16 +1171,10 @@
         // Fetch archive info to know the available data range
         async function fetchArchiveInfo(market) {
             try {
-                const response = await fetch(
-                    `${CONTROL_API_URL}/api/archive/info?market=${market}`,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } }
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.archive?.available) {
-                        archiveMinTime = data.archive.minTime;
-                        console.log(`[Archive] Data available from ${new Date(archiveMinTime * 1000).toISOString()}`);
-                    }
+                const data = await HM_API.live.archiveInfo({ market });
+                if (data.success && data.archive?.available) {
+                    archiveMinTime = data.archive.minTime;
+                    console.log(`[Archive] Data available from ${new Date(archiveMinTime * 1000).toISOString()}`);
                 }
             } catch (err) {
                 console.error('[Archive] Error fetching archive info:', err);
@@ -1223,11 +1202,12 @@
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const url = `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`;
-                const response = await fetch(url,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch prices');
-                const data = await response.json();
+                const data = await HM_API.live.prices({
+                    market: currentMarket,
+                    period: currentMarketPeriod,
+                    limit: 500,
+                    source: 'hybrid'
+                });
                 if (data.success && data.candles && data.candles.length > 0) {
                     const candles = data.candles.map(c => ({
                         time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
@@ -1330,11 +1310,7 @@
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const url = `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`;
-                const response = await fetch(url,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch orderbook');
-                const data = await response.json();
+                const data = await HM_API.live.orderbook({ market: currentMarket, depth: 12 });
                 if (data.success) {
                     // Unified endpoint returns bids/asks in consistent format
                     const bids = data.bids || [];
@@ -1388,10 +1364,7 @@
 
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
-                const response = await fetch(`${CONTROL_API_URL}/api/trades/deltas?market=${currentMarket}&limit=500`,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch trades');
-                const data = await response.json();
+                const data = await HM_API.live.tradesDeltas({ market: currentMarket, limit: 500 });
                 if (data.success && data.trades) {
                     // Transform trades to expected format and render
                     const trades = data.trades.map(t => ({
@@ -1434,13 +1407,7 @@
                 tradePollingInProgress = true;
                 try {
                     // Poll for trades newer than our last timestamp
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/trades/deltas?market=${currentMarket}&since=${latestTradeTimestamp}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-                    if (!response.ok) return;
-
-                    const data = await response.json();
+                    const data = await HM_API.live.tradesDeltas({ market: currentMarket, since: latestTradeTimestamp });
                     if (data.success && data.trades && data.trades.length > 0) {
                         // Transform and prepend new trades
                         const newTrades = data.trades.map(t => ({
@@ -1584,12 +1551,11 @@
             if (ptbPanel) ptbPanel.style.display = 'block';
 
             try {
-                const url = `${CONTROL_API_URL}/api/polymarket/metadata?market=btc-15m-a&type=price_to_beat&limit=1`;
-                const response = await fetch(url, { headers: { 'x-api-key': CONTROL_API_KEY } });
-
-                if (!response.ok) return;
-
-                const data = await response.json();
+                const data = await HM_API.live.polymarketMetadata({
+                    market: 'btc-15m-a',
+                    type: 'price_to_beat',
+                    limit: 1
+                });
                 if (data.success && data.data && data.data.length > 0) {
                     priceToeBeatData = data.data[0];
                     updatePriceToBeatDisplay();
@@ -1689,13 +1655,7 @@
                 orderbookPollingInProgress = true;
                 try {
                     // Use unified endpoint for all markets (BitMEX and Polymarket)
-                    const url = `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=20`;
-                    const response = await fetch(url,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-                    if (!response.ok) return;
-
-                    const data = await response.json();
+                    const data = await HM_API.live.orderbook({ market: currentMarket, depth: 20 });
                     if (data.success) {
                         // Unified endpoint returns bids/asks in consistent format
                         const bids = data.bids || [];
@@ -1849,15 +1809,11 @@
                 updateLiveTestUI('running');
                 liveTestStartTime = Date.now();
 
-                const url = `${CONTROL_API_URL}/test/start`;
-                console.log('[startLiveTest] Fetching:', url);
-                console.log('[startLiveTest] API Key:', CONTROL_API_KEY ? 'present' : 'MISSING');
+                console.log('[startLiveTest] Fetching: /test/start');
                 btn.innerHTML = '<span>3️⃣</span> Calling API...';
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY },
-                    body: JSON.stringify({ strategy: strategy })
+                const response = await HM_API.request('POST', '/test/start', {
+                    body: { strategy: strategy }
                 });
                 console.log('[startLiveTest] Response received:', response.status, response.statusText);
                 btn.innerHTML = '<span>4️⃣</span> Got response: ' + response.status;
@@ -1900,16 +1856,7 @@
                 updateLiveTestUI('backtesting');
                 stopPolling();
 
-                const response = await fetch(`${CONTROL_API_URL}/test/stop-and-backtest`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Stop and backtest failed: HTTP ${response.status}`);
-                }
-
-                const result = await response.json();
+                const result = await HM_API.test.stopAndBacktest({});
                 console.log('Stop and backtest completed:', result);
 
                 liveTestRunning = false;
@@ -1945,15 +1892,7 @@
             if (!liveTestRunning) return;
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const status = await response.json();
+                const status = await HM_API.test.status();
 
                 // Update the running status text
                 const statusText = document.getElementById('status-text');
@@ -1986,11 +1925,8 @@
         // Refresh Performance Metrics panel with current live test data
         async function refreshPerformanceMetricsFromLiveTest() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/session/test`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                const response = await HM_API.get('/session/test');
                 if (!response.ok) return;
-
                 const data = await response.json();
                 if (data.success && data.metrics) {
                     // Add fallback values for missing metrics
@@ -2058,9 +1994,7 @@
         // Check initial test status on page load
         async function checkInitialTestStatus() {
             try {
-                const response = await fetch(`${CONTROL_API_URL}/test/status`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                const response = await HM_API.get('/test/status');
 
                 if (response.ok) {
                     const status = await response.json();
@@ -2135,9 +2069,7 @@
                 console.log(`[loadBacktestData] Trying Control API for ${botName}...`);
                 let data = null;
                 try {
-                    const apiResponse = await fetch(`${CONTROL_API_URL}/session/backtest`, {
-                        headers: { 'x-api-key': CONTROL_API_KEY }
-                    });
+                    const apiResponse = await HM_API.get('/session/backtest');
                     if (apiResponse.ok) {
                         data = await apiResponse.json();
                         if (data.success) {
@@ -2234,14 +2166,12 @@
             try {
                 // First try to load from Control API (for fresh test/backtest data)
                 const apiEndpoint = sessionType === 'test' ? '/session/test' : '/session/backtest';
-                console.log(`[loadSessionData] Trying Control API: ${CONTROL_API_URL}${apiEndpoint}`);
+                console.log(`[loadSessionData] Trying Control API: ${apiEndpoint}`);
 
                 let data = null;
                 let apiSuccess = false;
                 try {
-                    const apiResponse = await fetch(`${CONTROL_API_URL}${apiEndpoint}`, {
-                        headers: { 'x-api-key': CONTROL_API_KEY }
-                    });
+                    const apiResponse = await HM_API.get(apiEndpoint);
                     if (apiResponse.ok) {
                         data = await apiResponse.json();
                         if (data.success) {
@@ -3723,10 +3653,8 @@
             console.log('[loadBotsTabTradeLogs] >>> CALLED <<<');
             try {
                 // Try backtest session first
-                console.log(`[loadBotsTabTradeLogs] Fetching from: ${CONTROL_API_URL}/session/backtest`);
-                const response = await fetch(`${CONTROL_API_URL}/session/backtest`, {
-                    headers: { 'x-api-key': CONTROL_API_KEY }
-                });
+                console.log('[loadBotsTabTradeLogs] Fetching from: /session/backtest');
+                const response = await HM_API.get('/session/backtest');
 
                 console.log(`[loadBotsTabTradeLogs] Response status: ${response.status}`);
                 if (!response.ok) {
