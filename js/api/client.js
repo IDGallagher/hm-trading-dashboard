@@ -1,5 +1,49 @@
 // Centralized API client and endpoint wrappers for HM Trading Dashboard.
 (function () {
+    function normalizeEpochMs(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num) || num <= 0) return null;
+        // Values above ~year 5138 in seconds are almost certainly milliseconds.
+        return num > 1e11 ? Math.floor(num) : Math.floor(num * 1000);
+    }
+
+    function normalizeLiveTradeDelta(rawTrade) {
+        if (!rawTrade || typeof rawTrade !== 'object') return null;
+
+        const timestampMs = normalizeEpochMs(rawTrade.t ?? rawTrade.timestamp ?? rawTrade.ts);
+        const price = Number(rawTrade.p ?? rawTrade.price);
+        const amount = Number(rawTrade.a ?? rawTrade.amount ?? 0);
+        if (!timestampMs || !Number.isFinite(price)) return null;
+
+        const sideRaw = String(rawTrade.s ?? rawTrade.side ?? '').toLowerCase();
+        const side = sideRaw === 'sell' || sideRaw === 's' ? 'sell' : 'buy';
+
+        return {
+            timestampMs,
+            timestamp: Math.floor(timestampMs / 1000),
+            price,
+            amount: Number.isFinite(amount) ? amount : 0,
+            side
+        };
+    }
+
+    function normalizeLiveTradesDeltasPayload(payload) {
+        const normalizedTrades = (payload?.trades || [])
+            .map(normalizeLiveTradeDelta)
+            .filter(Boolean);
+
+        const latestTimestampFromPayload = normalizeEpochMs(payload?.latestTimestamp);
+        const fallbackLatestTimestamp = normalizedTrades.length > 0
+            ? Math.max(...normalizedTrades.map((trade) => trade.timestampMs))
+            : null;
+
+        return {
+            ...(payload || {}),
+            trades: normalizedTrades,
+            latestTimestamp: latestTimestampFromPayload || fallbackLatestTimestamp
+        };
+    }
+
     function buildUrl(path, query) {
         const url = new URL(path, CONTROL_API_URL);
         if (query && typeof query === 'object') {
@@ -90,6 +134,10 @@
             prices: (query = {}, options = {}) => requestJson('GET', '/api/prices', { ...options, query }),
             orderbook: (query = {}, options = {}) => requestJson('GET', '/api/orderbook', { ...options, query }),
             tradesDeltas: (query = {}, options = {}) => requestJson('GET', '/api/trades/deltas', { ...options, query }),
+            tradesDeltasNormalized: async (query = {}, options = {}) => {
+                const payload = await requestJson('GET', '/api/trades/deltas', { ...options, query });
+                return normalizeLiveTradesDeltasPayload(payload);
+            },
             archiveInfo: (query = {}, options = {}) => requestJson('GET', '/api/archive/info', { ...options, query }),
             polymarketMetadata: (query = {}, options = {}) => requestJson('GET', '/api/polymarket/metadata', { ...options, query })
         },
@@ -104,6 +152,12 @@
             test: () => requestJson('GET', '/session/test'),
             backtest: () => requestJson('GET', '/session/backtest'),
             byPath: (path) => requestJson('GET', path)
+        },
+
+        adapters: {
+            normalizeEpochMs,
+            normalizeLiveTradeDelta,
+            normalizeLiveTradesDeltasPayload
         }
     };
 

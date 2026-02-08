@@ -3,9 +3,9 @@
         {
             group: 'BitMEX Perpetuals',
             options: [
-                { value: 'xbtusd', primaryLabel: 'BTC/USD', secondaryLabel: 'BTC/USD (XBTUSD)', instrument: 'BTCUSD' },
-                { value: 'ethusd', primaryLabel: 'ETH/USD', secondaryLabel: 'ETH/USD (ETHUSD)', instrument: 'ETHUSD' },
-                { value: 'solusd', primaryLabel: 'SOL/USD', secondaryLabel: 'SOL/USD (SOLUSD)', instrument: 'SOLUSD' },
+                { value: 'xbtusd', primaryLabel: 'BTC/USD', secondaryLabel: 'BTC/USD (XBTUSD)', instrument: 'BTCUSD', sessionMarket: 'XBTUSD' },
+                { value: 'ethusd', primaryLabel: 'ETH/USD', secondaryLabel: 'ETH/USD (ETHUSD)', instrument: 'ETHUSD', sessionMarket: 'ETHUSD' },
+                { value: 'solusd', primaryLabel: 'SOL/USD', secondaryLabel: 'SOL/USD (SOLUSD)', instrument: 'SOLUSD', sessionMarket: 'SOLUSD' },
                 { value: 'xrpusd', primaryLabel: 'XRP/USD', secondaryLabel: 'XRP/USD (XRPUSD)', instrument: 'XRPUSD' },
                 { value: 'dogeusd', primaryLabel: 'DOGE/USD', secondaryLabel: 'DOGE/USD (DOGEUSD)', instrument: 'DOGEUSD' }
             ]
@@ -39,11 +39,29 @@
         }
     ];
 
-    const SESSION_MARKETS = [
-        { value: 'XBTUSD', label: 'XBTUSD' },
-        { value: 'ETHUSD', label: 'ETHUSD' },
-        { value: 'SOLUSD', label: 'SOLUSD' }
-    ];
+    function buildSessionMarketsFromLiveMarkets() {
+        const fallback = [
+            { value: 'XBTUSD', label: 'XBTUSD' },
+            { value: 'ETHUSD', label: 'ETHUSD' },
+            { value: 'SOLUSD', label: 'SOLUSD' }
+        ];
+
+        const seen = new Set();
+        const derived = LIVE_MARKETS
+            .flatMap((group) => group.options || [])
+            .map((option) => option.sessionMarket)
+            .filter((market) => typeof market === 'string' && market.length > 0)
+            .filter((market) => {
+                if (seen.has(market)) return false;
+                seen.add(market);
+                return true;
+            })
+            .map((market) => ({ value: market, label: market }));
+
+        return derived.length > 0 ? derived : fallback;
+    }
+
+    const SESSION_MARKETS = buildSessionMarketsFromLiveMarkets();
 
     const LIVE_STRATEGIES = [
         { value: 'none', label: '?? Live Market Only' },

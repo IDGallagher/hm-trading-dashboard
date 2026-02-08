@@ -1,6 +1,20 @@
         // ==========================================
         // GLOBAL ERROR HANDLER - Captures JS errors for debugging
         // ==========================================
+        const debugQueryParamEnabled = (() => {
+            try {
+                return new URLSearchParams(window.location.search).get('debug') === '1';
+            } catch (_err) {
+                return false;
+            }
+        })();
+        window.HM_DEBUG = window.HM_DEBUG === true || debugQueryParamEnabled;
+        const debugLog = (...args) => {
+            if (!window.HM_DEBUG) return;
+            console.log(...args);
+        };
+        window.debugLog = debugLog;
+
         const jsErrorLog = [];
         const MAX_ERROR_LOG = 50;
 
@@ -104,7 +118,7 @@
 
         // Safe wrapper for chart setData calls - logs errors with source identification
         function safeSetData(series, data, sourceName) {
-            console.log("SAFESETDATA CALLED:", sourceName);
+            debugLog("SAFESETDATA CALLED:", sourceName);
             if (!series) {
                 console.warn(`[Chart] safeSetData: series is null for ${sourceName}`);
                 return false;
@@ -168,7 +182,7 @@
 
         // Safe wrapper for chart update calls (single point updates)
         function safeUpdate(series, point, sourceName) {
-            console.log("SAFEUPDATE CALLED:", sourceName);
+            debugLog("SAFEUPDATE CALLED:", sourceName);
             if (!series) {
                 console.warn(`[Chart] safeUpdate: series is null for ${sourceName}`);
                 return false;
@@ -201,12 +215,12 @@
                 }
             }
             try {
-                console.log("SAFEUPDATE: BEFORE series.update()");
+                debugLog("SAFEUPDATE: BEFORE series.update()");
                 series.update(point);
-                console.log("SAFEUPDATE: AFTER series.update() - SUCCESS");
+                debugLog("SAFEUPDATE: AFTER series.update() - SUCCESS");
                 return true;
             } catch (err) {
-                console.log("SAFEUPDATE: CAUGHT ERROR in series.update()");
+                debugLog("SAFEUPDATE: CAUGHT ERROR in series.update()");
                 logJsError('ChartUpdate', `${sourceName}: ${err.message}`, '', '', '', err.stack);
                 console.error(`[Chart] update failed for ${sourceName}:`, err);
                 return false;
@@ -281,11 +295,11 @@
                 // Trigger a re-render by slightly updating options
                 // This ensures tick marks get recalculated with new zoom level
                 try {
-                    console.log("VISIBLERANGE: calling chart.applyOptions()");
+                    debugLog("VISIBLERANGE: calling chart.applyOptions()");
                     chart.applyOptions({});
-                    console.log("VISIBLERANGE: applyOptions completed");
+                    debugLog("VISIBLERANGE: applyOptions completed");
                 } catch (err) {
-                    console.log("VISIBLERANGE: ERROR in applyOptions:", err.message);
+                    debugLog("VISIBLERANGE: ERROR in applyOptions:", err.message);
                 }
             });
         }

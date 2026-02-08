@@ -2,6 +2,7 @@
         let liveTestRunning = false;
         let liveTestStartTime = null;
         let currentStrategy = 'TestBot';
+        const debugLog = window.debugLog || function noopDebugLog() {};
 
         // Bot configurations for display
         const botConfigs = {
@@ -138,7 +139,7 @@
                     close: price,
                     volume: amount
                 };
-                console.log('[LiveCandle] New period started:', new Date(periodStart * 1000).toISOString());
+                debugLog('[LiveCandle] New period started:', new Date(periodStart * 1000).toISOString());
             } else if (!formingCandle) {
                 // First trade - initialize forming candle
                 formingCandle = {
@@ -149,7 +150,7 @@
                     close: price,
                     volume: amount
                 };
-                console.log('[LiveCandle] Initialized forming candle:', formingCandle);
+                debugLog('[LiveCandle] Initialized forming candle:', formingCandle);
             } else {
                 // Update existing forming candle
                 formingCandle.high = Math.max(formingCandle.high, price);
@@ -186,7 +187,7 @@
                     close: lastCandle.close,
                     volume: lastCandle.volume || 0
                 };
-                console.log('[LiveCandle] Restored forming candle from data:', formingCandle);
+                debugLog('[LiveCandle] Restored forming candle from data:', formingCandle);
             } else {
                 // Last candle is from a previous period, create a new forming candle
                 // Use the last candle's close as the starting point
@@ -198,7 +199,7 @@
                     close: lastCandle.close,
                     volume: 0
                 };
-                console.log('[LiveCandle] Created new forming candle from last close:', formingCandle);
+                debugLog('[LiveCandle] Created new forming candle from last close:', formingCandle);
 
                 // Add this forming candle to the chart
                 safeUpdate(liveMarketCandleSeries, {
@@ -1456,25 +1457,23 @@
                 const tradeQuery = latestTradeTimestamp
                     ? { market: currentMarket, since: latestTradeTimestamp }
                     : { market: currentMarket, limit: 500 };
-                const data = await HM_API.live.tradesDeltas(tradeQuery, { signal: requestContext.signal });
+                const data = await HM_API.live.tradesDeltasNormalized(tradeQuery, { signal: requestContext.signal });
                 if (isStaleMarketRequest(requestContext)) return;
                 if (data.success && data.trades) {
-                    const chronological = data.trades.slice().sort((a, b) => a.t - b.t);
-                    for (const t of chronological) {
+                    const chronologicalTrades = data.trades
+                        .slice()
+                        .sort((a, b) => a.timestampMs - b.timestampMs);
+
+                    for (const trade of chronologicalTrades) {
                         updateFormingCandle({
-                            price: t.p,
-                            timestamp: t.t,
-                            amount: t.a
+                            price: trade.price,
+                            timestamp: trade.timestampMs,
+                            amount: trade.amount
                         });
                     }
-                    // Transform trades to expected format and render
-                    const trades = data.trades.map(t => ({
-                        timestamp: Math.floor(t.t / 1000),  // Unix seconds
-                        timestampMs: t.t,
-                        price: t.p,
-                        amount: t.a,
-                        side: t.s
-                    })).reverse();  // Newest first for display
+
+                    // Display newest first in trade panels
+                    const trades = chronologicalTrades.slice().reverse();
 
                     renderLiveMarketTrades(trades);
                     countEl.textContent = `${trades.length} trades`;
@@ -1512,17 +1511,15 @@
                 const requestContext = beginTrackedMarketRequest();
                 try {
                     // Poll for trades newer than our last timestamp
-                    const data = await HM_API.live.tradesDeltas({ market: currentMarket, since: latestTradeTimestamp }, { signal: requestContext.signal });
+                    const data = await HM_API.live.tradesDeltasNormalized({ market: currentMarket, since: latestTradeTimestamp }, { signal: requestContext.signal });
                     if (isStaleMarketRequest(requestContext)) return;
                     if (data.success && data.trades && data.trades.length > 0) {
-                        // Transform and prepend new trades
-                        const newTrades = data.trades.map(t => ({
-                            timestamp: Math.floor(t.t / 1000),
-                            timestampMs: t.t,
-                            price: t.p,
-                            amount: t.a,
-                            side: t.s
-                        })).reverse();
+                        const chronologicalTrades = data.trades
+                            .slice()
+                            .sort((a, b) => a.timestampMs - b.timestampMs);
+
+                        // Keep trade panel newest-first while processing candles chronologically.
+                        const newTrades = chronologicalTrades.slice().reverse();
 
                         // Update display with new trades
                         appendNewTrades(newTrades);
@@ -1532,16 +1529,19 @@
                             latestTradeTimestamp = data.latestTimestamp;
                         }
 
-                        // Update forming candle with latest trade
-                        const latest = newTrades[0];
-                        if (latest) {
+                        // Update forming candle using every newly received trade in order.
+                        for (const trade of chronologicalTrades) {
                             updateFormingCandle({
-                                price: latest.price,
-                                timestamp: latest.timestamp,
-                                amount: latest.amount
+                                price: trade.price,
+                                timestamp: trade.timestampMs,
+                                amount: trade.amount
                             });
-                            // Update header price too
-                            updateTradingHeader(latest.price);
+                        }
+
+                        // Update header with most recent trade price.
+                        const latestTrade = chronologicalTrades[chronologicalTrades.length - 1];
+                        if (latestTrade) {
+                            updateTradingHeader(latestTrade.price);
                         }
                     }
                 } catch (err) {

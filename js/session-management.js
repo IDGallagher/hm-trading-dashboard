@@ -1013,6 +1013,7 @@
             }
             currentInlineSessionId = null;
             currentSessionTradeData = null; // Clear stored trade data
+            teardownInlineEquityChart();
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
@@ -1211,6 +1212,19 @@
 
         // Load equity curve for inline detail
         let inlineEquityChart = null;
+        let inlineEquityResizeHandler = null;
+
+        function teardownInlineEquityChart() {
+            if (inlineEquityResizeHandler) {
+                window.removeEventListener('resize', inlineEquityResizeHandler);
+                inlineEquityResizeHandler = null;
+            }
+            if (inlineEquityChart) {
+                inlineEquityChart.remove();
+                inlineEquityChart = null;
+            }
+        }
+
         async function loadInlineEquity(sessionId) {
             try {
                 // Use new helper (tries DB first, falls back to file)
@@ -1226,11 +1240,8 @@
                         const chartWidth = container.offsetWidth || container.clientWidth || container.parentElement?.offsetWidth || 400;
                         const chartHeight = 180;
 
-                        // Destroy previous chart if exists
-                        if (inlineEquityChart) {
-                            inlineEquityChart.remove();
-                            inlineEquityChart = null;
-                        }
+                        // Destroy previous chart/listener before rebuilding.
+                        teardownInlineEquityChart();
 
                         inlineEquityChart = LightweightCharts.createChart(container, {
                             width: chartWidth,
@@ -1260,24 +1271,26 @@
                             inlineEquityChart.timeScale().fitContent();
                             // Apply adaptive time formatting for zoom
                             setupAdaptiveTimeFormat(inlineEquityChart);
-                            console.log(`[InlineEquity] Loaded ${chartData.length} points, width: ${chartWidth}`);
+                            if (window.debugLog) window.debugLog(`[InlineEquity] Loaded ${chartData.length} points, width: ${chartWidth}`);
                         } else {
                             container.innerHTML = '<div class="inline-empty">No valid equity data</div>';
                         }
 
                         // Handle resize
-                        const resizeHandler = () => {
+                        inlineEquityResizeHandler = () => {
                             if (inlineEquityChart && container.offsetWidth > 0) {
                                 inlineEquityChart.applyOptions({ width: container.offsetWidth });
                             }
                         };
-                        window.addEventListener('resize', resizeHandler);
+                        window.addEventListener('resize', inlineEquityResizeHandler);
                     } else {
+                        teardownInlineEquityChart();
                         document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">No equity data</div>';
                     }
                 }
             } catch (err) {
                 console.error('[InlineEquity] Error:', err);
+                teardownInlineEquityChart();
                 document.getElementById('inline-equity-chart').innerHTML = '<div class="inline-empty">Failed to load equity</div>';
             }
         }
