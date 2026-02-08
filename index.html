@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>HM Trading Dashboard</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
-    <!-- Pako for zlib decompression of FlatBuffer archive files -->
-    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js" crossorigin="anonymous"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html {
@@ -2949,17 +2947,8 @@
                             <option value="solusd">SOL/USD</option>
                             <option value="xrpusd">XRP/USD</option>
                         </optgroup>
-                        <optgroup label="Polymarket (Slot A)">
-                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
-                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot B)">
-                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
-                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot C)">
-                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
-                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
+                        <optgroup label="Polymarket">
+                            <option value="poly15musd">BTC 15min (POLY15M/USD)</option>
                         </optgroup>
                     </select>
                     <div class="period-dropdown">
@@ -2980,7 +2969,6 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="color: #8b949e; font-size: 11px;" id="candle-count">-- candles</span>
                     <span class="instrument-badge" id="live-indicator">● LIVE</span>
-                    <span class="instrument-badge" id="polymarket-countdown" style="display: none; background: #ff9800; color: #000;">⏱ --:--</span>
                 </div>
             </div>
             <!-- OHLC Display -->
@@ -3609,15 +3597,15 @@
             </div>
         </div>
 
-        <!-- Live Trade Feed (WebSocket-powered) -->
+        <!-- Live Trade Feed (Poll-based) -->
         <div id="live-trade-feed" class="live-trade-feed">
             <div class="live-trade-feed-header">
                 <span class="live-trade-feed-title">
                     <span>📡</span> Live Trade Feed
                 </span>
-                <div class="ws-status">
-                    <div id="ws-dot" class="ws-dot"></div>
-                    <span id="ws-status-text">Disconnected</span>
+                <div class="poll-status">
+                    <div id="poll-dot" class="ws-dot"></div>
+                    <span id="poll-status-text">Ready</span>
                 </div>
             </div>
             <div id="live-trade-list" class="live-trade-list">
@@ -3727,17 +3715,8 @@
                             <option value="xrpusd">XRP/USD (XRPUSD)</option>
                             <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
                         </optgroup>
-                        <optgroup label="Polymarket (Slot A)">
-                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
-                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot B)">
-                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
-                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot C)">
-                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
-                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
+                        <optgroup label="Polymarket">
+                            <option value="poly15musd">BTC 15min (POLY15M/USD)</option>
                         </optgroup>
                     </select>
                 </div>
@@ -4378,374 +4357,9 @@
             });
         }
 
-        // Live Test Control State
-        // Use same origin - dashboard is served from the Control API server
-        const CONTROL_API_URL = '';  // Empty = relative URLs (same origin)
-        const CONTROL_WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/trades/stream`;
+        // Live Test Control State - use same origin as page
+        const CONTROL_API_URL = window.location.origin;
         const CONTROL_API_KEY = 'hm-trading-dev-key-2025';
-
-        // ==========================================
-        // ORDERBOOK MANAGER - FlatBuffer decoder + state management
-        // Frontend maintains orderbook state from raw actions
-        // ==========================================
-        const OrderbookManager = (function() {
-            // Encoding constants (matching Swift/C++)
-            const PRECISION = 0.00000001; // 1e-8
-
-            // Action types (magnitude only)
-            const Action = {
-                INSERT: 1,
-                UPDATE: 2,
-                DELETE: 3,
-                REPLACE_START: 4,
-                REPLACE_END: 5,
-                DIFF_START: 6,
-                DIFF_END: 7
-            };
-
-            // State per market
-            const state = {};
-
-            function getMarketState(market) {
-                if (!state[market]) {
-                    state[market] = {
-                        bids: new Map(), // order_id -> { price, amount }
-                        asks: new Map(),
-                        lastTimestamp: 0,
-                        inReplace: false
-                    };
-                }
-                return state[market];
-            }
-
-            // Decode price from order_id
-            function decodePrice(orderId) {
-                return Number(orderId) * PRECISION;
-            }
-
-            // Decode signed action
-            function decodeAction(signedAction) {
-                const action = Math.abs(signedAction);
-                const isBid = signedAction > 0;
-                return { action, isBid };
-            }
-
-            // Parse FlatBuffer book data (decompressed buffer)
-            // Format: 4-byte root offset, vtable, vector of 32-byte BookUpdate structs
-            function parseFlatBuffer(buffer) {
-                const updates = [];
-                const view = new DataView(buffer.buffer || buffer);
-
-                if (buffer.length < 4) return updates;
-
-                // Read root offset
-                const rootOffset = view.getUint32(0, true);
-                const root = rootOffset;
-
-                // Read vtable offset (signed)
-                const vtableOffset = view.getInt32(root, true);
-                const vtable = root - vtableOffset;
-
-                // Read vtable size
-                const vtableSize = view.getUint16(vtable, true);
-
-                if (vtableSize < 6) return updates;
-
-                // First field offset (updates vector)
-                const updatesOffset = view.getUint16(vtable + 4, true);
-                if (updatesOffset === 0) return updates;
-
-                // Navigate to vector
-                const vectorField = root + updatesOffset;
-                const vectorOffset2 = view.getInt32(vectorField, true);
-                const vectorPtr = vectorField + vectorOffset2;
-
-                // Vector length
-                const vectorLen = view.getUint32(vectorPtr, true);
-
-                // Each BookUpdate is 32 bytes (8-byte aligned)
-                const BOOK_UPDATE_SIZE = 32;
-                let pos = vectorPtr + 4;
-
-                for (let i = 0; i < vectorLen; i++) {
-                    // timestamp: uint64 at offset 0
-                    const timestampLo = view.getUint32(pos, true);
-                    const timestampHi = view.getUint32(pos + 4, true);
-                    const timestamp = timestampLo + (timestampHi * 0x100000000);
-
-                    // action: int8 at offset 8 (signed)
-                    const action = view.getInt8(pos + 8);
-
-                    // order_id: uint64 at offset 16
-                    const orderIdLo = view.getUint32(pos + 16, true);
-                    const orderIdHi = view.getUint32(pos + 20, true);
-                    const orderId = BigInt(orderIdLo) + (BigInt(orderIdHi) << 32n);
-
-                    // amount: double at offset 24
-                    const amount = view.getFloat64(pos + 24, true);
-
-                    updates.push({
-                        timestamp,
-                        action,
-                        orderId: orderId.toString(),
-                        amount
-                    });
-
-                    pos += BOOK_UPDATE_SIZE;
-                }
-
-                return updates;
-            }
-
-            // Apply a single delta to market state
-            function applyDelta(market, delta) {
-                const s = getMarketState(market);
-                const { action: actionType, isBid } = decodeAction(delta.action || delta.a);
-                const orderId = delta.orderId || delta.o;
-                const price = decodePrice(orderId);
-                const amount = delta.amount || delta.m || 0;
-                const book = isBid ? s.bids : s.asks;
-
-                switch (actionType) {
-                    case Action.REPLACE_START:
-                        s.inReplace = true;
-                        s.bids.clear();
-                        s.asks.clear();
-                        break;
-
-                    case Action.REPLACE_END:
-                        s.inReplace = false;
-                        break;
-
-                    case Action.INSERT:
-                    case Action.UPDATE:
-                        if (amount > 0) {
-                            book.set(orderId, { price, amount });
-                            // CRITICAL: Delete from opposite side if same price level exists there
-                            // This handles the case where a bid becomes an ask or vice versa
-                            const oppositeBook = isBid ? s.asks : s.bids;
-                            if (oppositeBook.has(orderId)) {
-                                oppositeBook.delete(orderId);
-                            }
-                        } else {
-                            book.delete(orderId);
-                        }
-                        break;
-
-                    case Action.DELETE:
-                        book.delete(orderId);
-                        break;
-                }
-
-                // Track latest timestamp
-                const ts = delta.timestamp || delta.t;
-                if (ts > s.lastTimestamp) {
-                    s.lastTimestamp = ts;
-                }
-            }
-
-            // Apply multiple deltas
-            function applyDeltas(market, deltas) {
-                for (const delta of deltas) {
-                    applyDelta(market, delta);
-                }
-            }
-
-            // Get current orderbook (sorted by price)
-            function getOrderbook(market, maxDepth = 25) {
-                const s = getMarketState(market);
-
-                // Convert maps to arrays and sort
-                const bids = Array.from(s.bids.values())
-                    .sort((a, b) => b.price - a.price) // Highest first
-                    .slice(0, maxDepth);
-
-                const asks = Array.from(s.asks.values())
-                    .sort((a, b) => a.price - b.price) // Lowest first
-                    .slice(0, maxDepth);
-
-                return {
-                    bids,
-                    asks,
-                    lastTimestamp: s.lastTimestamp
-                };
-            }
-
-            // Fetch and decode archive file
-            async function fetchArchiveFile(market, timestamp = 'latest') {
-                try {
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/archive/book/file?market=${market}&timestamp=${timestamp}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-
-                    if (!response.ok) {
-                        console.warn(`[Orderbook] Archive file not found for ${market}@${timestamp}`);
-                        return [];
-                    }
-
-                    // Get binary data
-                    const compressedBuffer = await response.arrayBuffer();
-                    const compressed = new Uint8Array(compressedBuffer);
-
-                    // Decompress with pako
-                    let decompressed;
-                    try {
-                        decompressed = pako.inflate(compressed);
-                    } catch (e) {
-                        console.error('[Orderbook] Decompression failed:', e);
-                        return [];
-                    }
-
-                    // Parse FlatBuffer
-                    return parseFlatBuffer(decompressed);
-                } catch (err) {
-                    console.error('[Orderbook] Error fetching archive:', err);
-                    return [];
-                }
-            }
-
-            // Fetch deltas from API using binary format
-            // Binary format: 21 bytes per delta (Float64 ts, Int8 action, Float64 order_id, Int32 amount)
-            async function fetchDeltas(market, since, signal = null) {
-                try {
-                    const fetchOptions = { headers: { 'x-api-key': CONTROL_API_KEY } };
-                    if (signal) fetchOptions.signal = signal;
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/orderbook/deltas/binary?market=${market}&since=${since}`,
-                        fetchOptions
-                    );
-
-                    if (!response.ok) {
-                        console.warn(`[Orderbook] Deltas fetch failed for ${market}`);
-                        return { deltas: [], latestTimestamp: since };
-                    }
-
-                    // Get metadata from headers
-                    const deltaCount = parseInt(response.headers.get('X-Delta-Count') || '0');
-                    const latestTimestamp = parseInt(response.headers.get('X-Latest-Timestamp') || since);
-
-                    // Parse binary data
-                    const buffer = await response.arrayBuffer();
-                    const view = new DataView(buffer);
-                    const BYTES_PER_DELTA = 21;
-                    const deltas = [];
-
-                    for (let i = 0; i < deltaCount; i++) {
-                        const offset = i * BYTES_PER_DELTA;
-                        deltas.push({
-                            t: view.getFloat64(offset, true),         // timestamp (little-endian)
-                            a: view.getInt8(offset + 8),              // signed action
-                            o: view.getFloat64(offset + 9, true).toString(), // order_id as string
-                            m: view.getInt32(offset + 17, true)       // amount
-                        });
-                    }
-
-                    return { deltas, latestTimestamp };
-                } catch (err) {
-                    console.error('[Orderbook] Error fetching deltas:', err);
-                    return { deltas: [], latestTimestamp: since };
-                }
-            }
-
-            // Get archive info
-            async function getArchiveInfo(market) {
-                try {
-                    const response = await fetch(
-                        `${CONTROL_API_URL}/api/archive/book/info?market=${market}`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } }
-                    );
-
-                    if (!response.ok) return { available: false };
-
-                    const data = await response.json();
-                    return data.book || { available: false };
-                } catch (err) {
-                    console.error('[Orderbook] Error getting archive info:', err);
-                    return { available: false };
-                }
-            }
-
-            // Initialize orderbook for a market
-            // CRITICAL FIX: Must fetch ALL deltas from DB to ensure we get REPLACE_START/REPLACE_END
-            // Archive files don't contain REPLACE_START actions, so we can't rely on them for orderbook state
-            async function initialize(market) {
-                console.log(`[Orderbook] Initializing ${market}...`);
-
-                // Clear existing state
-                state[market] = null;
-                getMarketState(market);
-
-                // Fetch ALL available deltas from DB to ensure we get REPLACE_START/REPLACE_END
-                // The REPLACE_START action clears the orderbook and applies a fresh snapshot
-                // Without it, we'd be applying incremental deltas on top of corrupted state
-                // Binary endpoint returns ALL data with no limit
-                const fetchStartTime = 0; // Fetch from beginning
-                console.log(`[Orderbook] Fetching ALL deltas from DB for ${market}...`);
-                const { deltas, latestTimestamp } = await fetchDeltas(market, fetchStartTime);
-                console.log(`[Orderbook] Loaded ${deltas.length} deltas from DB`);
-
-                // Find the most recent REPLACE_START to ensure we have a clean snapshot
-                let lastReplaceStartIdx = -1;
-                for (let i = deltas.length - 1; i >= 0; i--) {
-                    const actionType = Math.abs(deltas[i].a);
-                    if (actionType === Action.REPLACE_START) {
-                        lastReplaceStartIdx = i;
-                        console.log(`[Orderbook] Found REPLACE_START at index ${i}`);
-                        break;
-                    }
-                }
-
-                // If we found a REPLACE_START, only apply deltas from that point forward
-                // This ensures we start with a clean snapshot, not corrupted incremental state
-                let deltasToApply = deltas;
-                if (lastReplaceStartIdx >= 0) {
-                    deltasToApply = deltas.slice(lastReplaceStartIdx);
-                    console.log(`[Orderbook] Applying ${deltasToApply.length} deltas from REPLACE_START`);
-                } else {
-                    console.warn(`[Orderbook] WARNING: No REPLACE_START found! Orderbook may be incorrect.`);
-                }
-
-                // Apply the deltas (starting from REPLACE_START if found)
-                applyDeltas(market, deltasToApply);
-
-                const ob = getOrderbook(market);
-                console.log(`[Orderbook] Initialized: ${ob.bids.length} bids, ${ob.asks.length} asks`);
-
-                // Sanity check: log if orderbook appears crossed
-                if (ob.bids.length > 0 && ob.asks.length > 0) {
-                    const bestBid = ob.bids[0].price;
-                    const bestAsk = ob.asks[0].price;
-                    const spread = bestAsk - bestBid;
-                    if (spread < 0) {
-                        console.error(`[Orderbook] ERROR: Crossed orderbook! bestBid=${bestBid}, bestAsk=${bestAsk}, spread=${spread}`);
-                    } else {
-                        console.log(`[Orderbook] Spread OK: ${spread.toFixed(2)}`);
-                    }
-                }
-
-                return ob;
-            }
-
-            // Clear state for a market
-            function clear(market) {
-                state[market] = null;
-            }
-
-            return {
-                initialize,
-                applyDelta,
-                applyDeltas,
-                getOrderbook,
-                fetchDeltas,
-                fetchArchiveFile,
-                getArchiveInfo,
-                clear,
-                decodePrice,
-                decodeAction,
-                Action
-            };
-        })();
 
         // ==========================================
         // SESSION DATA API HELPERS (Phase 3 Migration)
@@ -4914,7 +4528,6 @@
             history: []
         };
         let strategiesData = [];
-        // NOTE: Polling removed - WebSocket handles real-time updates
 
         // Fetch strategies from API
         async function fetchStrategies() {
@@ -4971,7 +4584,7 @@
                 const data = await response.json();
                 const sessions = data.sessions || [];
 
-                // Build a map of existing session trade_count and total_pnl (from WebSocket updates)
+                // Build a map of existing session trade_count and total_pnl
                 const existingStats = {};
                 ['running', 'scrapers', 'history'].forEach(category => {
                     (sessionsData[category] || []).forEach(s => {
@@ -4984,7 +4597,7 @@
                     });
                 });
 
-                // Merge existing stats into new sessions (preserve WebSocket updates if API doesn't provide)
+                // Merge existing stats into new sessions (preserve if API doesn't provide)
                 sessions.forEach(s => {
                     const existing = existingStats[s.id];
                     if (existing) {
@@ -6033,7 +5646,6 @@
         let currentViewedSessionId = null;
         let currentInlineSessionId = null;
         let previousPanelId = null;
-        // NOTE: logsPollingInterval removed - WebSocket handles real-time updates
         let currentSessionTradeData = null; // Store trade data for re-rendering on period change
         let lastLogTimestamp = null; // Track last log timestamp for incremental updates
 
@@ -6121,8 +5733,6 @@
                 loadInlineEquity(sessionId)
             ]);
 
-            // NOTE: Logs polling removed - initial load only, WebSocket for trade updates
-
             // Switch chart to session's market if different
             const currentMarketVal = document.getElementById('market-selector').value.toLowerCase();
             const sessionMarket = session.market.toLowerCase();
@@ -6167,8 +5777,6 @@
             }
             currentInlineSessionId = null;
             currentSessionTradeData = null; // Clear stored trade data
-
-            // NOTE: Logs polling removed - WebSocket handles real-time updates
 
             // Clear chart markers
             if (liveMarketCandleSeries) {
@@ -6617,7 +6225,7 @@
         // ============= SESSION DETAIL MODAL =============
         let currentDetailSessionId = null;
         let detailEquityChart = null;
-        let logStreamWs = null;
+        let logStreamInterval = null;
         let tradesCurrentPage = 1;
         const TRADES_PER_PAGE = 50;
 
@@ -6641,11 +6249,12 @@
             document.getElementById('session-detail-modal').classList.remove('active');
             currentDetailSessionId = null;
 
-            // Stop log streaming if active
-            if (logStreamWs) {
-                logStreamWs.close();
-                logStreamWs = null;
+            // Stop log polling if active
+            if (logStreamInterval) {
+                clearInterval(logStreamInterval);
+                logStreamInterval = null;
             }
+            lastLogTimestamp = null;
 
             // Destroy equity chart
             if (detailEquityChart) {
@@ -6924,68 +6533,59 @@
             }
         }
 
-        // Toggle live log streaming
+        // Toggle live log polling
         function toggleLogStream() {
             const btn = document.getElementById('btn-logs-stream');
 
-            if (logStreamWs) {
-                // Unsubscribe and close
-                if (logStreamWs.readyState === WebSocket.OPEN) {
-                    logStreamWs.send(JSON.stringify({
-                        type: 'unsubscribe',
-                        channel: 'logs',
-                        session_id: currentDetailSessionId
-                    }));
-                }
-                logStreamWs.close();
-                logStreamWs = null;
+            if (logStreamInterval) {
+                // Stop polling
+                clearInterval(logStreamInterval);
+                logStreamInterval = null;
+                lastLogTimestamp = null;
                 btn.textContent = '▶ Start Stream';
                 btn.classList.remove('streaming');
             } else {
-                // Connect to main WebSocket and subscribe to logs
-                logStreamWs = new WebSocket(CONTROL_WS_URL);
+                // Start polling for new logs every second
+                btn.textContent = '⏹ Stop Stream';
+                btn.classList.add('streaming');
 
-                logStreamWs.onopen = () => {
-                    btn.textContent = '⏹ Stop Stream';
-                    btn.classList.add('streaming');
-                    // Subscribe to logs for this session
-                    logStreamWs.send(JSON.stringify({
-                        type: 'subscribe',
-                        channel: 'logs',
-                        session_id: currentDetailSessionId
-                    }));
-                };
+                // Set initial timestamp to now to only get new logs
+                lastLogTimestamp = new Date().toISOString();
 
-                logStreamWs.onmessage = (event) => {
+                logStreamInterval = setInterval(async () => {
+                    if (!currentDetailSessionId) return;
+
                     try {
-                        const msg = JSON.parse(event.data);
-                        // Only process log messages
-                        if (msg.type === 'log' && msg.session_id === currentDetailSessionId) {
+                        const url = `${CONTROL_API_URL}/sessions/${currentDetailSessionId}/logs?since=${encodeURIComponent(lastLogTimestamp)}`;
+                        const response = await fetch(url, {
+                            headers: { 'x-api-key': CONTROL_API_KEY }
+                        });
+
+                        if (!response.ok) return;
+
+                        const data = await response.json();
+                        const logs = data.logs || [];
+
+                        if (logs.length > 0) {
                             const container = document.getElementById('detail-logs-container');
-                            const levelClass = `log-${(msg.level || 'info').toLowerCase()}`;
-                            const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-                            container.innerHTML += `<div class="log-line ${levelClass}">[${timestamp}] [${msg.level || 'INFO'}] ${msg.message}</div>`;
+
+                            for (const log of logs) {
+                                const levelClass = `log-${(log.level || 'info').toLowerCase()}`;
+                                const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                                container.innerHTML += `<div class="log-line ${levelClass}">[${timestamp}] [${log.level || 'INFO'}] ${log.message}</div>`;
+                            }
+
+                            // Update timestamp for next poll
+                            lastLogTimestamp = logs[logs.length - 1].timestamp || new Date().toISOString();
 
                             if (document.getElementById('logs-autoscroll-check').checked) {
                                 container.scrollTop = container.scrollHeight;
                             }
                         }
                     } catch (e) {
-                        // Ignore non-JSON or other messages
+                        // Ignore errors during polling
                     }
-                };
-
-                logStreamWs.onclose = () => {
-                    btn.textContent = '▶ Start Stream';
-                    btn.classList.remove('streaming');
-                    logStreamWs = null;
-                };
-
-                logStreamWs.onerror = (err) => {
-                    console.error('[LogStream] WebSocket error:', err);
-                    btn.textContent = '▶ Start Stream';
-                    btn.classList.remove('streaming');
-                };
+                }, 1000);
             }
         }
 
@@ -7083,9 +6683,8 @@
             }
         }
 
-        // Initialize sessions (polling removed - WebSocket handles real-time updates)
+        // Initialize sessions
         function startSessionPolling() {
-            // Initial fetch only - no polling (WebSocket handles updates)
             fetchStrategies();
             fetchSessions().then(() => {
                 // Check URL params after sessions are loaded
@@ -7093,12 +6692,11 @@
                 // Initial scraper heartbeat fetch
                 pollScraperHeartbeats();
             });
-            // NOTE: Polling removed - WebSocket provides real-time session trade updates
         }
 
-        // Stop session polling (no-op since polling removed)
+        // Stop session polling
         function stopSessionPolling() {
-            // Polling removed - WebSocket handles real-time updates
+            // No-op - sessions are fetched on demand
         }
 
         // Initialize session management on page load
@@ -7119,7 +6717,6 @@
         // ==========================================
 
         let liveTestRunning = false;
-        // NOTE: liveTestPollingInterval removed - WebSocket handles real-time updates
         let liveTestStartTime = null;
         let currentStrategy = 'TestBot';
 
@@ -7159,10 +6756,6 @@
         let liveMarketCandleSeries = null;
         let currentMarket = 'xbtusd';
         let currentMarketPeriod = '5m';
-        // NOTE: liveMarketRefreshInterval removed - WebSocket handles real-time updates
-
-        // AbortController for cancelling in-flight requests when market changes
-        let orderbookAbortController = null;
 
         // Live forming candle state
         let formingCandle = null;  // { time, open, high, low, close, volume }
@@ -7293,26 +6886,9 @@
             'solusd': 'SOL/USD',
             'xrpusd': 'XRP/USD',
             'dogeusd': 'DOGE/USD',
-            'polymarket:btc-15m-a-up': 'BTC 15m A-UP (Polymarket)',
-            'polymarket:btc-15m-a-down': 'BTC 15m A-DOWN (Polymarket)',
-            'polymarket:btc-15m-b-up': 'BTC 15m B-UP (Polymarket)',
-            'polymarket:btc-15m-b-down': 'BTC 15m B-DOWN (Polymarket)',
-            'polymarket:btc-15m-c-up': 'BTC 15m C-UP (Polymarket)',
-            'polymarket:btc-15m-c-down': 'BTC 15m C-DOWN (Polymarket)'
+            'poly15musd': 'BTC 15min (Polymarket)'
         };
 
-        // Helper function to check if a market is a Polymarket synthetic
-        function isPolymarket(market) {
-            return market && market.startsWith('polymarket:');
-        }
-
-        // Get the Polymarket market ID from the full market string
-        function getPolymarketId(market) {
-            return market ? market.replace('polymarket:', '') : null;
-        }
-
-        // Polymarket countdown timer state
-        let polymarketCountdownInterval = null;
 
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
@@ -7760,8 +7336,7 @@
                 // Initialize live market chart
                 if (!liveMarketChart) initLiveMarketChart();
                 await loadLiveMarketData();
-                // Removed polling - using WebSocket for real-time updates only
-                connectLiveMarketWebSocket();
+                startLiveMarketPolling();
 
                 // Clear trade overlays from chart
                 clearTradeOverlays();
@@ -7784,8 +7359,7 @@
                 // Keep live market chart but add trade overlays
                 if (!liveMarketChart) initLiveMarketChart();
                 await loadLiveMarketData();
-                // Removed polling - using WebSocket for real-time updates only
-                connectLiveMarketWebSocket();
+                startLiveMarketPolling();
 
                 // Show equity curve container and trade overlay legend
                 if (equityCurveContainer) equityCurveContainer.style.display = 'block';
@@ -8274,8 +7848,12 @@
 
                 console.log(`[LazyLoad] Fetching older candles: ${new Date(startTime * 1000).toISOString()} to ${new Date(endTime * 1000).toISOString()}`);
 
-                const response = await fetch(
-                    `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`,
+                // Use Polymarket-specific endpoint for poly markets
+                const isPolymarket = currentMarket.startsWith('poly');
+                const url = isPolymarket
+                    ? `${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}`
+                    : `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`;
+                const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } }
                 );
 
@@ -8337,6 +7915,12 @@
 
         // Fetch archive info to know the available data range
         async function fetchArchiveInfo(market) {
+            // Skip archive info for Polymarket (no archive API)
+            if (market.startsWith('poly')) {
+                console.log('[Archive] Skipping archive info for Polymarket');
+                archiveMinTime = null;
+                return;
+            }
             try {
                 const response = await fetch(
                     `${CONTROL_API_URL}/api/archive/info?market=${market}`,
@@ -8359,8 +7943,7 @@
             const refreshBtn = document.getElementById('refresh-market-btn');
             if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳ Loading...'; }
             try {
-                // Orderbook is handled by polling, not initial load
-                await Promise.all([loadPriceData(), loadTradesData()]);
+                await Promise.all([loadPriceData(), loadOrderbookData(), loadTradesData()]);
             } catch (err) { console.error('Error loading market data:', err); }
             finally { if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh'; } }
         }
@@ -8375,14 +7958,12 @@
             priceDisplay.textContent = '...';
 
             try {
-                // Handle Polymarket markets differently
-                if (isPolymarket(currentMarket)) {
-                    await loadPolymarketPriceData();
-                    return;
-                }
-
-                // Use hybrid source to combine archive (historical) + MySQL (recent) data
-                const response = await fetch(`${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`,
+                // Use Polymarket-specific endpoint for poly markets
+                const isPolymarket = currentMarket.startsWith('poly');
+                const url = isPolymarket
+                    ? `${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&period=${currentMarketPeriod}&limit=500`
+                    : `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`;
+                const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch prices');
                 const data = await response.json();
@@ -8481,340 +8062,46 @@
             }
         }
 
-        // Load Polymarket price data (probability-based)
-        async function loadPolymarketPriceData() {
-            const chartTitle = document.getElementById('live-chart-title');
-            const priceDisplay = document.getElementById('current-market-price');
-
-            // Capture market at start of request to detect if it changes
-            const requestMarket = currentMarket;
-            const requestPeriod = currentMarketPeriod;
-            const polymarketId = getPolymarketId(requestMarket);
-
-            try {
-                // Pass period parameter to get aggregated OHLC candles
-                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=${polymarketId}&period=${requestPeriod}`,
-                    { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch Polymarket prices');
-                const data = await response.json();
-
-                // Check if market changed during fetch
-                if (requestMarket !== currentMarket) {
-                    console.log(`[Polymarket Prices] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
-                    return;
-                }
-
-                // Use candles from API (already aggregated by period) or fall back to prices
-                if (data.success && (data.candles?.length > 0 || data.prices?.length > 0)) {
-                    // Polymarket prices as dollar fractions (0.00-1.00) to 2 decimal places
-                    const candles = (data.candles || data.prices).map(c => ({
-                        time: c.time,
-                        open: c.open !== undefined ? c.open : c.probability,
-                        high: c.high !== undefined ? c.high : c.probability,
-                        low: c.low !== undefined ? c.low : c.probability,
-                        close: c.close !== undefined ? c.close : c.probability,
-                        volume: c.volume || 0
-                    }));
-
-                    lastCandleData = candles;
-                    earliestCandleTime = candles[0]?.time;
-                    safeSetData(liveMarketCandleSeries, candles, 'loadPolymarketPriceData');
-
-                    // Update volume series
-                    updateVolumeSeries(candles);
-
-                    // Update OHLC display with latest candle
-                    updateOHLCDisplay(null);
-
-                    // Configure chart for dollar fraction display (0.00-1.00)
-                    liveMarketChart.priceScale('right').applyOptions({
-                        autoScale: true,
-                        scaleMargins: { top: 0.05, bottom: 0.05 }
-                    });
-
-                    // Set visible range based on period (matching BitMEX behavior)
-                    const lastTime = candles[candles.length - 1].time;
-                    const hoursToShowByPeriod = {
-                        '1m': 2,      // 120 candles
-                        '5m': 4,      // 48 candles
-                        '15m': 6,     // 24 candles
-                        '1h': 12,     // 12 candles
-                        '4h': 48,     // 12 candles (2 days)
-                        '1d': 336,    // 14 candles (14 days)
-                        '1w': 1680    // 10 candles (70 days)
-                    };
-                    const hoursToShow = hoursToShowByPeriod[currentMarketPeriod] || 2;
-                    liveMarketChart.timeScale().setVisibleRange({
-                        from: lastTime - (hoursToShow * 3600),
-                        to: lastTime + 300
-                    });
-
-                    const lastPrice = candles[candles.length - 1];
-                    priceDisplay.textContent = `$${lastPrice.close.toFixed(2)}`;
-
-                    // Calculate change in dollar terms
-                    const firstPrice = candles[0];
-                    const change = (lastPrice.close - firstPrice.close).toFixed(2);
-                    const changeBadge = document.getElementById('price-change-badge');
-                    const changeValue = document.getElementById('price-change-value');
-                    if (changeValue) changeValue.textContent = `${change >= 0 ? '+' : ''}$${Math.abs(change).toFixed(2)}`;
-                    if (changeBadge) changeBadge.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
-
-                    // Update countdown timer
-                    if (data.closesAt) {
-                        startPolymarketCountdown(data.closesAt);
-                    }
-
-                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (${candles.length} candles · ${currentMarketPeriod})`;
-
-                    // Update candle count
-                    const candleCountEl = document.getElementById('candle-count');
-                    if (candleCountEl) candleCountEl.textContent = `${candles.length} candles`;
-                } else {
-                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (No data)`;
-                    priceDisplay.textContent = '--';
-                }
-            } catch (err) {
-                console.error('Error loading Polymarket price data:', err);
-                chartTitle.textContent = `${MARKET_NAMES[currentMarket]} (Error)`;
-                priceDisplay.textContent = '--';
-            }
-        }
-
-        // Start countdown timer for Polymarket market closing
-        function startPolymarketCountdown(closesAt) {
-            const countdownEl = document.getElementById('polymarket-countdown');
-            if (!countdownEl) return;
-
-            // Clear any existing countdown
-            if (polymarketCountdownInterval) {
-                clearInterval(polymarketCountdownInterval);
-            }
-
-            countdownEl.style.display = 'inline';
-            const closeTime = new Date(closesAt).getTime();
-
-            function updateCountdown() {
-                const now = Date.now();
-                const remaining = closeTime - now;
-
-                if (remaining <= 0) {
-                    countdownEl.textContent = '⏱ CLOSED';
-                    countdownEl.style.background = '#f44336';
-                    clearInterval(polymarketCountdownInterval);
-                    return;
-                }
-
-                const minutes = Math.floor(remaining / 60000);
-                const seconds = Math.floor((remaining % 60000) / 1000);
-                countdownEl.textContent = `⏱ ${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-                // Change color based on urgency
-                if (remaining < 60000) {
-                    countdownEl.style.background = '#f44336'; // Red - less than 1 min
-                } else if (remaining < 300000) {
-                    countdownEl.style.background = '#ff9800'; // Orange - less than 5 min
-                } else {
-                    countdownEl.style.background = '#4caf50'; // Green
-                }
-            }
-
-            updateCountdown();
-            polymarketCountdownInterval = setInterval(updateCountdown, 1000);
-        }
-
-        // Stop Polymarket countdown
-        function stopPolymarketCountdown() {
-            const countdownEl = document.getElementById('polymarket-countdown');
-            if (countdownEl) countdownEl.style.display = 'none';
-            if (polymarketCountdownInterval) {
-                clearInterval(polymarketCountdownInterval);
-                polymarketCountdownInterval = null;
-            }
-        }
-
-        // Load orderbook data using OrderbookManager (stateless API)
-        // Orderbook state is maintained in the frontend
-        let orderbookInitialized = {};
-
+        // Load orderbook data
         async function loadOrderbookData() {
             const spreadEl = document.getElementById('orderbook-spread');
             spreadEl.textContent = 'Loading...';
 
-            // Capture market at start of request to detect if it changes
-            const requestMarket = currentMarket;
-
-            // Handle Polymarket orderbook separately
-            if (isPolymarket(requestMarket)) {
-                await loadPolymarketOrderbook();
-                return;
-            }
-
             try {
-                let ob;
-
-                // Initialize orderbook from archive + deltas on first load
-                if (!orderbookInitialized[requestMarket]) {
-                    console.log(`[Orderbook] First load for ${requestMarket}, initializing from archive...`);
-                    ob = await OrderbookManager.initialize(requestMarket);
-
-                    // Check if market changed during initialization
-                    if (requestMarket !== currentMarket) {
-                        console.log(`[Orderbook] Market changed during init (${requestMarket} -> ${currentMarket}), discarding`);
-                        return;
-                    }
-
-                    orderbookInitialized[requestMarket] = true;
-                } else {
-                    // Subsequent loads: fetch new deltas and update state
-                    const state = OrderbookManager.getOrderbook(requestMarket, 15);
-                    const { deltas } = await OrderbookManager.fetchDeltas(requestMarket, state.lastTimestamp);
-
-                    // Check if market changed during fetch
-                    if (requestMarket !== currentMarket) {
-                        console.log(`[Orderbook] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
-                        return;
-                    }
-
-                    if (deltas.length > 0) {
-                        OrderbookManager.applyDeltas(requestMarket, deltas);
-                    }
-
-                    ob = OrderbookManager.getOrderbook(requestMarket, 15);
-                }
-
-                // Final check before rendering
-                if (requestMarket !== currentMarket) {
-                    console.log(`[Orderbook] Market changed before render (${requestMarket} -> ${currentMarket}), discarding`);
-                    return;
-                }
-
-                // Render the orderbook
-                if (ob.bids.length > 0 || ob.asks.length > 0) {
-                    renderOrderbookPro(ob.bids, ob.asks);
-
-                    if (ob.bids.length > 0 && ob.asks.length > 0) {
-                        const spread = ob.asks[0].price - ob.bids[0].price;
-                        const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
-                        if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, requestMarket)} (${spreadPct}%)`;
-                    } else {
-                        if (spreadEl) spreadEl.textContent = 'No data';
-                    }
-                } else {
-                    if (spreadEl) spreadEl.textContent = 'No data';
-                }
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    console.log('[Orderbook] Request aborted (market changed)');
-                } else {
-                    console.error('Error loading orderbook:', err);
-                    spreadEl.textContent = 'Error loading';
-                }
-            }
-        }
-
-        // Load Polymarket orderbook (probability-based prices)
-        async function loadPolymarketOrderbook() {
-            const spreadEl = document.getElementById('orderbook-spread');
-
-            // Capture market at start of request to detect if it changes
-            const requestMarket = currentMarket;
-            const polymarketId = getPolymarketId(requestMarket);
-
-            try {
-                const response = await fetch(`${CONTROL_API_URL}/api/polymarket/orderbook?market=${polymarketId}`,
+                // Use Polymarket-specific endpoint for poly markets
+                const isPolymarket = currentMarket.startsWith('poly');
+                const url = isPolymarket
+                    ? `${CONTROL_API_URL}/api/polymarket/orderbook?market=btc-15m-closing&depth=12`
+                    : `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`;
+                const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
-                if (!response.ok) throw new Error('Failed to fetch Polymarket orderbook');
+                if (!response.ok) throw new Error('Failed to fetch orderbook');
                 const data = await response.json();
-
-                // Check if market changed during fetch
-                if (requestMarket !== currentMarket) {
-                    console.log(`[Polymarket Orderbook] Market changed during fetch (${requestMarket} -> ${currentMarket}), discarding`);
-                    return;
-                }
-
-                if (data.success && (data.bids?.length > 0 || data.asks?.length > 0)) {
-                    // Polymarket prices as dollar fractions (0.00-1.00)
-                    const bids = (data.bids || []).map(b => ({
-                        price: b.price,
-                        amount: b.size || b.amount
-                    }));
-                    const asks = (data.asks || []).map(a => ({
-                        price: a.price,
-                        amount: a.size || a.amount
-                    }));
-
-                    // Use custom Polymarket orderbook renderer
-                    renderPolymarketOrderbook(bids, asks);
-
-                    if (bids.length > 0 && asks.length > 0) {
+                if (data.success) {
+                    // Extract bids/asks - handle different structures
+                    let bids, asks;
+                    if (isPolymarket && data.orderbook) {
+                        // Polymarket has orderbook.up and orderbook.down - show "up" outcome
+                        bids = data.orderbook.up?.bids || [];
+                        asks = data.orderbook.up?.asks || [];
+                    } else {
+                        bids = data.bids || [];
+                        asks = data.asks || [];
+                    }
+                    // Use professional orderbook rendering
+                    renderOrderbookPro(bids, asks);
+                    if (bids?.length && asks?.length) {
                         const spread = asks[0].price - bids[0].price;
-                        if (spreadEl) spreadEl.textContent = `Spread: ${spread.toFixed(2)}`;
+                        const spreadPct = (spread / asks[0].price * 100).toFixed(3);
+                        if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
                     } else {
                         if (spreadEl) spreadEl.textContent = 'No data';
                     }
-                } else {
-                    if (spreadEl) spreadEl.textContent = 'No data';
-                    renderOrderbookPro([], []);
                 }
             } catch (err) {
-                console.error('Error loading Polymarket orderbook:', err);
-                if (spreadEl) spreadEl.textContent = 'Error loading';
+                console.error('Error loading orderbook:', err);
+                spreadEl.textContent = 'Error loading';
             }
-        }
-
-        // Render Polymarket orderbook with dollar fraction display
-        function renderPolymarketOrderbook(bids, asks) {
-            const panel = document.getElementById('orderbook-panel');
-            if (!panel) return;
-
-            // Sort bids high to low, asks low to high
-            const sortedBids = [...bids].sort((a, b) => b.price - a.price).slice(0, 15);
-            const sortedAsks = [...asks].sort((a, b) => a.price - b.price).slice(0, 15);
-
-            // Calculate max amounts for bar sizing
-            const maxBidAmount = Math.max(...sortedBids.map(b => b.amount), 1);
-            const maxAskAmount = Math.max(...sortedAsks.map(a => a.amount), 1);
-
-            // Render asks (reversed so lowest ask is at bottom) - prices as dollar fractions
-            const asksHtml = sortedAsks.slice().reverse().map(ask => {
-                const barWidth = (ask.amount / maxAskAmount * 100).toFixed(1);
-                const priceDisplay = ask.price.toFixed(2);
-                return `<div class="orderbook-row ask">
-                    <span class="bar ask-bar" style="width: ${barWidth}%"></span>
-                    <span class="ob-price">${priceDisplay}</span>
-                    <span class="ob-size">${formatMarketAmount(ask.amount)}</span>
-                    <span class="ob-total"></span>
-                </div>`;
-            }).join('');
-
-            // Spread row - as dollar fraction
-            const spreadValue = sortedAsks.length > 0 && sortedBids.length > 0
-                ? (sortedAsks[0].price - sortedBids[0].price).toFixed(2)
-                : '--';
-
-            // Render bids - prices as dollar fractions
-            const bidsHtml = sortedBids.map(bid => {
-                const barWidth = (bid.amount / maxBidAmount * 100).toFixed(1);
-                const priceDisplay = bid.price.toFixed(2);
-                return `<div class="orderbook-row bid">
-                    <span class="bar bid-bar" style="width: ${barWidth}%"></span>
-                    <span class="ob-price">${priceDisplay}</span>
-                    <span class="ob-size">${formatMarketAmount(bid.amount)}</span>
-                    <span class="ob-total"></span>
-                </div>`;
-            }).join('');
-
-            panel.innerHTML = `
-                <div class="orderbook-row header">
-                    <span class="ob-price">Price</span>
-                    <span class="ob-size">Size</span>
-                    <span class="ob-total"></span>
-                </div>
-                <div class="orderbook-asks">${asksHtml}</div>
-                <div class="orderbook-spread-row" id="orderbook-spread">Spread: ${spreadValue}</div>
-                <div class="orderbook-bids">${bidsHtml}</div>
-            `;
         }
 
         // Render orderbook (legacy + pro)
@@ -8839,19 +8126,65 @@
             }).join('');
         }
 
-        // Load trades data
+        // Trade polling state
+        let latestTradeTimestamp = 0;  // Track last received trade for polling
+        let tradePollingInterval = null;
+
+        // Load trades data from /api/trades/deltas endpoint
         async function loadTradesData() {
             const countEl = document.getElementById('trades-count');
             countEl.textContent = 'Loading...';
 
             try {
-                const response = await fetch(`${CONTROL_API_URL}/api/trades?market=${currentMarket}&limit=50`,
+                // Polymarket doesn't have the same trade feed - use prices endpoint
+                const isPolymarket = currentMarket.startsWith('poly');
+                if (isPolymarket) {
+                    // For Polymarket, show recent price movements as "trades"
+                    const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&limit=50`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } });
+                    if (!response.ok) throw new Error('Failed to fetch polymarket prices');
+                    const data = await response.json();
+                    if (data.success && data.candles) {
+                        const trades = data.candles.map(c => ({
+                            timestamp: c.time,
+                            timestampMs: c.time * 1000,
+                            price: c.close,
+                            amount: c.volume || 0,
+                            side: c.close > c.open ? 'buy' : 'sell'
+                        })).reverse();
+                        renderLiveMarketTrades(trades);
+                        countEl.textContent = `${trades.length} prices`;
+                    } else {
+                        countEl.textContent = 'No data';
+                    }
+                    return;
+                }
+
+                // BitMEX - load from trades/deltas endpoint
+                const response = await fetch(`${CONTROL_API_URL}/api/trades/deltas?market=${currentMarket}&limit=500`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch trades');
                 const data = await response.json();
                 if (data.success && data.trades) {
-                    renderLiveMarketTrades(data.trades);
-                    countEl.textContent = `${data.trades.length} trades`;
+                    // Transform trades to expected format and render
+                    const trades = data.trades.map(t => ({
+                        timestamp: Math.floor(t.t / 1000),  // Unix seconds
+                        timestampMs: t.t,
+                        price: t.p,
+                        amount: t.a,
+                        side: t.s
+                    })).reverse();  // Newest first for display
+
+                    renderLiveMarketTrades(trades);
+                    countEl.textContent = `${trades.length} trades`;
+
+                    // Store latest timestamp for polling
+                    if (data.latestTimestamp) {
+                        latestTradeTimestamp = data.latestTimestamp;
+                    }
+
+                    // Start trade polling (1 second interval)
+                    startTradePolling();
                 } else {
                     countEl.textContent = 'No trades';
                 }
@@ -8859,6 +8192,102 @@
                 console.error('Error loading trades:', err);
                 countEl.textContent = 'Error';
             }
+        }
+
+        // Start polling for new trades every second
+        function startTradePolling() {
+            if (tradePollingInterval) return; // Already polling
+
+            // Polymarket doesn't have real-time trade feed - skip trade polling
+            const isPolymarket = currentMarket.startsWith('poly');
+            if (isPolymarket) {
+                console.log('[Trade Poll] Skipping for Polymarket (no real-time trade feed)');
+                return;
+            }
+
+            tradePollingInterval = setInterval(async () => {
+                try {
+                    // Poll for trades newer than our last timestamp
+                    const response = await fetch(
+                        `${CONTROL_API_URL}/api/trades/deltas?market=${currentMarket}&since=${latestTradeTimestamp}`,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                    );
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    if (data.success && data.trades && data.trades.length > 0) {
+                        // Transform and prepend new trades
+                        const newTrades = data.trades.map(t => ({
+                            timestamp: Math.floor(t.t / 1000),
+                            timestampMs: t.t,
+                            price: t.p,
+                            amount: t.a,
+                            side: t.s
+                        })).reverse();
+
+                        // Update display with new trades
+                        appendNewTrades(newTrades);
+
+                        // Update timestamp for next poll
+                        if (data.latestTimestamp) {
+                            latestTradeTimestamp = data.latestTimestamp;
+                        }
+
+                        // Update forming candle with latest trade
+                        const latest = newTrades[0];
+                        if (latest) {
+                            updateFormingCandle({
+                                price: latest.price,
+                                timestamp: latest.timestamp,
+                                amount: latest.amount
+                            });
+                            // Update header price too
+                            updateTradingHeader(latest.price);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[Trade Poll] Error:', err.message);
+                }
+            }, 1000);  // Poll every 1 second
+        }
+
+        // Stop trade polling
+        function stopTradePolling() {
+            if (tradePollingInterval) {
+                clearInterval(tradePollingInterval);
+                tradePollingInterval = null;
+            }
+        }
+
+        // Append new trades to the existing trade display
+        function appendNewTrades(newTrades) {
+            // Get current trades from the UI and prepend new ones
+            // For now, just re-render with new trades on top
+            const tbody = document.getElementById('trades-tbody');
+            const countEl = document.getElementById('trades-count');
+
+            if (!tbody) return;
+
+            // Prepend new rows
+            const newRows = newTrades.map(trade => {
+                const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
+                const sideClass = trade.side === 'buy' ? 'side-buy' : 'side-sell';
+                return `<tr><td>${time}</td><td class="${sideClass}">${trade.side.toUpperCase()}</td><td>${formatMarketPrice(trade.price, currentMarket)}</td><td>${formatMarketAmount(trade.amount)}</td></tr>`;
+            }).join('');
+
+            tbody.innerHTML = newRows + tbody.innerHTML;
+
+            // Update professional trades panel
+            renderTradesPro(newTrades, true);  // true = prepend mode
+
+            // Trim to 50 rows max
+            while (tbody.children.length > 50) {
+                tbody.removeChild(tbody.lastChild);
+            }
+
+            // Update count
+            const currentCount = parseInt(countEl.textContent) || 0;
+            countEl.textContent = `${Math.min(currentCount + newTrades.length, 50)} trades`;
         }
 
         // Render live market trades (renamed to avoid collision with backtest renderTrades)
@@ -8879,8 +8308,6 @@
 
         // Format price based on market
         function formatMarketPrice(price, market) {
-            // Polymarket markets show dollar fractions to 2 decimal places
-            if (isPolymarket(market)) return price.toFixed(2);
             if (market === 'dogeusd' || market === 'xrpusd') return price.toFixed(4);
             else if (market === 'solusd') return price.toFixed(2);
             return price.toFixed(1);
@@ -8991,12 +8418,12 @@
         }
 
         // Render trades in professional format
-        function renderTradesPro(trades) {
+        function renderTradesPro(trades, prepend = false) {
             const container = document.getElementById('recent-trades-pro');
             const countEl = document.getElementById('trades-count');
             if (!container) return;
 
-            container.innerHTML = trades.slice(0, 30).map(trade => {
+            const newHtml = trades.slice(0, 30).map(trade => {
                 const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-US', { hour12: false });
                 const side = trade.side === 'buy' ? 'BUY' : 'SELL';
                 return `<div class="trade-row ${trade.side}">
@@ -9007,7 +8434,17 @@
                 </div>`;
             }).join('');
 
-            if (countEl) countEl.textContent = trades.length;
+            if (prepend) {
+                container.innerHTML = newHtml + container.innerHTML;
+                // Trim to 30 rows
+                while (container.children.length > 30) {
+                    container.removeChild(container.lastChild);
+                }
+            } else {
+                container.innerHTML = newHtml;
+            }
+
+            if (countEl && !prepend) countEl.textContent = trades.length;
         }
 
         // Initialize period dropdown
@@ -9091,67 +8528,24 @@
             });
 
             // Common handler for market change
-            async function handleMarketChange(newMarket, sourceSelector) {
+            function handleMarketChange(newMarket, sourceSelector) {
                 console.log('[Market] handleMarketChange called:', newMarket, 'from:', sourceSelector?.id);
-
-                // CRITICAL: Abort any in-flight orderbook requests to prevent stale data
-                if (orderbookAbortController) {
-                    console.log('[Market] Aborting in-flight orderbook request');
-                    orderbookAbortController.abort();
-                    orderbookAbortController = null;
-                }
-
                 currentMarket = newMarket;
                 formingCandle = null; // Reset forming candle on market change
                 earliestCandleTime = null; // Reset lazy loading state
                 archiveMinTime = null;
                 isLoadingOlderCandles = false;
-                orderbookInitialized[newMarket] = false; // Reset orderbook to re-initialize from archive
-                OrderbookManager.clear(newMarket); // Clear orderbook state
                 clearIndicators(); // Clear indicators before loading new data
 
-                // Stop Polymarket countdown if switching away from Polymarket
-                stopPolymarketCountdown();
-
-                // Immediately clear all UI elements to avoid showing old market's data
-                // Clear orderbook display
-                renderOrderbookPro([], []);
-                const spreadEl = document.getElementById('orderbook-spread');
-                const spreadHeader = document.getElementById('orderbook-spread-header');
-                if (spreadEl) spreadEl.textContent = 'Loading...';
-                if (spreadHeader) spreadHeader.textContent = 'Spread: --';
-
-                // Clear price displays
-                const priceDisplay = document.getElementById('current-market-price');
-                const chartTitle = document.getElementById('live-chart-title');
-                const changeValue = document.getElementById('price-change-value');
-                const changeBadge = document.getElementById('price-change-badge');
-                if (priceDisplay) priceDisplay.textContent = '...';
-                if (chartTitle) chartTitle.textContent = `${MARKET_NAMES[newMarket] || newMarket} Price (Loading...)`;
-                if (changeValue) changeValue.textContent = '...';
-                if (changeBadge) changeBadge.className = 'price-change';
-
-                // Clear trades display
-                renderTradesPro([]);
+                // Update UI based on market type
+                updateMarketUI(newMarket);
 
                 console.log('[Market] Calling loadLiveMarketData for:', currentMarket);
                 loadLiveMarketData();
 
-                // Only subscribe to WebSocket for non-Polymarket markets
-                if (!isPolymarket(currentMarket)) {
-                    console.log('[Market] Calling subscribeToMarket for:', currentMarket);
-                    subscribeToMarket(currentMarket);
-                } else {
-                    // For Polymarket, unsubscribe from any previous market to stop receiving trades
-                    console.log('[Market] Polymarket selected - unsubscribing from live trades');
-                    if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
-                        liveMarketWs.send(JSON.stringify({ type: 'unsubscribe', channel: 'market' }));
-                    }
-                }
-
-                // Restart orderbook polling for new market (polling handles initialization)
-                stopOrderbookPolling();
-                startOrderbookPolling();
+                // Start polling for the new market
+                console.log('[Market] Calling subscribeToMarket for:', currentMarket);
+                subscribeToMarket(currentMarket);
 
                 // Sync the other selector
                 if (sourceSelector !== marketSelector && marketSelector) {
@@ -9159,6 +8553,35 @@
                 }
                 if (sourceSelector !== marketSelectorSecondary && marketSelectorSecondary) {
                     marketSelectorSecondary.value = newMarket;
+                }
+            }
+
+            // Update UI elements based on market
+            function updateMarketUI(market) {
+                const headerInstrument = document.getElementById('header-instrument');
+                const instrumentType = document.querySelector('.instrument-type');
+
+                // Update header instrument name
+                if (headerInstrument) {
+                    const names = {
+                        'xbtusd': 'BTCUSD',
+                        'ethusd': 'ETHUSD',
+                        'solusd': 'SOLUSD',
+                        'xrpusd': 'XRPUSD',
+                        'dogeusd': 'DOGEUSD',
+                        'poly15musd': 'POLY15M/USD'
+                    };
+                    headerInstrument.textContent = names[market] || market.toUpperCase();
+                }
+
+                // Update instrument type based on market
+                if (instrumentType) {
+                    if (market === 'poly15musd') {
+                        instrumentType.textContent = 'Prediction';
+                    } else {
+                        instrumentType.textContent = 'Perpetual';
+                    }
+                    instrumentType.style.display = 'inline';
                 }
             }
 
@@ -9188,221 +8611,75 @@
         }
 
         // ==========================================
-        // LIVE MARKET WEBSOCKET (for price/trades only)
+        // LIVE MARKET POLLING
         // ==========================================
-        let liveMarketWs = null;
-        let liveMarketWsReconnectTimer = null;
 
-        function connectLiveMarketWebSocket() {
-            // Start orderbook polling only if not already running (truly independent of WebSocket)
-            if (!orderbookPollingInterval) {
-                startOrderbookPolling();
-            }
-
-            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) return;
-
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsHost = CONTROL_API_URL.replace(/^https?:/, wsProtocol);
-            const wsUrl = `${wsHost}/trades/stream`;
-
-            console.log('[LiveMarket WS] Connecting to:', wsUrl);
-            liveMarketWs = new WebSocket(wsUrl);
-
-            liveMarketWs.onopen = () => {
-                console.log('[LiveMarket WS] Connected');
-                subscribeToMarket(currentMarket);
-            };
-
-            liveMarketWs.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'market_update') {
-                        handleMarketUpdate(data);
-                    }
-                    // Orderbook updates now come from polling, not WebSocket
-                } catch (err) {
-                    console.error('[LiveMarket WS] Parse error:', err);
-                }
-            };
-
-            liveMarketWs.onclose = () => {
-                console.log('[LiveMarket WS] Disconnected, reconnecting in 5s...');
-                // Note: Don't stop orderbook polling - it runs independently of WebSocket
-                liveMarketWsReconnectTimer = setTimeout(connectLiveMarketWebSocket, 5000);
-            };
-
-            liveMarketWs.onerror = (err) => {
-                console.error('[LiveMarket WS] Error:', err);
-            };
-        }
-
-        function subscribeToMarket(market) {
-            if (liveMarketWs && liveMarketWs.readyState === WebSocket.OPEN) {
-                liveMarketWs.send(JSON.stringify({ type: 'subscribe', channel: 'market', market: market }));
-                console.log('[LiveMarket WS] Subscribed to:', market);
-            }
-        }
-
-        // ==========================================
-        // ORDERBOOK POLLING (1-second interval)
-        // ==========================================
         let orderbookPollingInterval = null;
-        let orderbookPollingInProgress = false;
+
+        // Start live market data polling
+        function startLiveMarketPolling() {
+            console.log('[LiveMarket] Starting polling for market data');
+            // Trade polling is handled by startTradePolling() in loadTradesData()
+            // Start orderbook polling here
+            startOrderbookPolling();
+        }
 
         function startOrderbookPolling() {
-            // Stop any existing polling first
-            stopOrderbookPolling();
+            if (orderbookPollingInterval) return;
 
-            console.log('[Orderbook] Starting 1-second polling for', currentMarket);
-
-            // Poll every 1 second
-            console.log('[Orderbook] Setting interval...');
             orderbookPollingInterval = setInterval(async () => {
-                // Skip if previous request is still in progress
-                if (orderbookPollingInProgress) {
-                    console.log('[Orderbook Poll] skipping - previous request still in progress');
-                    return;
-                }
-                console.log('[Orderbook Poll] tick');
-                orderbookPollingInProgress = true;
                 try {
-                    await pollOrderbookDeltas();
+                    // Use Polymarket-specific endpoint for poly markets
+                    const isPolymarket = currentMarket.startsWith('poly');
+                    const url = isPolymarket
+                        ? `${CONTROL_API_URL}/api/polymarket/orderbook?market=btc-15m-closing&depth=20`
+                        : `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=20`;
+                    const response = await fetch(url,
+                        { headers: { 'x-api-key': CONTROL_API_KEY } }
+                    );
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    if (data.success) {
+                        // Extract bids/asks - handle different structures
+                        let bids, asks;
+                        if (isPolymarket && data.orderbook) {
+                            bids = data.orderbook.up?.bids || [];
+                            asks = data.orderbook.up?.asks || [];
+                        } else {
+                            bids = data.bids || [];
+                            asks = data.asks || [];
+                        }
+                        renderOrderbookPro(bids, asks);
+                        // Update spread display
+                        if (bids?.length && asks?.length) {
+                            const spread = asks[0].price - bids[0].price;
+                            const spreadPct = (spread / asks[0].price * 100).toFixed(3);
+                            const spreadEl = document.getElementById('orderbook-spread');
+                            if (spreadEl) spreadEl.textContent = `Spread: ${formatMarketPrice(spread, currentMarket)} (${spreadPct}%)`;
+                        }
+                    }
                 } catch (err) {
-                    console.error('[Orderbook Poll] Error:', err);
-                } finally {
-                    orderbookPollingInProgress = false;
+                    // Silently ignore polling errors
                 }
-            }, 1000);
-            console.log('[Orderbook] Interval ID:', orderbookPollingInterval);
+            }, 1000);  // Poll every 1 second
         }
 
         function stopOrderbookPolling() {
             if (orderbookPollingInterval) {
-                console.log('[Orderbook] Stopping polling');
                 clearInterval(orderbookPollingInterval);
                 orderbookPollingInterval = null;
-                orderbookPollingInProgress = false;
             }
         }
 
-        async function pollOrderbookDeltas() {
-            console.log('[Orderbook Poll] pollOrderbookDeltas called');
-
-            // Capture market at start of request to detect if it changes
-            const requestMarket = currentMarket;
-
-            // Create new AbortController for this request
-            orderbookAbortController = new AbortController();
-
-            // Get current state to find last timestamp
-            const state = OrderbookManager.getOrderbook(requestMarket, 15);
-            const sinceTs = state.lastTimestamp || 0;
-            console.log('[Orderbook Poll] sinceTs:', sinceTs, 'market:', requestMarket);
-
-            try {
-                // Fetch new deltas with abort signal
-                const result = await OrderbookManager.fetchDeltas(requestMarket, sinceTs, orderbookAbortController.signal);
-                console.log('[Orderbook Poll] fetchDeltas result:', result ? 'ok' : 'null', 'deltas:', result?.deltas?.length);
-
-                // CRITICAL: Check if market changed while request was in flight
-                if (requestMarket !== currentMarket) {
-                    console.log(`[Orderbook Poll] Market changed during request (${requestMarket} -> ${currentMarket}), discarding response`);
-                    return;
-                }
-
-                const { deltas } = result;
-
-                if (deltas.length > 0) {
-                    OrderbookManager.applyDeltas(requestMarket, deltas);
-                    const ob = OrderbookManager.getOrderbook(requestMarket, 15);
-                    renderOrderbookPro(ob.bids, ob.asks);
-
-                    // Update spread
-                    if (ob.bids.length > 0 && ob.asks.length > 0) {
-                        const spread = ob.asks[0].price - ob.bids[0].price;
-                        const spreadPct = (spread / ob.asks[0].price * 100).toFixed(3);
-                        const spreadEl = document.getElementById('orderbook-spread-header');
-                        if (spreadEl) spreadEl.textContent = `SPREAD: ${formatMarketPrice(spread, requestMarket)} (${spreadPct}%)`;
-                    }
-                }
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    console.log('[Orderbook Poll] Request aborted (market changed)');
-                } else {
-                    throw err;
-                }
-            }
+        function subscribeToMarket(market) {
+            console.log('[LiveMarket] Market selected:', market);
         }
 
-        function handleMarketUpdate(data) {
-            // CRITICAL: Ignore updates for different markets to prevent data mixing
-            // This can happen when WebSocket messages arrive after switching markets
-            if (data.market && data.market !== currentMarket) {
-                console.log(`[Market] Ignoring update for ${data.market} (current: ${currentMarket})`);
-                return;
-            }
-
-            // Track if we've already updated the forming candle this message
-            let candleUpdated = false;
-
-            // Update price display
-            if (data.price) {
-                const priceEl = document.getElementById('current-market-price');
-                if (priceEl) priceEl.textContent = formatMarketPrice(data.price.value, data.market);
-
-                // Update professional trading header
-                updateTradingHeader(data.price.value, data.price.change24h || null);
-            }
-
-            // Update orderbook (professional version)
-            if (data.orderbook) {
-                renderOrderbookPro(data.orderbook.bids || [], data.orderbook.asks || []);
-                if (data.orderbook.bids?.length && data.orderbook.asks?.length) {
-                    const spread = data.orderbook.asks[0].price - data.orderbook.bids[0].price;
-                    const spreadPct = (spread / data.orderbook.asks[0].price * 100).toFixed(3);
-                    const legacySpread = document.getElementById('orderbook-spread');
-                    if (legacySpread) legacySpread.textContent = `Spread: ${formatMarketPrice(spread, data.market)} (${spreadPct}%)`;
-                }
-            }
-
-            // Update trades and forming candle - PREFER trades data (has volume)
-            if (data.trades && data.trades.length > 0) {
-                renderLiveMarketTrades(data.trades);
-
-                // Update forming candle with the most recent trade
-                const latestTrade = data.trades[0]; // Assuming trades are sorted newest first
-                if (latestTrade && latestTrade.price) {
-                    updateFormingCandle({
-                        price: latestTrade.price,
-                        timestamp: latestTrade.timestamp || Math.floor(Date.now() / 1000),
-                        amount: latestTrade.amount || 0
-                    });
-                    candleUpdated = true;
-                }
-            }
-
-            // Only update from price if no trade data (avoid duplicate updates)
-            if (!candleUpdated && data.price && data.price.value && formingCandle) {
-                updateFormingCandle({
-                    price: data.price.value,
-                    timestamp: data.price.timestamp || Math.floor(Date.now() / 1000),
-                    amount: 0
-                });
-            }
-        }
-
-        function disconnectLiveMarketWebSocket() {
-            // Stop orderbook polling
+        function stopLiveMarketPolling() {
+            stopTradePolling();
             stopOrderbookPolling();
-
-            if (liveMarketWsReconnectTimer) {
-                clearTimeout(liveMarketWsReconnectTimer);
-                liveMarketWsReconnectTimer = null;
-            }
-            if (liveMarketWs) {
-                liveMarketWs.close();
-                liveMarketWs = null;
-            }
+            latestTradeTimestamp = 0;
         }
 
         // ==========================================
@@ -9714,16 +8991,15 @@
             }
         }
 
-        // Start polling for status updates (polling removed - fetch once only)
+        // Start status polling
         function startPolling() {
-            // Polling removed - WebSocket handles real-time updates
-            // Just do a single initial status check
+            // Initial status check
             pollLiveTestStatus();
         }
 
-        // Stop polling (no-op since polling removed)
+        // Stop polling
         function stopPolling() {
-            // Polling removed - WebSocket handles real-time updates
+            // No-op - status fetched on demand
         }
 
         // Check initial test status on page load
@@ -9764,214 +9040,21 @@
         // ==========================================
 
         // ==========================================
-        // WEBSOCKET - Real-time trade streaming
+        // STATUS HELPERS (polling-based)
         // ==========================================
 
-        let tradeWebSocket = null;
-        let wsReconnectAttempts = 0;
-        const WS_MAX_RECONNECT = 5;
-        const WS_RECONNECT_DELAY = 3000;
-        let liveTrades = [];
-
-        // Connect to WebSocket for live trade streaming
-        function connectTradeWebSocket() {
-            // Use secure websocket if page is HTTPS, otherwise regular
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            // The Control API host (same as CONTROL_API_URL but with ws protocol)
-            const wsHost = CONTROL_API_URL.replace(/^https?:/, wsProtocol);
-            const wsUrl = `${wsHost}/trades/stream`;
-
-            console.log('[WS] Connecting to:', wsUrl);
-
-            try {
-                tradeWebSocket = new WebSocket(wsUrl);
-
-                tradeWebSocket.onopen = () => {
-                    console.log('[WS] Connected');
-                    wsReconnectAttempts = 0;
-                    updateWsStatus(true);
-
-                    // Subscribe to session trade updates (all sessions)
-                    tradeWebSocket.send(JSON.stringify({
-                        type: 'subscribe',
-                        channel: 'session_trades',
-                        session_id: 'all'
-                    }));
-                    console.log('[WS] Subscribed to session_trades');
-                };
-
-                tradeWebSocket.onmessage = (event) => {
-                    try {
-                        const message = JSON.parse(event.data);
-                        handleWsMessage(message);
-                    } catch (err) {
-                        console.error('[WS] Failed to parse message:', err);
-                    }
-                };
-
-                tradeWebSocket.onclose = (event) => {
-                    console.log('[WS] Disconnected:', event.code, event.reason);
-                    updateWsStatus(false);
-
-                    // Attempt reconnect if not a clean close
-                    if (wsReconnectAttempts < WS_MAX_RECONNECT) {
-                        wsReconnectAttempts++;
-                        console.log(`[WS] Reconnecting in ${WS_RECONNECT_DELAY}ms (attempt ${wsReconnectAttempts})`);
-                        setTimeout(connectTradeWebSocket, WS_RECONNECT_DELAY);
-                    }
-                };
-
-                tradeWebSocket.onerror = (error) => {
-                    console.error('[WS] Error:', error);
-                    updateWsStatus(false);
-                };
-
-            } catch (err) {
-                console.error('[WS] Failed to create WebSocket:', err);
-                updateWsStatus(false);
-            }
-        }
-
-        // Handle incoming WebSocket messages
-        function handleWsMessage(message) {
-            console.log('[WS] Received:', message.type);
-
-            switch (message.type) {
-                case 'status':
-                    // Server status update
-                    if (message.marketRunning) {
-                        showLiveTradeFeed(true);
-                    }
-                    break;
-
-                case 'trades':
-                    // Full trade list (sent on connect)
-                    liveTrades = message.trades || [];
-                    renderLiveTrades();
-                    break;
-
-                case 'new_trades':
-                    // New trades to add
-                    const newTrades = message.trades || [];
-                    if (newTrades.length > 0) {
-                        liveTrades = [...liveTrades, ...newTrades];
-                        renderLiveTrades(newTrades);
-                        // Update live trades count
-                        document.getElementById('live-trades').textContent = liveTrades.length;
-                    }
-                    break;
-
-                case 'market_started':
-                    showLiveTradeFeed(true);
-                    liveTrades = [];
-                    renderLiveTrades();
-                    break;
-
-                case 'market_stopped':
-                    // Keep feed visible but stop updates
-                    break;
-
-                case 'session_trade':
-                    // Realtime session trade from C++ bot
-                    handleSessionTradeUpdate(message);
-                    break;
-            }
-        }
-
-        // Handle realtime session trade updates from WebSocket
-        function handleSessionTradeUpdate(message) {
-            const sessionId = message.session_id;
-            const trades = message.trades || [];
-
-            if (trades.length === 0) return;
-
-            console.log(`[WS] Session trade update: ${trades.length} trade(s) for session ${sessionId}`);
-
-            // Calculate P&L from the trades
-            const tradePnl = trades.reduce((sum, t) => sum + (parseFloat(t.realized_pnl) || 0), 0);
-
-            // Find and update session in sessionsData
-            let sessionFound = null;
-            ['running', 'scrapers', 'history'].forEach(category => {
-                const session = sessionsData[category].find(s => s.id === sessionId);
-                if (session) {
-                    sessionFound = session;
-                    // Update trade count and P&L
-                    session.trade_count = (parseInt(session.trade_count) || 0) + trades.length;
-                    session.total_pnl = (parseFloat(session.total_pnl) || 0) + tradePnl;
-                }
-            });
-
-            if (sessionFound) {
-                // Re-render the session card to show updated trade count and P&L
-                renderSessionList('running-sessions-list', filterRunningSessions(sessionsData.running), 'running');
-                renderSessionList('scrapers-list', filterScraperSessions(sessionsData.scrapers), 'scrapers');
-                renderSessionList('history-list', sessionsData.history, 'history');
-            }
-
-            // If inline detail view is open for this session, update it
-            if (currentInlineSessionId === sessionId) {
-                // Update trade count display
-                const tradesEl = document.getElementById('inline-trades');
-                if (tradesEl) {
-                    const currentCount = parseInt(tradesEl.textContent) || 0;
-                    tradesEl.textContent = currentCount + trades.length;
-                }
-
-                // Update P&L display
-                const pnlEl = document.getElementById('inline-pnl');
-                if (pnlEl && sessionFound) {
-                    const pnl = parseFloat(sessionFound.total_pnl) || 0;
-                    pnlEl.textContent = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
-                    pnlEl.className = `inline-metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
-                }
-
-                // Prepend new trades to the inline trades list
-                const tradesContainer = document.getElementById('inline-trades-list');
-                if (tradesContainer) {
-                    const newTradesHtml = trades.map(t => `
-                        <div class="inline-trade-row new-trade">
-                            <span>${new Date((t.timestamp || Date.now()) * 1000).toLocaleTimeString()}</span>
-                            <span style="color: ${(t.direction || t.side) === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
-                            <span>$${parseFloat(t.price).toFixed(2)}</span>
-                            <span>${t.size}</span>
-                            <span class="${(parseFloat(t.realized_pnl) || 0) >= 0 ? 'positive' : 'negative'}">${(parseFloat(t.realized_pnl) || 0) >= 0 ? '+' : ''}${(parseFloat(t.realized_pnl) || 0).toFixed(2)}</span>
-                        </div>
-                    `).join('');
-
-                    // Check if "No trades yet" message is showing
-                    if (tradesContainer.querySelector('.inline-empty')) {
-                        tradesContainer.innerHTML = newTradesHtml;
-                    } else {
-                        tradesContainer.insertAdjacentHTML('afterbegin', newTradesHtml);
-                    }
-
-                    // Flash effect on new trades
-                    setTimeout(() => {
-                        tradesContainer.querySelectorAll('.new-trade').forEach(el => el.classList.remove('new-trade'));
-                    }, 1000);
-                }
-
-                // Update chart markers if trades are on the chart
-                if (currentSessionTradeData && liveMarketCandleSeries) {
-                    currentSessionTradeData.trades = [...(currentSessionTradeData.trades || []), ...trades];
-                    displaySessionTrades(currentSessionTradeData);
-                }
-            }
-        }
-
-        // Update WebSocket connection status indicator
-        function updateWsStatus(connected) {
-            const dot = document.getElementById('ws-dot');
-            const text = document.getElementById('ws-status-text');
+        // Update status indicator
+        function updatePollStatus(connected) {
+            const dot = document.getElementById('poll-dot');
+            const text = document.getElementById('poll-status-text');
 
             if (dot && text) {
                 if (connected) {
                     dot.classList.add('connected');
-                    text.textContent = 'Connected';
+                    text.textContent = 'Polling';
                 } else {
                     dot.classList.remove('connected');
-                    text.textContent = 'Disconnected';
+                    text.textContent = 'Offline';
                 }
             }
         }
@@ -9988,76 +9071,8 @@
             }
         }
 
-        // Render live trades in the feed
-        function renderLiveTrades(newOnly = null) {
-            const container = document.getElementById('live-trade-list');
-            if (!container) return;
-
-            // If no trades, show waiting message
-            if (liveTrades.length === 0) {
-                container.innerHTML = '<div class="no-trades-message">Waiting for trades...</div>';
-                return;
-            }
-
-            // If rendering new trades only, prepend them
-            if (newOnly && newOnly.length > 0) {
-                const fragment = document.createDocumentFragment();
-                newOnly.forEach(trade => {
-                    const item = createTradeItem(trade);
-                    fragment.appendChild(item);
-                });
-                // Remove "waiting" message if present
-                const waiting = container.querySelector('.no-trades-message');
-                if (waiting) waiting.remove();
-                // Prepend new trades (most recent at top)
-                container.insertBefore(fragment, container.firstChild);
-            } else {
-                // Full render - show most recent first
-                container.innerHTML = '';
-                const tradesReversed = [...liveTrades].reverse();
-                tradesReversed.slice(0, 50).forEach(trade => {
-                    const item = createTradeItem(trade);
-                    container.appendChild(item);
-                });
-            }
-        }
-
-        // Create a trade item element
-        function createTradeItem(trade) {
-            const item = document.createElement('div');
-            const side = trade.side || 'long';
-            item.className = `live-trade-item ${side}`;
-
-            const time = new Date(trade.timestamp_unix * 1000).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-
-            const sideLabel = side === 'long' ? '▲ LONG' : '▼ SHORT';
-            const sideClass = side === 'long' ? 'long' : 'short';
-
-            item.innerHTML = `
-                <div class="live-trade-info">
-                    <span class="live-trade-side ${sideClass}">${sideLabel}</span>
-                    <span class="live-trade-price">$${trade.price?.toFixed(1) || '0.0'}</span>
-                </div>
-                <span class="live-trade-time">${time}</span>
-            `;
-
-            return item;
-        }
-
-        // Initialize WebSocket on page load
-        function initWebSocket() {
-            // Small delay to let the page initialize
-            setTimeout(() => {
-                connectTradeWebSocket();
-            }, 1000);
-        }
-
         // ==========================================
-        // END WEBSOCKET
+        // END STATUS HELPERS
         // ==========================================
 
         // Load backtest data from Control API (no static fallback)
@@ -11760,12 +10775,11 @@
             initLiveMarketChart();
             await loadLiveMarketData();
 
-            // Connect WebSocket for real-time updates (polling removed - WebSocket only)
-            connectLiveMarketWebSocket();
+            // Start polling for real-time updates
+            startLiveMarketPolling();
         })();
 
         checkInitialTestStatus(); // Check if a live test is already running
-        initWebSocket(); // Connect to WebSocket for real-time trade streaming
     </script>
 </body>
 </html>
