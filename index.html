@@ -2947,8 +2947,17 @@
                             <option value="solusd">SOL/USD</option>
                             <option value="xrpusd">XRP/USD</option>
                         </optgroup>
-                        <optgroup label="Polymarket">
-                            <option value="poly15musd">BTC 15min (POLY15M/USD)</option>
+                        <optgroup label="Polymarket (Slot A)">
+                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
+                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot B)">
+                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
+                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot C)">
+                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
+                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
                         </optgroup>
                     </select>
                     <div class="period-dropdown">
@@ -3715,8 +3724,17 @@
                             <option value="xrpusd">XRP/USD (XRPUSD)</option>
                             <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
                         </optgroup>
-                        <optgroup label="Polymarket">
-                            <option value="poly15musd">BTC 15min (POLY15M/USD)</option>
+                        <optgroup label="Polymarket (Slot A)">
+                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
+                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot B)">
+                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
+                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
+                        </optgroup>
+                        <optgroup label="Polymarket (Slot C)">
+                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
+                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
                         </optgroup>
                     </select>
                 </div>
@@ -6886,7 +6904,12 @@
             'solusd': 'SOL/USD',
             'xrpusd': 'XRP/USD',
             'dogeusd': 'DOGE/USD',
-            'poly15musd': 'BTC 15min (Polymarket)'
+            'polymarket:btc-15m-a-up': 'BTC 15m A-UP',
+            'polymarket:btc-15m-a-down': 'BTC 15m A-DOWN',
+            'polymarket:btc-15m-b-up': 'BTC 15m B-UP',
+            'polymarket:btc-15m-b-down': 'BTC 15m B-DOWN',
+            'polymarket:btc-15m-c-up': 'BTC 15m C-UP',
+            'polymarket:btc-15m-c-down': 'BTC 15m C-DOWN'
         };
 
 
@@ -7848,11 +7871,8 @@
 
                 console.log(`[LazyLoad] Fetching older candles: ${new Date(startTime * 1000).toISOString()} to ${new Date(endTime * 1000).toISOString()}`);
 
-                // Use Polymarket-specific endpoint for poly markets
-                const isPolymarket = currentMarket.startsWith('poly');
-                const url = isPolymarket
-                    ? `${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}`
-                    : `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`;
+                // Use unified endpoint for all markets (BitMEX and Polymarket)
+                const url = `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&startTime=${startTime}&endTime=${endTime}&source=archive`;
                 const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } }
                 );
@@ -7915,12 +7935,6 @@
 
         // Fetch archive info to know the available data range
         async function fetchArchiveInfo(market) {
-            // Skip archive info for Polymarket (no archive API)
-            if (market.startsWith('poly')) {
-                console.log('[Archive] Skipping archive info for Polymarket');
-                archiveMinTime = null;
-                return;
-            }
             try {
                 const response = await fetch(
                     `${CONTROL_API_URL}/api/archive/info?market=${market}`,
@@ -7958,11 +7972,8 @@
             priceDisplay.textContent = '...';
 
             try {
-                // Use Polymarket-specific endpoint for poly markets
-                const isPolymarket = currentMarket.startsWith('poly');
-                const url = isPolymarket
-                    ? `${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&period=${currentMarketPeriod}&limit=500`
-                    : `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`;
+                // Use unified endpoint for all markets (BitMEX and Polymarket)
+                const url = `${CONTROL_API_URL}/api/prices?market=${currentMarket}&period=${currentMarketPeriod}&limit=500&source=hybrid`;
                 const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch prices');
@@ -8068,26 +8079,16 @@
             spreadEl.textContent = 'Loading...';
 
             try {
-                // Use Polymarket-specific endpoint for poly markets
-                const isPolymarket = currentMarket.startsWith('poly');
-                const url = isPolymarket
-                    ? `${CONTROL_API_URL}/api/polymarket/orderbook?market=btc-15m-closing&depth=12`
-                    : `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`;
+                // Use unified endpoint for all markets (BitMEX and Polymarket)
+                const url = `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=12`;
                 const response = await fetch(url,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch orderbook');
                 const data = await response.json();
                 if (data.success) {
-                    // Extract bids/asks - handle different structures
-                    let bids, asks;
-                    if (isPolymarket && data.orderbook) {
-                        // Polymarket has orderbook.up and orderbook.down - show "up" outcome
-                        bids = data.orderbook.up?.bids || [];
-                        asks = data.orderbook.up?.asks || [];
-                    } else {
-                        bids = data.bids || [];
-                        asks = data.asks || [];
-                    }
+                    // Unified endpoint returns bids/asks in consistent format
+                    const bids = data.bids || [];
+                    const asks = data.asks || [];
                     // Use professional orderbook rendering
                     renderOrderbookPro(bids, asks);
                     if (bids?.length && asks?.length) {
@@ -8136,31 +8137,7 @@
             countEl.textContent = 'Loading...';
 
             try {
-                // Polymarket doesn't have the same trade feed - use prices endpoint
-                const isPolymarket = currentMarket.startsWith('poly');
-                if (isPolymarket) {
-                    // For Polymarket, show recent price movements as "trades"
-                    const response = await fetch(`${CONTROL_API_URL}/api/polymarket/prices?market=btc-15m-closing&limit=50`,
-                        { headers: { 'x-api-key': CONTROL_API_KEY } });
-                    if (!response.ok) throw new Error('Failed to fetch polymarket prices');
-                    const data = await response.json();
-                    if (data.success && data.candles) {
-                        const trades = data.candles.map(c => ({
-                            timestamp: c.time,
-                            timestampMs: c.time * 1000,
-                            price: c.close,
-                            amount: c.volume || 0,
-                            side: c.close > c.open ? 'buy' : 'sell'
-                        })).reverse();
-                        renderLiveMarketTrades(trades);
-                        countEl.textContent = `${trades.length} prices`;
-                    } else {
-                        countEl.textContent = 'No data';
-                    }
-                    return;
-                }
-
-                // BitMEX - load from trades/deltas endpoint
+                // Use unified endpoint for all markets (BitMEX and Polymarket)
                 const response = await fetch(`${CONTROL_API_URL}/api/trades/deltas?market=${currentMarket}&limit=500`,
                     { headers: { 'x-api-key': CONTROL_API_KEY } });
                 if (!response.ok) throw new Error('Failed to fetch trades');
@@ -8197,13 +8174,6 @@
         // Start polling for new trades every second
         function startTradePolling() {
             if (tradePollingInterval) return; // Already polling
-
-            // Polymarket doesn't have real-time trade feed - skip trade polling
-            const isPolymarket = currentMarket.startsWith('poly');
-            if (isPolymarket) {
-                console.log('[Trade Poll] Skipping for Polymarket (no real-time trade feed)');
-                return;
-            }
 
             tradePollingInterval = setInterval(async () => {
                 try {
@@ -8569,14 +8539,19 @@
                         'solusd': 'SOLUSD',
                         'xrpusd': 'XRPUSD',
                         'dogeusd': 'DOGEUSD',
-                        'poly15musd': 'POLY15M/USD'
+                        'polymarket:btc-15m-a-up': 'A-UP',
+                        'polymarket:btc-15m-a-down': 'A-DOWN',
+                        'polymarket:btc-15m-b-up': 'B-UP',
+                        'polymarket:btc-15m-b-down': 'B-DOWN',
+                        'polymarket:btc-15m-c-up': 'C-UP',
+                        'polymarket:btc-15m-c-down': 'C-DOWN'
                     };
                     headerInstrument.textContent = names[market] || market.toUpperCase();
                 }
 
                 // Update instrument type based on market
                 if (instrumentType) {
-                    if (market === 'poly15musd') {
+                    if (market.startsWith('polymarket:')) {
                         instrumentType.textContent = 'Prediction';
                     } else {
                         instrumentType.textContent = 'Perpetual';
@@ -8629,11 +8604,8 @@
 
             orderbookPollingInterval = setInterval(async () => {
                 try {
-                    // Use Polymarket-specific endpoint for poly markets
-                    const isPolymarket = currentMarket.startsWith('poly');
-                    const url = isPolymarket
-                        ? `${CONTROL_API_URL}/api/polymarket/orderbook?market=btc-15m-closing&depth=20`
-                        : `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=20`;
+                    // Use unified endpoint for all markets (BitMEX and Polymarket)
+                    const url = `${CONTROL_API_URL}/api/orderbook?market=${currentMarket}&depth=20`;
                     const response = await fetch(url,
                         { headers: { 'x-api-key': CONTROL_API_KEY } }
                     );
@@ -8641,15 +8613,9 @@
 
                     const data = await response.json();
                     if (data.success) {
-                        // Extract bids/asks - handle different structures
-                        let bids, asks;
-                        if (isPolymarket && data.orderbook) {
-                            bids = data.orderbook.up?.bids || [];
-                            asks = data.orderbook.up?.asks || [];
-                        } else {
-                            bids = data.bids || [];
-                            asks = data.asks || [];
-                        }
+                        // Unified endpoint returns bids/asks in consistent format
+                        const bids = data.bids || [];
+                        const asks = data.asks || [];
                         renderOrderbookPro(bids, asks);
                         // Update spread display
                         if (bids?.length && asks?.length) {
