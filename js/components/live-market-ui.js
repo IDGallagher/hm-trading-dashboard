@@ -37,8 +37,7 @@
             // Update instrument name based on market
             const instrumentEl = document.getElementById('header-instrument');
             if (instrumentEl) {
-                const names = { xbtusd: 'BTCUSD', ethusd: 'ETHUSD', solusd: 'SOLUSD', xrpusd: 'XRPUSD', dogeusd: 'DOGEUSD' };
-                instrumentEl.textContent = names[currentMarket] || 'BTCUSD';
+                instrumentEl.textContent = getMarketInstrumentSymbol(currentMarket) || 'BTCUSD';
             }
         }
 
@@ -241,20 +240,7 @@
 
                 // Update header instrument name
                 if (headerInstrument) {
-                    const names = {
-                        'xbtusd': 'BTCUSD',
-                        'ethusd': 'ETHUSD',
-                        'solusd': 'SOLUSD',
-                        'xrpusd': 'XRPUSD',
-                        'dogeusd': 'DOGEUSD',
-                        'polymarket:btc-15m-a-up': 'A-UP',
-                        'polymarket:btc-15m-a-down': 'A-DOWN',
-                        'polymarket:btc-15m-b-up': 'B-UP',
-                        'polymarket:btc-15m-b-down': 'B-DOWN',
-                        'polymarket:btc-15m-c-up': 'C-UP',
-                        'polymarket:btc-15m-c-down': 'C-DOWN'
-                    };
-                    headerInstrument.textContent = names[market] || market.toUpperCase();
+                    headerInstrument.textContent = getMarketInstrumentSymbol(market);
                 }
 
                 // Update instrument type based on market

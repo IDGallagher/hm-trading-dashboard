@@ -81,27 +81,7 @@
             <div class="chart-toolbar">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <select id="market-selector" class="period-btn" style="min-width: 180px;">
-                        <optgroup label="BitMEX Perpetuals">
-                            <option value="xbtusd">BTC/USD</option>
-                            <option value="ethusd">ETH/USD</option>
-                            <option value="solusd">SOL/USD</option>
-                            <option value="xrpusd">XRP/USD</option>
-                        </optgroup>
-                        <optgroup label="Binance Futures">
-                            <option value="binance:btcusdt">BTC/USDT</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot A)">
-                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
-                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot B)">
-                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
-                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot C)">
-                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
-                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
-                        </optgroup>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                     <div class="period-dropdown">
                         <button class="period-btn" id="period-btn">
@@ -109,12 +89,7 @@
                             <span>▼</span>
                         </button>
                         <div class="period-menu" id="period-menu">
-                            <div class="period-option" data-period="1m">1m</div>
-                            <div class="period-option active" data-period="5m">5m</div>
-                            <div class="period-option" data-period="15m">15m</div>
-                            <div class="period-option" data-period="1h">1h</div>
-                            <div class="period-option" data-period="4h">4h</div>
-                            <div class="period-option" data-period="1d">1D</div>
+                            <!-- Populated from js/config/ui-options.js -->
                         </div>
                     </div>
                 </div>
@@ -151,11 +126,7 @@
             </div>
             <!-- Bottom Period Selector -->
             <div class="chart-period-bar">
-                <button class="chart-period-btn" data-range="1y">1y</button>
-                <button class="chart-period-btn" data-range="1m">1m</button>
-                <button class="chart-period-btn" data-range="5d">5d</button>
-                <button class="chart-period-btn active" data-range="1d">1d</button>
-                <button class="chart-period-btn" data-range="5h">5h</button>
+                <!-- Populated from js/config/ui-options.js -->
             </div>
         </div>
 
@@ -248,10 +219,7 @@
             <div class="session-toolbar">
                 <div class="session-filters">
                     <select class="session-filter-select" id="filter-market-running">
-                        <option value="">All Markets</option>
-                        <option value="XBTUSD">XBTUSD</option>
-                        <option value="ETHUSD">ETHUSD</option>
-                        <option value="SOLUSD">SOLUSD</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                     <select class="session-filter-select" id="filter-strategy-running">
                         <option value="">All Strategies</option>
@@ -277,10 +245,7 @@
             <div class="session-toolbar">
                 <div class="session-filters">
                     <select class="session-filter-select" id="filter-market-scrapers">
-                        <option value="">All Markets</option>
-                        <option value="XBTUSD">XBTUSD</option>
-                        <option value="ETHUSD">ETHUSD</option>
-                        <option value="SOLUSD">SOLUSD</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                 </div>
                 <button class="btn-new-session" onclick="openNewSessionModal('scraper')">
@@ -303,22 +268,13 @@
             <div class="session-toolbar">
                 <div class="session-filters">
                     <select class="session-filter-select" id="filter-type-history">
-                        <option value="">All Types</option>
-                        <option value="test">Test</option>
-                        <option value="backtest">Backtest</option>
-                        <option value="scraper">Scraper</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                     <select class="session-filter-select" id="filter-market-history">
-                        <option value="">All Markets</option>
-                        <option value="XBTUSD">XBTUSD</option>
-                        <option value="ETHUSD">ETHUSD</option>
-                        <option value="SOLUSD">SOLUSD</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                     <select class="session-filter-select" id="filter-status-history">
-                        <option value="">All Statuses</option>
-                        <option value="completed">Completed</option>
-                        <option value="stopped">Stopped</option>
-                        <option value="failed">Failed</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                 </div>
             </div>
@@ -422,7 +378,7 @@
                 </div>
             </div>
             <select id="strategy-selector-pro">
-                <option value="none">Select Strategy...</option>
+                <!-- Populated from js/config/ui-options.js -->
             </select>
             <button id="btn-start-test-pro"></button>
             <button id="btn-stop-backtest-pro"></button>
@@ -452,9 +408,7 @@
                 <div class="form-group">
                     <label class="form-label">Session Type</label>
                     <select class="form-select" id="new-session-type">
-                        <option value="test">Live Test</option>
-                        <option value="backtest">Backtest</option>
-                        <option value="scraper">Scraper</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                 </div>
 
@@ -462,9 +416,7 @@
                     <div class="form-group">
                         <label class="form-label">Market</label>
                         <select class="form-select" id="new-session-market">
-                            <option value="XBTUSD">XBTUSD</option>
-                            <option value="ETHUSD">ETHUSD</option>
-                            <option value="SOLUSD">SOLUSD</option>
+                            <!-- Populated from js/config/ui-options.js -->
                         </select>
                     </div>
                     <div class="form-group">
@@ -677,20 +629,19 @@
     <!-- Hidden legacy controls for JS compatibility -->
     <div style="display: none;">
         <select id="session-selector">
-            <option value="backtest">Backtest</option>
-            <option value="test">Test</option>
+            <!-- Populated from js/config/ui-options.js -->
         </select>
         <select id="bot-selector">
-            <option value="DivergeBot">DivergeBot</option>
+            <!-- Populated from js/config/ui-options.js -->
         </select>
         <select id="date-selector">
-            <option value="all">All</option>
+            <!-- Populated from js/config/ui-options.js -->
         </select>
         <select id="candle-period-selector">
-            <option value="5m">5m</option>
+            <!-- Populated from js/config/ui-options.js -->
         </select>
         <select id="market-period-selector">
-            <option value="5m">5m</option>
+            <!-- Populated from js/config/ui-options.js -->
         </select>
     </div>
 
@@ -704,13 +655,7 @@
             </div>
             <div class="live-test-controls">
                 <select id="strategy-selector" class="live-test-select">
-                    <option value="none" selected>📈 Live Market Only</option>
-                    <option value="TestBot">TestBot</option>
-                    <option value="DivergeBot">DivergeBot</option>
-                    <option value="SazBot">SazBot</option>
-                    <option value="SDBot">SDBot</option>
-                    <option value="PairTradeBot">PairTradeBot</option>
-                    <option value="DevDistStatBot">DevDistStatBot</option>
+                    <!-- Populated from js/config/ui-options.js -->
                 </select>
                 <div id="strategy-description" class="strategy-description" title="Strategy description">
                     Live market data only. Select a strategy to view trade overlays and backtest results.
@@ -860,40 +805,13 @@
                 <div class="market-control-group">
                     <span class="market-control-label">Market:</span>
                     <select id="market-selector-secondary" class="market-select">
-                        <optgroup label="BitMEX Perpetuals">
-                            <option value="xbtusd">BTC/USD (XBTUSD)</option>
-                            <option value="ethusd">ETH/USD (ETHUSD)</option>
-                            <option value="solusd">SOL/USD (SOLUSD)</option>
-                            <option value="xrpusd">XRP/USD (XRPUSD)</option>
-                            <option value="dogeusd">DOGE/USD (DOGEUSD)</option>
-                        </optgroup>
-                        <optgroup label="Binance Futures">
-                            <option value="binance:btcusdt">BTC/USDT (BTCUSDT)</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot A)">
-                            <option value="polymarket:btc-15m-a-up">BTC 15m A-UP</option>
-                            <option value="polymarket:btc-15m-a-down">BTC 15m A-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot B)">
-                            <option value="polymarket:btc-15m-b-up">BTC 15m B-UP</option>
-                            <option value="polymarket:btc-15m-b-down">BTC 15m B-DOWN</option>
-                        </optgroup>
-                        <optgroup label="Polymarket (Slot C)">
-                            <option value="polymarket:btc-15m-c-up">BTC 15m C-UP</option>
-                            <option value="polymarket:btc-15m-c-down">BTC 15m C-DOWN</option>
-                        </optgroup>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                 </div>
                 <div class="market-control-group">
                     <span class="market-control-label">Period:</span>
                     <select id="market-period-selector" class="market-select">
-                        <option value="1m">1 Minute</option>
-                        <option value="5m" selected>5 Minutes</option>
-                        <option value="15m">15 Minutes</option>
-                        <option value="1h">1 Hour</option>
-                        <option value="4h">4 Hours</option>
-                        <option value="1d">1 Day</option>
-                        <option value="1w">1 Week</option>
+                        <!-- Populated from js/config/ui-options.js -->
                     </select>
                 </div>
                 <button id="refresh-market-btn" class="refresh-btn">🔄 Refresh</button>
@@ -1257,6 +1175,7 @@
     </footer>
 
     <script src="js/core.js"></script>
+    <script src="js/config/ui-options.js"></script>
     <script src="js/components/session-card.js"></script>
     <script src="js/components/session-detail-modal.js"></script>
     <script src="js/session-management.js"></script>

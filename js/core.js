@@ -74,6 +74,34 @@
             logJsError('Promise', message, reason?.stack?.split('\n')[1] || '', '', '');
         });
 
+        function getConfiguredMarketMeta(market) {
+            const groups = window.HM_UI_OPTIONS?.LIVE_MARKETS || [];
+            for (const group of groups) {
+                for (const option of group.options || []) {
+                    if (option.value === market) {
+                        return option;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function getMarketDisplayName(market) {
+            const configured = getConfiguredMarketMeta(market);
+            return configured?.primaryLabel || market;
+        }
+
+        function getMarketInstrumentSymbol(market) {
+            const configured = getConfiguredMarketMeta(market);
+            if (configured?.instrument) return configured.instrument;
+
+            if (market?.startsWith('polymarket:')) {
+                const suffix = market.split(':')[1] || '';
+                return suffix.split('-').slice(-2).join('-').toUpperCase();
+            }
+            return (market || '').toUpperCase();
+        }
+
         // Safe wrapper for chart setData calls - logs errors with source identification
         function safeSetData(series, data, sourceName) {
             console.log("SAFESETDATA CALLED:", sourceName);

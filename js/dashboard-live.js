@@ -163,21 +163,6 @@
             }
         }
 
-        const MARKET_NAMES = {
-            'xbtusd': 'BTC/USD',
-            'ethusd': 'ETH/USD',
-            'solusd': 'SOL/USD',
-            'xrpusd': 'XRP/USD',
-            'dogeusd': 'DOGE/USD',
-            'polymarket:btc-15m-a-up': 'BTC 15m A-UP',
-            'polymarket:btc-15m-a-down': 'BTC 15m A-DOWN',
-            'polymarket:btc-15m-b-up': 'BTC 15m B-UP',
-            'polymarket:btc-15m-b-down': 'BTC 15m B-DOWN',
-            'polymarket:btc-15m-c-up': 'BTC 15m C-UP',
-            'polymarket:btc-15m-c-down': 'BTC 15m C-DOWN'
-        };
-
-
         // Strategy descriptions for the Live Test Control panel
         const STRATEGY_DESCRIPTIONS = {
             'none': 'Live market data only. Select a strategy to view trade overlays and backtest results.',
@@ -1177,7 +1162,7 @@
 
                         // Update title with new candle count
                         if (chartTitle) {
-                            chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (📦 Archive · ${lastCandleData.length} candles · 🟢 Live)`;
+                            chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (📦 Archive · ${lastCandleData.length} candles · 🟢 Live)`;
                         }
                     } else {
                         console.log('[LazyLoad] No new candles in response (all duplicates)');
@@ -1233,7 +1218,7 @@
             const priceDisplay = document.getElementById('current-market-price');
 
             // Show loading state
-            chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (⏳ Loading...)`;
+            chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (⏳ Loading...)`;
             priceDisplay.textContent = '...';
 
             try {
@@ -1326,14 +1311,14 @@
                     // Show data source and candle count
                     const sourceLabels = { 'archive': '📦 Archive', 'mysql': '🔴 Live', 'hybrid': '🔀 Combined' };
                     const sourceLabel = sourceLabels[data.source] || data.source;
-                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (${sourceLabel} · ${data.candleCount || data.candles.length} candles · 🟢 Live)`;
+                    chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (${sourceLabel} · ${data.candleCount || data.candles.length} candles · 🟢 Live)`;
                 } else {
-                    chartTitle.textContent = `${MARKET_NAMES[currentMarket]} Price (No data)`;
+                    chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (No data)`;
                     priceDisplay.textContent = '--';
                 }
             } catch (err) {
                 console.error('Error loading price data:', err);
-                chartTitle.textContent = `${MARKET_NAMES[currentMarket] || currentMarket} Price (Error)`;
+                chartTitle.textContent = `${getMarketDisplayName(currentMarket)} Price (Error)`;
                 priceDisplay.textContent = '--';
             }
         }
@@ -3589,6 +3574,10 @@
 
         // Initialize on page load
         console.log('[INIT] Starting initialization sequence...');
+        if (typeof initializeStaticUiOptions === 'function') {
+            initializeStaticUiOptions();
+            console.log('[INIT] initializeStaticUiOptions done');
+        }
         setupEventListeners();
         console.log('[INIT] setupEventListeners done');
         initDashboard();
