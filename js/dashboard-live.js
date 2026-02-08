@@ -2,7 +2,7 @@
         let liveTestRunning = false;
         let liveTestStartTime = null;
         let currentStrategy = 'TestBot';
-        const debugLog = window.debugLog || function noopDebugLog() {};
+        const dashboardDebugLog = window.debugLog || function noopDebugLog() {};
 
         // Bot configurations for display
         const botConfigs = {
@@ -139,7 +139,7 @@
                     close: price,
                     volume: amount
                 };
-                debugLog('[LiveCandle] New period started:', new Date(periodStart * 1000).toISOString());
+                dashboardDebugLog('[LiveCandle] New period started:', new Date(periodStart * 1000).toISOString());
             } else if (!formingCandle) {
                 // First trade - initialize forming candle
                 formingCandle = {
@@ -150,7 +150,7 @@
                     close: price,
                     volume: amount
                 };
-                debugLog('[LiveCandle] Initialized forming candle:', formingCandle);
+                dashboardDebugLog('[LiveCandle] Initialized forming candle:', formingCandle);
             } else {
                 // Update existing forming candle
                 formingCandle.high = Math.max(formingCandle.high, price);
@@ -187,7 +187,7 @@
                     close: lastCandle.close,
                     volume: lastCandle.volume || 0
                 };
-                debugLog('[LiveCandle] Restored forming candle from data:', formingCandle);
+                dashboardDebugLog('[LiveCandle] Restored forming candle from data:', formingCandle);
             } else {
                 // Last candle is from a previous period, create a new forming candle
                 // Use the last candle's close as the starting point
@@ -199,7 +199,7 @@
                     close: lastCandle.close,
                     volume: 0
                 };
-                debugLog('[LiveCandle] Created new forming candle from last close:', formingCandle);
+                dashboardDebugLog('[LiveCandle] Created new forming candle from last close:', formingCandle);
 
                 // Add this forming candle to the chart
                 safeUpdate(liveMarketCandleSeries, {
