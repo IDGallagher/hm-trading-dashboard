@@ -970,7 +970,17 @@
                 grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
                 rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', autoScale: true, scaleMargins: { top: 0.1, bottom: 0.25 } },
-                crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                localization: {
+                    priceFormatter: (price) => {
+                        // Polymarket markets show 3 significant figures
+                        if (currentMarket && currentMarket.startsWith('polymarket:')) return price.toFixed(3);
+                        if (price >= 10000) return price.toFixed(1);
+                        if (price >= 1000) return price.toFixed(2);
+                        if (price >= 1) return price.toFixed(4);
+                        return price.toFixed(6);
+                    }
+                }
             });
 
             liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
@@ -1097,6 +1107,8 @@
 
         // Format price for OHLC display
         function formatPrice(price) {
+            // Polymarket markets have probability prices (0.00 - 1.00) - show 3 significant figures
+            if (currentMarket && currentMarket.startsWith('polymarket:')) return price.toFixed(3);
             if (price >= 10000) return price.toFixed(1);
             if (price >= 1000) return price.toFixed(2);
             if (price >= 1) return price.toFixed(4);
