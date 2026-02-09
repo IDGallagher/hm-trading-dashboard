@@ -1606,8 +1606,8 @@
 
         // Format price based on market
         function formatMarketPrice(price, market) {
-            // Polymarket markets have probability prices (0.00 - 1.00) - show 2 decimal places
-            if (market && market.startsWith('polymarket:')) return price.toFixed(2);
+            // Polymarket markets have probability prices (0.00 - 1.00) - show 3 significant figures
+            if (market && market.startsWith('polymarket:')) return price.toFixed(3);
             if (market === 'dogeusd' || market === 'xrpusd') return price.toFixed(4);
             else if (market === 'solusd') return price.toFixed(2);
             return price.toFixed(1);
