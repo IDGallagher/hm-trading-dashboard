@@ -1644,6 +1644,51 @@
 
         let priceToeBeatData = null;
         let priceToBeatInterval = null;
+        let currentChainlinkPrice = 0;
+
+        // Fetch current Chainlink BTC price
+        async function fetchCurrentChainlinkPrice() {
+            try {
+                // Get the most recent trade from Chainlink BTC-USD feed
+                const data = await HM_API.live.tradesDeltas({
+                    market: 'chainlink:btc-usd',
+                    limit: 1
+                });
+                if (data.trades && data.trades.length > 0) {
+                    currentChainlinkPrice = data.trades[data.trades.length - 1].p;  // p = price
+                    updateCurrentPriceDisplay();
+                }
+            } catch (err) {
+                // Silently ignore errors - will retry next second
+            }
+        }
+
+        // Update current price display
+        function updateCurrentPriceDisplay() {
+            const currentPriceEl = document.getElementById('ptb-current-price');
+            if (!currentPriceEl) return;
+
+            if (currentChainlinkPrice > 0) {
+                currentPriceEl.textContent = '$' + currentChainlinkPrice.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+
+                // Color based on comparison with reference price
+                if (priceToeBeatData && priceToeBeatData.btc_price > 0) {
+                    if (currentChainlinkPrice >= priceToeBeatData.btc_price) {
+                        currentPriceEl.style.color = '#00ff88';  // Green - UP winning
+                    } else {
+                        currentPriceEl.style.color = '#ff4444';  // Red - DOWN winning
+                    }
+                } else {
+                    currentPriceEl.style.color = '#fff';
+                }
+            } else {
+                currentPriceEl.textContent = '--';
+                currentPriceEl.style.color = '#fff';
+            }
+        }
 
         // Fetch Price to Beat metadata for current market
         async function fetchPriceToBeat() {
@@ -1733,9 +1778,11 @@
         function startPriceToBeatPolling() {
             // Initial fetch on load
             fetchPriceToBeat();
+            fetchCurrentChainlinkPrice();
 
             // Update countdown every second
-            // Refetch 1 second after boundary crossing (when countdown hits 0)
+            // Fetch current Chainlink price every second
+            // Refetch reference price 1 second after boundary crossing (when countdown hits 0)
             if (priceToBeatInterval) clearInterval(priceToBeatInterval);
 
             let previousRemaining = Infinity;
@@ -1743,6 +1790,7 @@
 
             priceToBeatInterval = setInterval(() => {
                 updatePriceToBeatDisplay();
+                fetchCurrentChainlinkPrice();  // Fetch current price every second
 
                 // Check if we just crossed a boundary (remaining went from positive to <= 0)
                 if (priceToeBeatData && priceToeBeatData.end_time) {
