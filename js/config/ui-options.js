@@ -36,6 +36,15 @@
                 { value: 'polymarket:btc-15m-c-up', primaryLabel: 'BTC 15m C-UP', secondaryLabel: 'BTC 15m C-UP', instrument: 'C-UP' },
                 { value: 'polymarket:btc-15m-c-down', primaryLabel: 'BTC 15m C-DOWN', secondaryLabel: 'BTC 15m C-DOWN', instrument: 'C-DOWN' }
             ]
+        },
+        {
+            group: 'Chainlink Data Streams',
+            options: [
+                { value: 'chainlink:btc-usd', primaryLabel: 'BTC/USD', secondaryLabel: 'BTC/USD (Chainlink)', instrument: 'BTCUSD' },
+                { value: 'chainlink:eth-usd', primaryLabel: 'ETH/USD', secondaryLabel: 'ETH/USD (Chainlink)', instrument: 'ETHUSD' },
+                { value: 'chainlink:sol-usd', primaryLabel: 'SOL/USD', secondaryLabel: 'SOL/USD (Chainlink)', instrument: 'SOLUSD' },
+                { value: 'chainlink:xrp-usd', primaryLabel: 'XRP/USD', secondaryLabel: 'XRP/USD (Chainlink)', instrument: 'XRPUSD' }
+            ]
         }
     ];
 
