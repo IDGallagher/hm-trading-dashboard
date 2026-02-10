@@ -1731,19 +1731,36 @@
 
         // Start Price to Beat polling
         function startPriceToBeatPolling() {
-            // Initial fetch
+            // Initial fetch on load
             fetchPriceToBeat();
 
-            // Update countdown every second, refetch metadata every 15 seconds
+            // Update countdown every second
+            // Refetch 1 second after boundary crossing (when countdown hits 0)
             if (priceToBeatInterval) clearInterval(priceToBeatInterval);
 
-            let tickCount = 0;
+            let previousRemaining = Infinity;
+            let boundaryFetchScheduled = false;
+
             priceToBeatInterval = setInterval(() => {
                 updatePriceToBeatDisplay();
-                tickCount++;
-                if (tickCount >= 15) {
-                    fetchPriceToBeat();
-                    tickCount = 0;
+
+                // Check if we just crossed a boundary (remaining went from positive to <= 0)
+                if (priceToeBeatData && priceToeBeatData.end_time) {
+                    const now = Date.now() / 1000;
+                    const remaining = priceToeBeatData.end_time - now;
+
+                    // Boundary just crossed - schedule a fetch 1 second later
+                    if (previousRemaining > 0 && remaining <= 0 && !boundaryFetchScheduled) {
+                        boundaryFetchScheduled = true;
+                        console.log('[PriceToBeat] Boundary crossed, fetching new price in 1 second');
+                        setTimeout(() => {
+                            fetchPriceToBeat();
+                            boundaryFetchScheduled = false;
+                            previousRemaining = Infinity;  // Reset for next boundary
+                        }, 1000);
+                    }
+
+                    previousRemaining = remaining;
                 }
             }, 1000);
         }
