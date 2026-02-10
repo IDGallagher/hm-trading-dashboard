@@ -1649,17 +1649,22 @@
         // Fetch current Chainlink BTC price
         async function fetchCurrentChainlinkPrice() {
             try {
-                // Get the most recent trade from Chainlink BTC-USD feed
+                // Get recent trades from Chainlink BTC-USD feed (last 5 minutes)
+                // Chainlink updates every few seconds, so 5 min window ensures we get data
+                const now = Date.now();
                 const data = await HM_API.live.tradesDeltas({
                     market: 'chainlink:btc-usd',
-                    limit: 1
+                    start_ts: now - 300000,  // Last 5 minutes
+                    end_ts: now,
+                    limit: 500
                 });
                 if (data.trades && data.trades.length > 0) {
+                    // Get the most recent trade (last in array, sorted ascending)
                     currentChainlinkPrice = data.trades[data.trades.length - 1].p;  // p = price
                     updateCurrentPriceDisplay();
                 }
             } catch (err) {
-                // Silently ignore errors - will retry next second
+                console.error('[CurrentPrice] Error fetching:', err.message);
             }
         }
 
