@@ -1,4 +1,43 @@
 (function () {
+    const POLYMARKET_ASSETS = ['btc', 'eth', 'sol', 'xrp'];
+    const POLYMARKET_PERIODS = ['15m', '1h', '4h', '1d'];
+    const POLYMARKET_SLOTS = ['a', 'b'];
+    const POLYMARKET_OUTCOMES = ['up', 'down'];
+
+    function buildPolymarketGroups() {
+        const groups = [];
+
+        for (const period of POLYMARKET_PERIODS) {
+            for (const asset of POLYMARKET_ASSETS) {
+                const assetUpper = asset.toUpperCase();
+                const periodUpper = period.toUpperCase();
+                const options = [];
+
+                for (const slot of POLYMARKET_SLOTS) {
+                    for (const outcome of POLYMARKET_OUTCOMES) {
+                        const slotUpper = slot.toUpperCase();
+                        const outcomeUpper = outcome.toUpperCase();
+                        options.push({
+                            value: `polymarket:${asset}-${period}-${slot}-${outcome}`,
+                            primaryLabel: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`,
+                            secondaryLabel: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`,
+                            instrument: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`
+                        });
+                    }
+                }
+
+                groups.push({
+                    group: `Polymarket ${assetUpper} ${periodUpper}`,
+                    options
+                });
+            }
+        }
+
+        return groups;
+    }
+
+    const POLYMARKET_GROUPS = buildPolymarketGroups();
+
     const LIVE_MARKETS = [
         {
             group: 'BitMEX Perpetuals',
@@ -28,27 +67,7 @@
                 { value: 'coinbase:btc-usd', primaryLabel: 'BTC/USD', secondaryLabel: 'BTC/USD (Coinbase BTC-USD)', instrument: 'BTCUSD' }
             ]
         },
-        {
-            group: 'Polymarket (Slot A)',
-            options: [
-                { value: 'polymarket:btc-15m-a-up', primaryLabel: 'BTC 15m A-UP', secondaryLabel: 'BTC 15m A-UP', instrument: 'A-UP' },
-                { value: 'polymarket:btc-15m-a-down', primaryLabel: 'BTC 15m A-DOWN', secondaryLabel: 'BTC 15m A-DOWN', instrument: 'A-DOWN' }
-            ]
-        },
-        {
-            group: 'Polymarket (Slot B)',
-            options: [
-                { value: 'polymarket:btc-15m-b-up', primaryLabel: 'BTC 15m B-UP', secondaryLabel: 'BTC 15m B-UP', instrument: 'B-UP' },
-                { value: 'polymarket:btc-15m-b-down', primaryLabel: 'BTC 15m B-DOWN', secondaryLabel: 'BTC 15m B-DOWN', instrument: 'B-DOWN' }
-            ]
-        },
-        {
-            group: 'Polymarket (Slot C)',
-            options: [
-                { value: 'polymarket:btc-15m-c-up', primaryLabel: 'BTC 15m C-UP', secondaryLabel: 'BTC 15m C-UP', instrument: 'C-UP' },
-                { value: 'polymarket:btc-15m-c-down', primaryLabel: 'BTC 15m C-DOWN', secondaryLabel: 'BTC 15m C-DOWN', instrument: 'C-DOWN' }
-            ]
-        },
+        ...POLYMARKET_GROUPS,
         {
             group: 'Chainlink Data Streams',
             options: [
