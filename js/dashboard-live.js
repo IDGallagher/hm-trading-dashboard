@@ -32,6 +32,37 @@
         }
 
         // ==========================================
+        // BITMEX CONTRACT MULTIPLIERS (for USD conversion)
+        // ==========================================
+        // For quanto contracts: USD value = size × multiplier × BTC_price / 1e8
+        // For inverse contracts (XBTUSD): USD value = size (already in USD)
+        const BITMEX_MULTIPLIERS = {
+            'xbtusd': null,      // Inverse - size is already USD
+            'ethusd': 100,       // Quanto
+            'solusd': 100,       // Quanto
+            'xrpusd': 20000,     // Quanto
+            'dogeusd': 100000    // Quanto
+        };
+
+        // Track BTC price for quanto conversions
+        let currentBtcPrice = 68000;  // Default, updated from market data
+
+        // Convert raw contract size to USD value for display
+        function convertSizeToUsd(size, market, underlyingPrice) {
+            if (!market) return size;
+            const marketLower = market.toLowerCase();
+            const multiplier = BITMEX_MULTIPLIERS[marketLower];
+
+            // If no multiplier (inverse contract like XBTUSD), size is already USD
+            if (multiplier === null || multiplier === undefined) {
+                return size;
+            }
+
+            // For quanto contracts: USD = size × multiplier × BTC_price / 1e8
+            return size * multiplier * currentBtcPrice / 1e8;
+        }
+
+        // ==========================================
         // LIVE MARKET DATA FUNCTIONS
         // ==========================================
 
@@ -186,6 +217,11 @@
                 const periodStart = getPeriodStartTime(tradeTimeSec, currentMarketPeriod);
                 const price = trade.price;
                 const amount = trade.amount || 0;
+
+                // Update BTC price for quanto USD conversions when viewing XBTUSD
+                if (currentMarket === 'xbtusd' && price > 10000) {
+                    currentBtcPrice = price;
+                }
 
                 let bucket = liveTradeBucketsByPeriod.get(periodStart);
                 if (!bucket) {
@@ -1625,11 +1661,18 @@
             return price.toFixed(1);
         }
 
-        // Format amount - clean decimal formatting
-        function formatMarketAmount(amount) {
+        // Format amount - clean decimal formatting with USD conversion for BitMEX quanto contracts
+        function formatMarketAmount(amount, market = null) {
             if (amount == null) return '-';
-            const num = parseFloat(amount);
+            let num = parseFloat(amount);
             if (isNaN(num)) return amount;
+
+            // Convert to USD for BitMEX quanto contracts (use currentMarket if no market passed)
+            const effectiveMarket = market || currentMarket;
+            if (effectiveMarket && !effectiveMarket.startsWith('polymarket:') && !effectiveMarket.startsWith('chainlink:') && !effectiveMarket.startsWith('binance')) {
+                num = convertSizeToUsd(num, effectiveMarket, null);
+            }
+
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
             if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
             // For amounts < 1000: show clean decimals (max 2 places, trim trailing zeros)
@@ -1781,6 +1824,19 @@
 
         // Start Price to Beat polling
         function startPriceToBeatPolling() {
+            // Only run for Polymarket A markets (UP or DOWN)
+            const isPolymarketA = currentMarket === 'polymarket:btc-15m-a-up' || currentMarket === 'polymarket:btc-15m-a-down';
+            const ptbPanel = document.getElementById('price-to-beat-panel');
+
+            if (!isPolymarketA) {
+                if (ptbPanel) ptbPanel.style.display = 'none';
+                if (priceToBeatInterval) {
+                    clearInterval(priceToBeatInterval);
+                    priceToBeatInterval = null;
+                }
+                return;
+            }
+
             // Initial fetch on load
             fetchPriceToBeat();
             fetchCurrentChainlinkPrice();
@@ -1823,6 +1879,20 @@
         // ==========================================
 
         let orderbookPollingInterval = null;
+        let btcPricePollingInterval = null;
+
+        // Fetch BTC price for quanto USD conversions (needed when viewing non-BTC markets)
+        async function fetchBtcPrice() {
+            try {
+                const data = await HM_API.live.orderbook({ market: 'xbtusd', depth: 1 });
+                if (data.success && data.bids && data.bids.length > 0) {
+                    currentBtcPrice = data.bids[0].price;
+                    console.log('[USD Conversion] Updated BTC price:', currentBtcPrice);
+                }
+            } catch (err) {
+                console.warn('[USD Conversion] Failed to fetch BTC price:', err.message);
+            }
+        }
 
         // Start live market data polling
         function startLiveMarketPolling() {
@@ -1830,6 +1900,12 @@
             // Trade polling is handled by startTradePolling() in loadTradesData()
             // Start orderbook polling here
             startOrderbookPolling();
+
+            // Fetch BTC price initially and periodically for USD conversions
+            fetchBtcPrice();
+            if (!btcPricePollingInterval) {
+                btcPricePollingInterval = setInterval(fetchBtcPrice, 30000);  // Every 30 seconds
+            }
         }
 
         let orderbookPollingInProgress = false;  // Flag to prevent overlapping requests
@@ -1885,6 +1961,10 @@
         function stopLiveMarketPolling() {
             stopTradePolling();
             stopOrderbookPolling();
+            if (btcPricePollingInterval) {
+                clearInterval(btcPricePollingInterval);
+                btcPricePollingInterval = null;
+            }
             cancelInFlightMarketRequests('stop-live-market-polling');
         }
 
