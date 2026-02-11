@@ -116,11 +116,11 @@
             }
         }
 
-        // Format date/time
+        // Format date/time (UTC)
         function formatDateTime(isoString) {
             if (!isoString) return '-';
             const d = new Date(isoString);
-            return d.toLocaleString();
+            return d.toLocaleString('en-GB', { timeZone: 'UTC' }) + ' UTC';
         }
 
         // Format duration from two dates
@@ -230,7 +230,7 @@
                     // Note: t.timestamp is Unix seconds, multiply by 1000 for JavaScript Date
                     tbody.innerHTML = trades.map(t => `
                         <tr>
-                            <td>${new Date(t.timestamp * 1000).toLocaleString()}</td>
+                            <td>${new Date(t.timestamp * 1000).toLocaleString('en-GB', { timeZone: 'UTC' })}</td>
                             <td>${t.action}</td>
                             <td class="${t.side.toLowerCase()}">${t.side}</td>
                             <td>$${(parseFloat(t.price) || 0).toFixed(2)}</td>
@@ -269,7 +269,7 @@
                 } else {
                     container.innerHTML = logs.map(log => {
                         const levelClass = `log-${(log.level || 'info').toLowerCase()}`;
-                        return `<div class="log-line ${levelClass}">[${new Date(log.timestamp).toLocaleTimeString()}] [${log.level || 'INFO'}] ${log.message}</div>`;
+                        return `<div class="log-line ${levelClass}">[${new Date(log.timestamp).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}] [${log.level || 'INFO'}] ${log.message}</div>`;
                     }).join('');
 
                     // Auto-scroll to bottom
@@ -324,7 +324,7 @@
 
                             for (const log of logs) {
                                 const levelClass = `log-${(log.level || 'info').toLowerCase()}`;
-                                const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                                const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-GB', { timeZone: 'UTC' }) : new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC' });
                                 container.innerHTML += `<div class="log-line ${levelClass}">[${timestamp}] [${log.level || 'INFO'}] ${log.message}</div>`;
                             }
 

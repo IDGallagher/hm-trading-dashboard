@@ -25,7 +25,7 @@
             }
 
             const entry = {
-                time: new Date().toLocaleTimeString(),
+                time: new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC' }),
                 type: type,
                 message: String(message).substring(0, 200),
                 source: source ? String(source).split('/').pop() : '',
@@ -265,23 +265,23 @@
                 const hours = timeSpanSeconds / 3600;
                 const days = timeSpanSeconds / 86400;
 
-                // Format based on zoom level
+                // Format based on zoom level (all times in UTC)
                 if (days > 7) {
                     // Wide range (weeks+) - show date only
-                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
                 } else if (days > 1) {
                     // Medium-wide range (days) - show date
-                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
                 } else if (hours > 6) {
                     // Medium range (hours) - show date + hour
-                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) +
-                           ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' }) +
+                           ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
                 } else if (hours > 1) {
                     // Narrow range (hours) - show hour:minute
-                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
                 } else {
                     // Very narrow range (minutes) - show hour:minute:second
-                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' });
                 }
             };
 

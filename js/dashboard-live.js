@@ -1623,7 +1623,7 @@
 
             // Prepend new rows
             const newRows = newTrades.map(trade => {
-                const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
+                const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
                 const sideClass = trade.side === 'buy' ? 'side-buy' : 'side-sell';
                 return `<tr><td>${time}</td><td class="${sideClass}">${trade.side.toUpperCase()}</td><td>${formatMarketPrice(trade.price, currentMarket)}</td><td>${formatMarketAmount(trade.amount)}</td></tr>`;
             }).join('');
@@ -1652,7 +1652,7 @@
             const tbody = document.getElementById('trades-tbody');
             if (tbody) {
                 tbody.innerHTML = trades.map(trade => {
-                    const time = new Date(trade.timestamp * 1000).toLocaleTimeString();
+                    const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
                     const sideClass = trade.side === 'buy' ? 'side-buy' : 'side-sell';
                     return `<tr><td>${time}</td><td class="${sideClass}">${trade.side.toUpperCase()}</td><td>${formatMarketPrice(trade.price, currentMarket)}</td><td>${formatMarketAmount(trade.amount)}</td></tr>`;
                 }).join('');
@@ -1820,7 +1820,7 @@
             if (windowEl && priceToeBeatData.start_time && priceToeBeatData.end_time) {
                 const startDate = new Date(priceToeBeatData.start_time * 1000);
                 const endDate = new Date(priceToeBeatData.end_time * 1000);
-                const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const formatTime = (d) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
                 windowEl.textContent = `${formatTime(startDate)} - ${formatTime(endDate)}`;
             }
 
@@ -2582,10 +2582,10 @@
             return val1 === val2;
         }
 
-        // Format trade time for display
+        // Format trade time for display (UTC)
         function formatTradeTime(timestamp) {
-            return new Date(timestamp * 1000).toLocaleString('en-US', {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+            return new Date(timestamp * 1000).toLocaleString('en-GB', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC'
             });
         }
 
@@ -2822,7 +2822,7 @@
                     renderComparisonView(testData, backtestData);
 
                     document.getElementById('timestamp').textContent =
-                        `Last updated: ${new Date().toLocaleString()} | Comparing TEST vs BACKTEST sessions`;
+                        `Last updated: ${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC | Comparing TEST vs BACKTEST sessions`;
                 } else {
                     // Load single session and show normal dashboard
                     const data = await loadSessionData(session);
@@ -2855,7 +2855,7 @@
                     document.getElementById('trades-badge').textContent = `${currentData.trades.length} entries / ${exitCount} exits`;
 
                     document.getElementById('timestamp').textContent =
-                        `Last updated: ${new Date().toLocaleString()} | ${sessionLabel} Session - ${currentData.metadata.bot_name}`;
+                        `Last updated: ${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC | ${sessionLabel} Session - ${currentData.metadata.bot_name}`;
 
                     animateCards();
                 }
@@ -3105,7 +3105,7 @@
                 const exitCount = data.trades.filter(t => t.exit_time_unix && t.exit_price).length;
                 if (tradesBadge) tradesBadge.textContent = `${data.trades.length} entries / ${exitCount} exits`;
                 if (timestamp) timestamp.textContent =
-                    `Last updated: ${new Date().toLocaleString()} | Data: ${data.metadata.bot_name} on ${data.metadata.exchange} ${data.metadata.pair}`;
+                    `Last updated: ${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC | Data: ${data.metadata.bot_name} on ${data.metadata.exchange} ${data.metadata.pair}`;
 
                 // Update active bot card
                 updateActiveBotCard(botName);
@@ -3175,11 +3175,11 @@
             const section = document.getElementById('config-section');
             if (!section) return; // Element not in DOM
 
-            const startDate = new Date(metadata.start_timestamp_unix * 1000).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'short', day: 'numeric'
+            const startDate = new Date(metadata.start_timestamp_unix * 1000).toLocaleDateString('en-GB', {
+                year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
             });
-            const endDate = new Date(metadata.end_timestamp_unix * 1000).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'short', day: 'numeric'
+            const endDate = new Date(metadata.end_timestamp_unix * 1000).toLocaleDateString('en-GB', {
+                year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
             });
 
             section.innerHTML = `
@@ -3591,8 +3591,8 @@
             const rows = [];
             trades.forEach((trade, index) => {
                 // Entry row
-                const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleString('en-US', {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleString('en-GB', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
                 });
                 const entryType = trade.side === 'long' ? 'Long Entry' : 'Short Entry';
                 const entryColor = trade.side === 'long' ? '#2196F3' : '#FF9800';
@@ -3615,8 +3615,8 @@
 
                 // Exit row (if exit data exists)
                 if (trade.exit_time_unix && trade.exit_price) {
-                    const exitTime = new Date(trade.exit_time_unix * 1000).toLocaleString('en-US', {
-                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    const exitTime = new Date(trade.exit_time_unix * 1000).toLocaleString('en-GB', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
                     });
                     const exitType = trade.side === 'long' ? 'Close Long' : 'Close Short';
                     const exitColor = trade.pnl >= 0 ? '#00c853' : '#ff5252';
@@ -3990,8 +3990,8 @@
                 if (backtestLogEl) {
                     // Render each trade
                     backtestLogEl.innerHTML = trades.map(trade => {
-                        const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString();
-                        const exitTime = trade.exit_time_unix ? new Date(trade.exit_time_unix * 1000).toLocaleTimeString() : '--';
+                        const entryTime = new Date(trade.timestamp_unix * 1000).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
+                        const exitTime = trade.exit_time_unix ? new Date(trade.exit_time_unix * 1000).toLocaleTimeString('en-GB', { timeZone: 'UTC' }) : '--';
                         const pnl = parseFloat(trade.pnl) || 0;
                         const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                         const sideClass = trade.side === 'long' ? 'side-long' : 'side-short';

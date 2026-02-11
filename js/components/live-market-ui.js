@@ -98,7 +98,7 @@
             if (!container) return;
 
             const newHtml = trades.slice(0, 30).map(trade => {
-                const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-US', { hour12: false });
+                const time = new Date(trade.timestamp * 1000).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'UTC' });
                 const side = trade.side === 'buy' ? 'BUY' : 'SELL';
                 return `<div class="trade-row ${trade.side}">
                     <span class="trade-time">${time}</span>

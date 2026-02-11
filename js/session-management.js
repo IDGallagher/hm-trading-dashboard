@@ -1060,7 +1060,7 @@
                             const price = parseFloat(t.price) || 0;
                             return `
                             <div class="inline-trade-row">
-                                <span>${new Date(t.timestamp * 1000).toLocaleTimeString()}</span>
+                                <span>${new Date(t.timestamp * 1000).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}</span>
                                 <span style="color: ${t.side === 'BUY' ? '#3fb950' : '#f85149'}">${t.action}</span>
                                 <span>$${price.toFixed(2)}</span>
                                 <span>${formatTradeSize(t.size)}</span>
@@ -1123,7 +1123,7 @@
                     // Show most recent logs at bottom (chronological order)
                     container.innerHTML = logs.slice(-100).map(l => `
                         <div class="inline-log-row ${l.level?.toLowerCase()}">
-                            <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                            <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}</span>
                             <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
                             ${l.message}
                         </div>
@@ -1192,7 +1192,7 @@
             // Append new logs
             const html = filteredLogs.map(l => `
                 <div class="inline-log-row ${l.level?.toLowerCase()} new-log">
-                    <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                    <span style="color: #6e7681">${new Date(l.timestamp).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}</span>
                     <span style="color: ${l.level === 'ERROR' ? '#f85149' : l.level === 'WARN' ? '#d29922' : '#8b949e'}">[${l.level}]</span>
                     ${l.message}
                 </div>
