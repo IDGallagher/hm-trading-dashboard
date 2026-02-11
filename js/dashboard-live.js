@@ -1563,7 +1563,11 @@
                 const requestContext = beginTrackedMarketRequest();
                 try {
                     // Poll for trades newer than our last timestamp
-                    const data = await HM_API.live.tradesDeltasNormalized({ market: currentMarket, since: latestTradeTimestamp }, { signal: requestContext.signal });
+                    // If no timestamp yet, use limit instead of since=0 (which would scan from 1970)
+                    const pollQuery = latestTradeTimestamp
+                        ? { market: currentMarket, since: latestTradeTimestamp }
+                        : { market: currentMarket, limit: 500 };
+                    const data = await HM_API.live.tradesDeltasNormalized(pollQuery, { signal: requestContext.signal });
                     if (isStaleMarketRequest(requestContext)) return;
                     if (data.success && data.trades && data.trades.length > 0) {
                         const chronologicalTrades = data.trades
