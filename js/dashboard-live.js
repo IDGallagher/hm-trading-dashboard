@@ -34,7 +34,8 @@
         // ==========================================
         // BITMEX CONTRACT MULTIPLIERS (for USD conversion)
         // ==========================================
-        // For quanto contracts: USD value = size × multiplier × BTC_price / 1e8
+        // For quanto contracts: USD = size × lot_multiplier × quanto_multiplier × BTC_price
+        //                     = size × multiplier × BTC_price / 1e6
         // For inverse contracts (XBTUSD): USD value = size (already in USD)
         const BITMEX_MULTIPLIERS = {
             'xbtusd': null,      // Inverse - size is already USD
@@ -48,7 +49,7 @@
         let currentBtcPrice = 68000;  // Default, updated from market data
 
         // Convert raw contract size to USD value for display
-        function convertSizeToUsd(size, market, underlyingPrice) {
+        function convertSizeToUsd(size, market) {
             if (!market) return size;
             const marketLower = market.toLowerCase();
             const multiplier = BITMEX_MULTIPLIERS[marketLower];
@@ -58,8 +59,10 @@
                 return size;
             }
 
-            // For quanto contracts: USD = size × multiplier × BTC_price / 1e8
-            return size * multiplier * currentBtcPrice / 1e8;
+            // For quanto contracts: USD = size × lot_multiplier × quanto_multiplier × BTC_price
+            // quanto_multiplier = 0.000001 = 1e-6
+            // So: USD = size × multiplier × BTC_price / 1e6
+            return size * multiplier * currentBtcPrice / 1e6;
         }
 
         // ==========================================
@@ -1657,7 +1660,7 @@
             // Polymarket markets have probability prices (0.00 - 1.00) - show 3 significant figures
             if (market && market.startsWith('polymarket:')) return price.toFixed(3);
             if (market === 'dogeusd' || market === 'xrpusd') return price.toFixed(4);
-            else if (market === 'solusd') return price.toFixed(2);
+            else if (market === 'solusd' || market === 'ethusd') return price.toFixed(2);
             return price.toFixed(1);
         }
 
@@ -1670,7 +1673,7 @@
             // Convert to USD for BitMEX quanto contracts (use currentMarket if no market passed)
             const effectiveMarket = market || currentMarket;
             if (effectiveMarket && !effectiveMarket.startsWith('polymarket:') && !effectiveMarket.startsWith('chainlink:') && !effectiveMarket.startsWith('binance')) {
-                num = convertSizeToUsd(num, effectiveMarket, null);
+                num = convertSizeToUsd(num, effectiveMarket);
             }
 
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
