@@ -17,6 +17,18 @@
             ]
         },
         {
+            group: 'Bybit Perpetuals',
+            options: [
+                { value: 'bybit:btcusdt', primaryLabel: 'BTC/USDT', secondaryLabel: 'BTC/USDT (Bybit BTCUSDT)', instrument: 'BTCUSDT' }
+            ]
+        },
+        {
+            group: 'Coinbase Spot',
+            options: [
+                { value: 'coinbase:btc-usd', primaryLabel: 'BTC/USD', secondaryLabel: 'BTC/USD (Coinbase BTC-USD)', instrument: 'BTCUSD' }
+            ]
+        },
+        {
             group: 'Polymarket (Slot A)',
             options: [
                 { value: 'polymarket:btc-15m-a-up', primaryLabel: 'BTC 15m A-UP', secondaryLabel: 'BTC 15m A-UP', instrument: 'A-UP' },

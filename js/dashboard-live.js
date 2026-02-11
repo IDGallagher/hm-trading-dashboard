@@ -1514,7 +1514,7 @@
             try {
                 // Use unified endpoint for all markets (BitMEX and Polymarket)
                 const tradeQuery = latestTradeTimestamp
-                    ? { market: currentMarket, since: latestTradeTimestamp }
+                    ? { market: currentMarket, since: latestTradeTimestamp, limit: 500 }
                     : { market: currentMarket, limit: 500 };
                 const data = await HM_API.live.tradesDeltasNormalized(tradeQuery, { signal: requestContext.signal });
                 if (isStaleMarketRequest(requestContext)) return;
@@ -1565,7 +1565,7 @@
                     // Poll for trades newer than our last timestamp
                     // If no timestamp yet, use limit instead of since=0 (which would scan from 1970)
                     const pollQuery = latestTradeTimestamp
-                        ? { market: currentMarket, since: latestTradeTimestamp }
+                        ? { market: currentMarket, since: latestTradeTimestamp, limit: 500 }
                         : { market: currentMarket, limit: 500 };
                     const data = await HM_API.live.tradesDeltasNormalized(pollQuery, { signal: requestContext.signal });
                     if (isStaleMarketRequest(requestContext)) return;
