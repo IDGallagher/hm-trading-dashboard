@@ -1674,8 +1674,23 @@
             let num = parseFloat(amount);
             if (isNaN(num)) return amount;
 
-            // Show raw contract counts (same as BitMEX displays)
-            // USD conversion disabled - formula was producing incorrect values
+            // Use higher precision for BTC-sized amounts so orderbook/trade quantities
+            // are not truncated.
+            const resolvedMarket = (market || currentMarket || '').toLowerCase();
+            const isBtcAmountMarket =
+                resolvedMarket === 'xbtusd' ||
+                resolvedMarket === 'btcusd' ||
+                resolvedMarket === 'binance:btcusdt' ||
+                resolvedMarket === 'bybit:btcusdt' ||
+                resolvedMarket === 'coinbase:btc-usd' ||
+                resolvedMarket === 'chainlink:btc-usd';
+
+            if (isBtcAmountMarket && num !== 0) {
+                return new Intl.NumberFormat('en-US', {
+                    useGrouping: false,
+                    maximumSignificantDigits: 6
+                }).format(num);
+            }
 
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
             if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
