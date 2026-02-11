@@ -1664,17 +1664,14 @@
             return price.toFixed(1);
         }
 
-        // Format amount - clean decimal formatting with USD conversion for BitMEX quanto contracts
+        // Format amount - clean decimal formatting (raw contract counts, no USD conversion)
         function formatMarketAmount(amount, market = null) {
             if (amount == null) return '-';
             let num = parseFloat(amount);
             if (isNaN(num)) return amount;
 
-            // Convert to USD for BitMEX quanto contracts (use currentMarket if no market passed)
-            const effectiveMarket = market || currentMarket;
-            if (effectiveMarket && !effectiveMarket.startsWith('polymarket:') && !effectiveMarket.startsWith('chainlink:') && !effectiveMarket.startsWith('binance')) {
-                num = convertSizeToUsd(num, effectiveMarket);
-            }
+            // Show raw contract counts (same as BitMEX displays)
+            // USD conversion disabled - formula was producing incorrect values
 
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
             if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
