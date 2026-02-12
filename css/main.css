@@ -105,7 +105,7 @@
         /* === MAIN TRADING LAYOUT === */
         .trading-main {
             display: grid;
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: 1fr 340px;
             height: 55vh; /* Fixed height so bots section is visible below */
             min-height: 400px;
             max-height: 550px;

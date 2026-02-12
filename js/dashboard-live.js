@@ -1875,11 +1875,11 @@
             }
 
             // Update label to show correct asset
-            const refLabel = document.querySelector('#price-to-beat-panel .panel-content div:first-child > div:first-child');
+            const refLabel = document.getElementById('ptb-reference-label');
             if (refLabel && parsed) {
                 refLabel.textContent = `Reference ${parsed.asset.toUpperCase()} Price`;
             }
-            const curLabel = document.querySelector('#price-to-beat-panel .panel-content div:first-child > div:nth-child(2) > div:first-child');
+            const curLabel = document.getElementById('ptb-current-label');
             if (curLabel && parsed) {
                 curLabel.textContent = `Current ${parsed.asset.toUpperCase()} Price`;
             }

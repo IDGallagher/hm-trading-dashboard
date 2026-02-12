@@ -9,6 +9,7 @@
 
         for (const period of POLYMARKET_PERIODS) {
             for (const asset of POLYMARKET_ASSETS) {
+                if (period === '5m' && asset !== 'btc') continue;
                 const assetUpper = asset.toUpperCase();
                 const periodUpper = period.toUpperCase();
                 const options = [];
