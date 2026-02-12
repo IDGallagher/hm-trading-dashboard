@@ -1746,8 +1746,9 @@
                 });
 
                 // Color based on comparison with reference price
-                if (priceToeBeatData && priceToeBeatData.btc_price > 0) {
-                    if (currentChainlinkPrice >= priceToeBeatData.btc_price) {
+                const refPrice = priceToeBeatData ? (priceToeBeatData.reference_price || priceToeBeatData.btc_price) : 0;
+                if (refPrice > 0) {
+                    if (currentChainlinkPrice >= refPrice) {
                         currentPriceEl.style.color = '#00ff88';  // Green - UP winning
                     } else {
                         currentPriceEl.style.color = '#ff4444';  // Red - DOWN winning
@@ -1819,10 +1820,11 @@
             const windowEl = document.getElementById('ptb-window');
             const countdownEl = document.getElementById('ptb-countdown');
 
-            // Update BTC price
+            // Update reference price (use reference_price or btc_price for backwards compatibility)
             if (btcPriceEl) {
-                if (priceToeBeatData.btc_price && priceToeBeatData.btc_price > 0) {
-                    btcPriceEl.textContent = '$' + priceToeBeatData.btc_price.toLocaleString(undefined, {
+                const refPrice = priceToeBeatData.reference_price || priceToeBeatData.btc_price;
+                if (refPrice && refPrice > 0) {
+                    btcPriceEl.textContent = '$' + refPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                     });
