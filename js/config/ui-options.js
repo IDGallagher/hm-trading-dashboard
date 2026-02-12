@@ -1,6 +1,6 @@
 (function () {
     const POLYMARKET_ASSETS = ['btc', 'eth', 'sol', 'xrp'];
-    const POLYMARKET_PERIODS = ['15m', '1h', '4h', '1d'];
+    const POLYMARKET_PERIODS = ['5m', '15m', '1h', '4h', '1d'];
     const POLYMARKET_SLOTS = ['a', 'b'];
     const POLYMARKET_OUTCOMES = ['up', 'down'];
 
