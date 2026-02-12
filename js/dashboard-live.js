@@ -1711,11 +1711,15 @@
         // Fetch current Chainlink BTC price
         async function fetchCurrentChainlinkPrice() {
             try {
-                // Get recent trades from Chainlink BTC-USD feed (last 5 minutes)
+                // Determine asset from current polymarket selection
+                const parsed = parsePolymarketMarket(currentMarket);
+                const asset = parsed ? parsed.asset : 'btc';
+
+                // Get recent trades from Chainlink feed (last 5 minutes)
                 // Chainlink updates every few seconds, so 5 min window ensures we get data
                 const now = Date.now();
                 const data = await HM_API.live.tradesDeltas({
-                    market: 'chainlink:btc-usd',
+                    market: `chainlink:${asset}-usd`,
                     start_ts: now - 300000,  // Last 5 minutes
                     end_ts: now,
                     limit: 500
@@ -1757,13 +1761,21 @@
             }
         }
 
+        // Parse polymarket market string: polymarket:{asset}-{period}-{slot}-{outcome}
+        function parsePolymarketMarket(market) {
+            const match = market.match(/^polymarket:(\w+)-(\d+[mhd])-([ab])-(\w+)$/);
+            if (!match) return null;
+            return { asset: match[1], period: match[2], slot: match[3], outcome: match[4] };
+        }
+
         // Fetch Price to Beat metadata for current market
         async function fetchPriceToBeat() {
             const requestContext = beginTrackedMarketRequest();
             const market = currentMarket;
 
-            // Only show for Polymarket A markets (UP or DOWN)
-            const isPolymarketA = market === 'polymarket:btc-15m-a-up' || market === 'polymarket:btc-15m-a-down';
+            // Only show for Polymarket A markets (any asset, any period, UP or DOWN)
+            const parsed = parsePolymarketMarket(market);
+            const isPolymarketA = parsed && parsed.slot === 'a';
             const ptbPanel = document.getElementById('price-to-beat-panel');
 
             if (!isPolymarketA) {
@@ -1777,9 +1789,12 @@
 
             if (ptbPanel) ptbPanel.style.display = 'block';
 
+            // Build API market format: {asset}-{period}-{slot}
+            const apiMarket = `${parsed.asset}-${parsed.period}-${parsed.slot}`;
+
             try {
                 const data = await HM_API.live.polymarketMetadata({
-                    market: 'btc-15m-a',
+                    market: apiMarket,
                     type: 'price_to_beat',
                     limit: 1
                 }, { signal: requestContext.signal });
@@ -1843,8 +1858,9 @@
 
         // Start Price to Beat polling
         function startPriceToBeatPolling() {
-            // Only run for Polymarket A markets (UP or DOWN)
-            const isPolymarketA = currentMarket === 'polymarket:btc-15m-a-up' || currentMarket === 'polymarket:btc-15m-a-down';
+            // Only run for Polymarket A markets (any asset, any period, UP or DOWN)
+            const parsed = parsePolymarketMarket(currentMarket);
+            const isPolymarketA = parsed && parsed.slot === 'a';
             const ptbPanel = document.getElementById('price-to-beat-panel');
 
             if (!isPolymarketA) {
@@ -1854,6 +1870,16 @@
                     priceToBeatInterval = null;
                 }
                 return;
+            }
+
+            // Update label to show correct asset
+            const refLabel = document.querySelector('#price-to-beat-panel .panel-content div:first-child > div:first-child');
+            if (refLabel && parsed) {
+                refLabel.textContent = `Reference ${parsed.asset.toUpperCase()} Price`;
+            }
+            const curLabel = document.querySelector('#price-to-beat-panel .panel-content div:first-child > div:nth-child(2) > div:first-child');
+            if (curLabel && parsed) {
+                curLabel.textContent = `Current ${parsed.asset.toUpperCase()} Price`;
             }
 
             // Initial fetch on load
