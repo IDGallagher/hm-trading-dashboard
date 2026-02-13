@@ -570,14 +570,10 @@
         function updateNewSessionForm() {
             const type = document.getElementById('new-session-type').value;
             const backtestFields = document.getElementById('backtest-range-fields');
-            const feeFields = document.getElementById('fee-config-fields');
             const strategySelect = document.getElementById('new-session-strategy');
 
             // Show/hide backtest date range
             backtestFields.style.display = type === 'backtest' ? 'grid' : 'none';
-
-            // Show/hide fee config (hide for scrapers)
-            feeFields.style.display = type === 'scraper' ? 'none' : 'grid';
 
             // Filter strategies by type
             strategySelect.innerHTML = '';
@@ -615,24 +611,37 @@
             Object.keys(params).forEach(key => {
                 const value = params[key];
                 const paramSchema = schema[key] || {};
+                const isBoolean = typeof value === 'boolean';
                 const inputType = typeof value === 'number' ? 'number' : 'text';
-                
+
                 // Format the label nicely (trade_size -> Trade Size)
                 const label = paramSchema.description || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                
+
                 // Get min/max/step from schema
                 const min = paramSchema.minimum !== undefined ? `min="${paramSchema.minimum}"` : '';
                 const max = paramSchema.maximum !== undefined ? `max="${paramSchema.maximum}"` : '';
                 const step = inputType === 'number' ? 'step="any"' : '';
-                
-                fieldsContainer.innerHTML += `
-                    <div class="form-group">
-                        <label class="form-label">${label}</label>
-                        <input type="${inputType}" class="form-input strategy-param"
-                               data-param="${key}" value="${value}" ${min} ${max} ${step}
-                               title="${paramSchema.description || ''}">
-                    </div>
-                `;
+
+                if (isBoolean) {
+                    fieldsContainer.innerHTML += `
+                        <div class="form-group">
+                            <label class="form-label">${label}</label>
+                            <select class="form-select strategy-param" data-param="${key}" title="${paramSchema.description || ''}">
+                                <option value="true" ${value ? 'selected' : ''}>true</option>
+                                <option value="false" ${!value ? 'selected' : ''}>false</option>
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    fieldsContainer.innerHTML += `
+                        <div class="form-group">
+                            <label class="form-label">${label}</label>
+                            <input type="${inputType}" class="form-input strategy-param"
+                                   data-param="${key}" value="${value}" ${min} ${max} ${step}
+                                   title="${paramSchema.description || ''}">
+                        </div>
+                    `;
+                }
             });
         }
 
@@ -651,6 +660,8 @@
                 // Convert to number if needed
                 if (input.type === 'number') {
                     value = parseFloat(value);
+                } else if (value === 'true' || value === 'false') {
+                    value = value === 'true';
                 }
                 strategyParams[param] = value;
             });
@@ -663,14 +674,6 @@
                 strategy_params: strategyParams
             };
             if (name) body.name = name;
-
-            // Add fee configuration for test/backtest (not scrapers)
-            if (type !== 'scraper') {
-                const makerFee = parseFloat(document.getElementById('new-session-maker-fee').value);
-                const takerFee = parseFloat(document.getElementById('new-session-taker-fee').value);
-                if (!isNaN(makerFee)) body.maker_fee = makerFee;
-                if (!isNaN(takerFee)) body.taker_fee = takerFee;
-            }
 
             // Add date range for backtest
             if (type === 'backtest') {
