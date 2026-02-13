@@ -130,6 +130,7 @@
 
     const SESSION_TYPES = [
         { value: 'test', label: 'Live Test' },
+        { value: 'live', label: '⚠️ Live Trading' },
         { value: 'backtest', label: 'Backtest' },
         { value: 'scraper', label: 'Scraper' }
     ];
@@ -137,6 +138,7 @@
     const HISTORY_TYPES = [
         { value: '', label: 'All Types' },
         { value: 'test', label: 'Test' },
+        { value: 'live', label: 'Live Trading' },
         { value: 'backtest', label: 'Backtest' },
         { value: 'scraper', label: 'Scraper' }
     ];
