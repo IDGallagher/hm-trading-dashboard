@@ -90,7 +90,7 @@
         const seen = new Set();
         const derived = LIVE_MARKETS
             .flatMap((group) => group.options || [])
-            .map((option) => option.sessionMarket)
+            .map((option) => option.sessionMarket || option.value)
             .filter((market) => typeof market === 'string' && market.length > 0)
             .filter((market) => {
                 if (seen.has(market)) return false;
