@@ -4,40 +4,63 @@
     const POLYMARKET_SLOTS = ['a', 'b'];
     const POLYMARKET_OUTCOMES = ['up', 'down'];
 
+    // Full Polymarket groups with all slots and outcomes (for market data display)
     function buildPolymarketGroups() {
-        const groups = [];
+        const options = [];
 
-        for (const period of POLYMARKET_PERIODS) {
-            for (const asset of POLYMARKET_ASSETS) {
+        for (const asset of POLYMARKET_ASSETS) {
+            for (const period of POLYMARKET_PERIODS) {
+                // 5m period only available for BTC
                 if (period === '5m' && asset !== 'btc') continue;
-                const assetUpper = asset.toUpperCase();
-                const periodUpper = period.toUpperCase();
-                const options = [];
 
                 for (const slot of POLYMARKET_SLOTS) {
                     for (const outcome of POLYMARKET_OUTCOMES) {
+                        const assetUpper = asset.toUpperCase();
+                        const periodUpper = period.toUpperCase();
                         const slotUpper = slot.toUpperCase();
                         const outcomeUpper = outcome.toUpperCase();
+
                         options.push({
                             value: `polymarket:${asset}-${period}-${slot}-${outcome}`,
                             primaryLabel: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`,
-                            secondaryLabel: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`,
-                            instrument: `${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`
+                            secondaryLabel: `Polymarket ${assetUpper} ${periodUpper} ${slotUpper}-${outcomeUpper}`,
+                            instrument: `${assetUpper}/${periodUpper}_${slotUpper}_${outcomeUpper}`
                         });
                     }
                 }
+            }
+        }
 
-                groups.push({
-                    group: `Polymarket ${assetUpper} ${periodUpper}`,
-                    options
+        return [{
+            group: 'Polymarket',
+            options
+        }];
+    }
+
+    // Simplified Polymarket options for session creation only (e.g., polymarket:btc-5m)
+    function buildPolymarketSessionOptions() {
+        const options = [];
+
+        for (const asset of POLYMARKET_ASSETS) {
+            for (const period of POLYMARKET_PERIODS) {
+                // 5m period only available for BTC
+                if (period === '5m' && asset !== 'btc') continue;
+
+                const assetUpper = asset.toUpperCase();
+                const periodUpper = period.toUpperCase();
+
+                options.push({
+                    value: `polymarket:${asset}-${period}`,
+                    label: `${assetUpper} ${periodUpper}`
                 });
             }
         }
 
-        return groups;
+        return options;
     }
 
     const POLYMARKET_GROUPS = buildPolymarketGroups();
+    const POLYMARKET_SESSION_OPTIONS = buildPolymarketSessionOptions();
 
     const LIVE_MARKETS = [
         {
@@ -88,7 +111,9 @@
         ];
 
         const seen = new Set();
+        // Exclude full Polymarket markets from session creation - use simplified format instead
         const derived = LIVE_MARKETS
+            .filter((group) => group.group !== 'Polymarket')
             .flatMap((group) => group.options || [])
             .map((option) => option.sessionMarket || option.value)
             .filter((market) => typeof market === 'string' && market.length > 0)
@@ -99,7 +124,13 @@
             })
             .map((market) => ({ value: market, label: market }));
 
-        return derived.length > 0 ? derived : fallback;
+        // Add simplified Polymarket options for session creation
+        const withPolymarket = [
+            ...derived,
+            ...POLYMARKET_SESSION_OPTIONS
+        ];
+
+        return withPolymarket.length > 0 ? withPolymarket : fallback;
     }
 
     const SESSION_MARKETS = buildSessionMarketsFromLiveMarkets();
